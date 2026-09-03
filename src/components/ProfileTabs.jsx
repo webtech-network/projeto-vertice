@@ -6,6 +6,7 @@ import { User, KeyRound, Bookmark, Wand2, Link2, SlidersHorizontal } from 'lucid
 import ApiKeyManager from './ApiKeyManager';
 import ShortcutsManager from './ShortcutsManager';
 import PromptCustomizer from './PromptCustomizer';
+import CanvasConnection from './CanvasConnection';
 import GithubConnection from './GithubConnection';
 import GoogleConnection from './GoogleConnection';
 import SettingsSaveLoad from './SettingsSaveLoad';
@@ -118,9 +119,12 @@ export default function ProfileTabs({ userName, baseUrl, providers }) {
         {tab === 'plataformas' && (
           <>
             <p className="tab-folder-description">
-              Conecte plataformas externas à sua conta CanvasTools. As conexões ficam salvas neste navegador.
+              Conecte plataformas externas à sua conta CanvasTools. A conexão com o Canvas fica salva no servidor
+              (cifrada); GitHub e Google Drive ficam salvas neste navegador.
             </p>
-            <h3>GitHub</h3>
+            <h3>Canvas</h3>
+            <CanvasConnection />
+            <h3 style={{ marginTop: '1.75rem' }}>GitHub</h3>
             <GithubConnection />
             <h3 style={{ marginTop: '1.75rem' }}>Google Drive</h3>
             <GoogleConnection />

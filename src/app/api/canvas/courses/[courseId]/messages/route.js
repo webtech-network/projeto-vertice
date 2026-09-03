@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getSession, isSessionValid } from '@/lib/session';
+import { requireCanvasIntegration } from '@/lib/canvasIntegration';
 import { listCourseStudents, createConversation } from '@/lib/canvasClient';
-import { buildClient } from '@/lib/canvasSession';
 
 // Canvas requires group_conversation:true once recipients exceeds 100 — but
 // this route always sends individual private copies (group_conversation:
@@ -22,9 +21,10 @@ function chunk(array, size) {
 // sends one private copy of the message to each active student in the
 // course.
 export async function POST(request, { params }) {
-  const session = await getSession();
-  if (!isSessionValid(session)) {
-    return NextResponse.json({ error: 'Sessão inválida. Faça login novamente.' }, { status: 401 });
+  const { user, canvas } = await requireCanvasIntegration();
+  if (!user) return NextResponse.json({ error: 'Sessão inválida. Faça login novamente.' }, { status: 401 });
+  if (!canvas) {
+    return NextResponse.json({ error: 'Canvas não conectado. Conecte sua conta em /perfil.' }, { status: 409 });
   }
 
   const { courseId } = await params;
@@ -35,7 +35,7 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: 'O corpo da mensagem é obrigatório.' }, { status: 400 });
   }
 
-  const client = buildClient(session);
+  const client = canvas.client;
 
   let students;
   try {

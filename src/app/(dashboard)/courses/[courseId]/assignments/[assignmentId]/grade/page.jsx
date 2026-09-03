@@ -9,28 +9,20 @@ import {
   Eraser,
   Send,
 } from 'lucide-react';
-import { getSession, isSessionValid } from '@/lib/session';
-import { createClient, getCourse, getAssignment, listSubmissions } from '@/lib/canvasClient';
-import { refreshAccessToken } from '@/lib/canvasOAuth';
+import { requireCanvasIntegration } from '@/lib/canvasIntegration';
+import { getCourse, getAssignment, listSubmissions } from '@/lib/canvasClient';
+import CanvasNotConnected from '@/components/CanvasNotConnected';
 import ContextBanner from '@/components/ContextBanner';
 import RubricGrader from '@/components/RubricGrader';
 import InfoHint from '@/components/InfoHint';
 
 export default async function GradeAssignmentPage({ params }) {
   const { courseId, assignmentId } = await params;
-  const session = await getSession();
-  if (!isSessionValid(session)) {
-    return null;
-  }
+  const { user, canvas } = await requireCanvasIntegration();
+  if (!user) return null;
+  if (!canvas) return <CanvasNotConnected />;
 
-  const client = createClient({
-    baseUrl: session.baseUrl,
-    token: session.accessToken,
-    onUnauthorized: async () => {
-      const refreshed = await refreshAccessToken(session.refreshToken);
-      return refreshed.access_token;
-    },
-  });
+  const client = canvas.client;
 
   // Sequenced, not Promise.all — this app has a known bug where firing
   // multiple Canvas calls concurrently on a near-expired access token causes
@@ -57,7 +49,7 @@ export default async function GradeAssignmentPage({ params }) {
   // table should show students, not groups.
   const isGroupAssignment = Boolean(assignment.group_category_id) && !assignment.grade_group_students_individually;
 
-  const speedGraderUrl = `${session.baseUrl}/courses/${courseId}/gradebook/speed_grader?assignment_id=${assignmentId}`;
+  const speedGraderUrl = `${canvas.baseUrl}/courses/${courseId}/gradebook/speed_grader?assignment_id=${assignmentId}`;
 
   return (
     <main className="page">

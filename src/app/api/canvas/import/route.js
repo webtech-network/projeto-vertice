@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
-import { getSession, isSessionValid } from '@/lib/session';
-import { createClient, createQuestion } from '@/lib/canvasClient';
-import { refreshAccessToken } from '@/lib/canvasOAuth';
+import { requireCanvasIntegration } from '@/lib/canvasIntegration';
+import { createQuestion } from '@/lib/canvasClient';
 import { validateStructural, toCanvasPayload } from '@/lib/quizValidation';
 
 export async function POST(request) {
-  const session = await getSession();
-  if (!isSessionValid(session)) {
-    return NextResponse.json({ error: 'Sessão inválida. Faça login novamente.' }, { status: 401 });
+  const { user, canvas } = await requireCanvasIntegration();
+  if (!user) return NextResponse.json({ error: 'Sessão inválida. Faça login novamente.' }, { status: 401 });
+  if (!canvas) {
+    return NextResponse.json({ error: 'Canvas não conectado. Conecte sua conta em /perfil.' }, { status: 409 });
   }
 
   const body = await request.json().catch(() => null);
@@ -26,14 +26,7 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Questões inválidas.', details: structural.errors }, { status: 400 });
   }
 
-  const client = createClient({
-    baseUrl: session.baseUrl,
-    token: session.accessToken,
-    onUnauthorized: async () => {
-      const refreshed = await refreshAccessToken(session.refreshToken);
-      return refreshed.access_token;
-    },
-  });
+  const client = canvas.client;
 
   const results = [];
   for (let i = 0; i < questions.length; i++) {

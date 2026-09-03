@@ -1,29 +1,24 @@
-import { getSession, isSessionValid } from '@/lib/session';
-import { createClient, getCourse, listConversations } from '@/lib/canvasClient';
-import { refreshAccessToken } from '@/lib/canvasOAuth';
+import { getSession } from '@/lib/session';
+import { requireCanvasIntegration } from '@/lib/canvasIntegration';
+import { getCourse, listConversations } from '@/lib/canvasClient';
 import { listProviders } from '@/lib/aiProviders';
 import { courseMessagesUrl } from '@/lib/canvasLinks';
+import CanvasNotConnected from '@/components/CanvasNotConnected';
 import ComposeMessage from '@/components/ComposeMessage';
 import MessageList from '@/components/MessageList';
 import ContextBanner from '@/components/ContextBanner';
 
 export default async function CourseMensagensPage({ params }) {
   const { courseId } = await params;
-  const session = await getSession();
-  if (!isSessionValid(session)) {
-    return null;
-  }
+  const { user, canvas } = await requireCanvasIntegration();
+  if (!user) return null;
+  if (!canvas) return <CanvasNotConnected />;
 
+  // aiApiKeys ainda vive no iron-session (migração pra Postgres é Fase 2).
+  const session = await getSession();
   const configuredProviders = listProviders().filter((provider) => Boolean(session.aiApiKeys?.[provider.id]));
 
-  const client = createClient({
-    baseUrl: session.baseUrl,
-    token: session.accessToken,
-    onUnauthorized: async () => {
-      const refreshed = await refreshAccessToken(session.refreshToken);
-      return refreshed.access_token;
-    },
-  });
+  const client = canvas.client;
 
   const course = await getCourse(client, courseId);
 
@@ -48,7 +43,7 @@ export default async function CourseMensagensPage({ params }) {
           {
             label: 'Curso',
             value: course.name,
-            link: { href: courseMessagesUrl(session.baseUrl, courseId), title: 'Abrir mensagens do curso no Canvas' },
+            link: { href: courseMessagesUrl(canvas.baseUrl, courseId), title: 'Abrir mensagens do curso no Canvas' },
           },
         ]}
       />
@@ -63,8 +58,8 @@ export default async function CourseMensagensPage({ params }) {
       ) : (
         <MessageList
           conversations={conversations}
-          currentUserId={session.user?.id}
-          baseUrl={session.baseUrl}
+          currentUserId={canvas.providerUserId ? Number(canvas.providerUserId) : null}
+          baseUrl={canvas.baseUrl}
           providers={configuredProviders}
         />
       )}

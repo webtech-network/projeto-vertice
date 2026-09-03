@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { exchangeCodeForToken } from '@/lib/canvasOAuth';
 import { createClient, getSelf } from '@/lib/canvasClient';
 import { createSupabaseAdminClient } from '@/lib/supabaseAdminClient';
+import { createSupabaseServerClient } from '@/lib/supabaseServerClient';
 import { getAppBaseUrl } from '@/lib/appUrl';
 
 /**
@@ -40,39 +41,85 @@ import { getAppBaseUrl } from '@/lib/appUrl';
  * nada os une automaticamente — cada e-mail vira uma conta Supabase
  * separada. Account linking entre provedores fica para uma fase futura.
  */
+async function upsertCanvasIntegration(admin, { userId, token, profile, canvasBaseUrl }) {
+  const { error } = await admin.rpc('upsert_integration_tokens', {
+    p_user_id: userId,
+    p_provider: 'canvas',
+    p_access_token: token.access_token,
+    p_refresh_token: token.refresh_token,
+    p_provider_user_id: String(token.user.id),
+    p_display_name: token.user.name,
+    p_avatar_url: profile?.avatar_url ?? null,
+    p_access_token_expires_at: new Date(Date.now() + token.expires_in * 1000).toISOString(),
+    p_metadata: { base_url: canvasBaseUrl },
+  });
+  if (error) console.error('Falha ao gravar a integração Canvas:', error.message);
+}
+
 export async function GET(request) {
   const url = new URL(request.url);
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');
   const cookieState = request.cookies.get('oauth_state')?.value;
+  // "Conectar Canvas" a partir de /perfil (usuário já logado via
+  // Google/GitHub) em vez de "Entrar com Canvas" a partir de /login — ver
+  // src/app/api/auth/login/route.js pra como esse cookie é setado. O
+  // redirect_uri cadastrado na Developer Key é fixo (sempre este arquivo),
+  // então esse cookie é o único jeito de diferenciar os dois casos aqui.
+  const isConnectMode = request.cookies.get('canvas_connect_mode')?.value === '1';
   const baseUrl = getAppBaseUrl();
 
-  if (!code || !state || !cookieState || state !== cookieState) {
-    const response = NextResponse.redirect(new URL('/login?error=state_invalido', baseUrl));
+  function clearOAuthCookies(response) {
     response.cookies.delete('oauth_state');
+    response.cookies.delete('canvas_connect_mode');
     return response;
+  }
+
+  // Alvo de erro varia pelo modo: quem já está logado e só tentando
+  // conectar o Canvas volta pra /perfil com um aviso, não pra /login.
+  const errorRedirectTarget = isConnectMode ? '/perfil?tab=plataformas&canvas=erro' : '/login?error=oauth_falhou';
+
+  if (!code || !state || !cookieState || state !== cookieState) {
+    const target = isConnectMode ? errorRedirectTarget : '/login?error=state_invalido';
+    return clearOAuthCookies(NextResponse.redirect(new URL(target, baseUrl)));
   }
 
   let token;
   try {
     token = await exchangeCodeForToken(code);
   } catch (err) {
-    console.error('Falha no login OAuth do Canvas:', err.message);
-    const response = NextResponse.redirect(new URL('/login?error=oauth_falhou', baseUrl));
-    response.cookies.delete('oauth_state');
-    return response;
+    console.error('Falha no OAuth do Canvas:', err.message);
+    return clearOAuthCookies(NextResponse.redirect(new URL(errorRedirectTarget, baseUrl)));
   }
 
   const canvasBaseUrl = process.env.CANVAS_DOMAIN.replace(/\/$/, '');
 
   // Best-effort, igual ao fluxo antigo: usado pro e-mail (identidade
-  // Supabase) e pro avatar; login não trava se isto falhar.
+  // Supabase, só no modo login) e pro avatar; nada trava se isto falhar.
   let profile = null;
   try {
     const client = createClient({ baseUrl: canvasBaseUrl, token: token.access_token });
     profile = await getSelf(client);
   } catch (err) {
     console.error('Falha ao buscar o perfil do Canvas:', err.message);
+  }
+
+  const admin = createSupabaseAdminClient();
+
+  // Modo "conectar": usuário já tem sessão Supabase (Google/GitHub ou até
+  // um login Canvas anterior) — só grava a integração nele, sem tocar em
+  // identidade/sessão nenhuma. Bem mais simples que o bridge de login
+  // abaixo, que só existe pra criar/materializar uma sessão do zero.
+  if (isConnectMode) {
+    const supabase = await createSupabaseServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return clearOAuthCookies(NextResponse.redirect(new URL('/login', baseUrl)));
+    }
+    await upsertCanvasIntegration(admin, { userId: user.id, token, profile, canvasBaseUrl });
+    return clearOAuthCookies(NextResponse.redirect(new URL('/perfil?tab=plataformas&canvas=connected', baseUrl)));
   }
 
   // E-mail real do Canvas quando disponível; sintético e determinístico
@@ -84,7 +131,6 @@ export async function GET(request) {
     profile?.email ||
     `canvas-${token.user.id}@${new URL(canvasBaseUrl).hostname}.vertice.invalid`;
 
-  const admin = createSupabaseAdminClient();
   const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
     type: 'magiclink',
     email,
@@ -100,38 +146,17 @@ export async function GET(request) {
 
   if (linkError || !hashedToken || !verificationType || !supabaseUserId) {
     console.error('Falha ao gerar o link de sessão Supabase para o Canvas:', linkError?.message);
-    const response = NextResponse.redirect(new URL('/login?error=oauth_falhou', baseUrl));
-    response.cookies.delete('oauth_state');
-    return response;
+    return clearOAuthCookies(NextResponse.redirect(new URL('/login?error=oauth_falhou', baseUrl)));
   }
 
   // Grava a integração já aqui — o `id` do usuário Supabase já é conhecido,
   // não precisa esperar o passo client-side de /auth/canvas-session.
-  try {
-    const { error: rpcError } = await admin.rpc('upsert_integration_tokens', {
-      p_user_id: supabaseUserId,
-      p_provider: 'canvas',
-      p_access_token: token.access_token,
-      p_refresh_token: token.refresh_token,
-      p_provider_user_id: String(token.user.id),
-      p_display_name: token.user.name,
-      p_avatar_url: profile?.avatar_url ?? null,
-      p_access_token_expires_at: new Date(Date.now() + token.expires_in * 1000).toISOString(),
-      p_metadata: { base_url: canvasBaseUrl },
-    });
-    if (rpcError) {
-      console.error('Falha ao gravar a integração Canvas:', rpcError.message);
-    }
-  } catch (err) {
-    console.error('Falha ao gravar a integração Canvas:', err.message);
-  }
+  await upsertCanvasIntegration(admin, { userId: supabaseUserId, token, profile, canvasBaseUrl });
 
   const verifyUrl = new URL(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/verify`);
   verifyUrl.searchParams.set('token', hashedToken);
   verifyUrl.searchParams.set('type', verificationType);
   verifyUrl.searchParams.set('redirect_to', `${baseUrl}/auth/canvas-session`);
 
-  const response = NextResponse.redirect(verifyUrl);
-  response.cookies.delete('oauth_state');
-  return response;
+  return clearOAuthCookies(NextResponse.redirect(verifyUrl));
 }

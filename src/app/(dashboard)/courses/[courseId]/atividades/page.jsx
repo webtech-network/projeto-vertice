@@ -1,10 +1,10 @@
 import Link from 'next/link';
 import { CircleCheckBig, CircleDashed, ClipboardCheck, ExternalLink, ClipboardList, ListPlus } from 'lucide-react';
-import { getSession, isSessionValid } from '@/lib/session';
-import { createClient, getCourse, listAssignments } from '@/lib/canvasClient';
-import { refreshAccessToken } from '@/lib/canvasOAuth';
+import { requireCanvasIntegration } from '@/lib/canvasIntegration';
+import { getCourse, listAssignments } from '@/lib/canvasClient';
 import { isRealGroupAssignment, correctedGroupNeedsGradingCount } from '@/lib/groupGrading';
 import { courseAssignmentsUrl } from '@/lib/canvasLinks';
+import CanvasNotConnected from '@/components/CanvasNotConnected';
 import ContextBanner from '@/components/ContextBanner';
 import ActiveWorkspaceCourseBanner from '@/components/ActiveWorkspaceCourseBanner';
 import AssignmentsTable from '@/components/AssignmentsTable';
@@ -12,19 +12,11 @@ import InfoHint from '@/components/InfoHint';
 
 export default async function AtividadesPage({ params }) {
   const { courseId } = await params;
-  const session = await getSession();
-  if (!isSessionValid(session)) {
-    return null;
-  }
+  const { user, canvas } = await requireCanvasIntegration();
+  if (!user) return null;
+  if (!canvas) return <CanvasNotConnected />;
 
-  const client = createClient({
-    baseUrl: session.baseUrl,
-    token: session.accessToken,
-    onUnauthorized: async () => {
-      const refreshed = await refreshAccessToken(session.refreshToken);
-      return refreshed.access_token;
-    },
-  });
+  const client = canvas.client;
 
   // Sequenced, not Promise.all — firing both requests concurrently on a
   // near-expired access token means both 401 at once and each independently
@@ -96,7 +88,7 @@ export default async function AtividadesPage({ params }) {
               {
                 label: 'Curso',
                 value: course.name,
-                link: { href: courseAssignmentsUrl(session.baseUrl, courseId), title: 'Abrir atividades do curso no Canvas' },
+                link: { href: courseAssignmentsUrl(canvas.baseUrl, courseId), title: 'Abrir atividades do curso no Canvas' },
               },
             ]}
           />

@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getSession, isSessionValid } from '@/lib/session';
+import { requireCanvasIntegration } from '@/lib/canvasIntegration';
 import { listCourses, listConversations, listAssignments } from '@/lib/canvasClient';
-import { buildClient } from '@/lib/canvasSession';
 import { countMessagesByCourse } from '@/lib/messageGrouping';
 import { correctedCourseNeedsGradingCount } from '@/lib/groupGrading';
 
@@ -11,12 +10,13 @@ import { correctedCourseNeedsGradingCount } from '@/lib/groupGrading';
 // client paints instantly from IndexedDB cache instead, then calls this to
 // refresh in the background.
 export async function GET() {
-  const session = await getSession();
-  if (!isSessionValid(session)) {
-    return NextResponse.json({ error: 'Sessão inválida. Faça login novamente.' }, { status: 401 });
+  const { user, canvas } = await requireCanvasIntegration();
+  if (!user) return NextResponse.json({ error: 'Sessão inválida. Faça login novamente.' }, { status: 401 });
+  if (!canvas) {
+    return NextResponse.json({ error: 'Canvas não conectado. Conecte sua conta em /perfil.' }, { status: 409 });
   }
 
-  const client = buildClient(session);
+  const client = canvas.client;
 
   const rawCourses = await listCourses(client);
   const favoriteIds = rawCourses.filter((c) => c.is_favorite).map((c) => c.id);
@@ -69,7 +69,7 @@ export async function GET() {
     needs_grading_count: gradingCorrections.has(course.id)
       ? gradingCorrections.get(course.id)
       : course.needs_grading_count,
-    html_url: `${session.baseUrl}/courses/${course.id}`,
+    html_url: `${canvas.baseUrl}/courses/${course.id}`,
     message_count: course.is_favorite ? (messageCounts ? messageCounts.get(String(course.id)) : null) : undefined,
   }));
 

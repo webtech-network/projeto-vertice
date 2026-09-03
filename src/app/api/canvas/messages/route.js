@@ -1,19 +1,19 @@
 import { NextResponse } from 'next/server';
-import { getSession, isSessionValid } from '@/lib/session';
+import { requireCanvasIntegration } from '@/lib/canvasIntegration';
 import { listCourses, listConversations } from '@/lib/canvasClient';
-import { buildClient } from '@/lib/canvasSession';
 
 // Backs MessageBrowser.jsx's client-side stale-while-revalidate fetch —
 // moved out of mensagens/page.jsx (a Server Component) so navigating to
 // /mensagens no longer blocks on this Canvas round-trip before the page can
 // render, same fix as /api/canvas/courses.
 export async function GET() {
-  const session = await getSession();
-  if (!isSessionValid(session)) {
-    return NextResponse.json({ error: 'Sessão inválida. Faça login novamente.' }, { status: 401 });
+  const { user, canvas } = await requireCanvasIntegration();
+  if (!user) return NextResponse.json({ error: 'Sessão inválida. Faça login novamente.' }, { status: 401 });
+  if (!canvas) {
+    return NextResponse.json({ error: 'Canvas não conectado. Conecte sua conta em /perfil.' }, { status: 409 });
   }
 
-  const client = buildClient(session);
+  const client = canvas.client;
 
   const rawCourses = await listCourses(client);
   // Favorite AND published — an unpublished favorite course has no real

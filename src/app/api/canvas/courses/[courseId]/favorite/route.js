@@ -1,17 +1,20 @@
 import { NextResponse } from 'next/server';
-import { getSession, isSessionValid } from '@/lib/session';
+import { requireCanvasIntegration } from '@/lib/canvasIntegration';
 import { addCourseFavorite, removeCourseFavorite } from '@/lib/canvasClient';
-import { buildClient } from '@/lib/canvasSession';
+
+const NOT_CONNECTED = NextResponse.json(
+  { error: 'Canvas não conectado. Conecte sua conta em /perfil.' },
+  { status: 409 },
+);
 
 export async function POST(request, { params }) {
-  const session = await getSession();
-  if (!isSessionValid(session)) {
-    return NextResponse.json({ error: 'Sessão inválida. Faça login novamente.' }, { status: 401 });
-  }
+  const { user, canvas } = await requireCanvasIntegration();
+  if (!user) return NextResponse.json({ error: 'Sessão inválida. Faça login novamente.' }, { status: 401 });
+  if (!canvas) return NOT_CONNECTED;
 
   const { courseId } = await params;
   try {
-    await addCourseFavorite(buildClient(session), courseId);
+    await addCourseFavorite(canvas.client, courseId);
     return NextResponse.json({ is_favorite: true });
   } catch {
     return NextResponse.json({ error: 'Falha ao favoritar o curso.' }, { status: 502 });
@@ -19,14 +22,13 @@ export async function POST(request, { params }) {
 }
 
 export async function DELETE(request, { params }) {
-  const session = await getSession();
-  if (!isSessionValid(session)) {
-    return NextResponse.json({ error: 'Sessão inválida. Faça login novamente.' }, { status: 401 });
-  }
+  const { user, canvas } = await requireCanvasIntegration();
+  if (!user) return NextResponse.json({ error: 'Sessão inválida. Faça login novamente.' }, { status: 401 });
+  if (!canvas) return NOT_CONNECTED;
 
   const { courseId } = await params;
   try {
-    await removeCourseFavorite(buildClient(session), courseId);
+    await removeCourseFavorite(canvas.client, courseId);
     return NextResponse.json({ is_favorite: false });
   } catch {
     return NextResponse.json({ error: 'Falha ao desfavoritar o curso.' }, { status: 502 });

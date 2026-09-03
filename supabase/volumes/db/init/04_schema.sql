@@ -184,7 +184,15 @@ $$;
 create or replace function public.get_integration_tokens(
   p_user_id uuid,
   p_provider text
-) returns table (access_token text, refresh_token text, access_token_expires_at timestamptz, metadata jsonb)
+) returns table (
+  access_token text,
+  refresh_token text,
+  access_token_expires_at timestamptz,
+  provider_user_id text,
+  display_name text,
+  avatar_url text,
+  metadata jsonb
+)
 language plpgsql
 security definer
 set search_path = public, vault
@@ -195,9 +203,40 @@ begin
       (select decrypted_secret from vault.decrypted_secrets where id = i.access_token_vault_id),
       (select decrypted_secret from vault.decrypted_secrets where id = i.refresh_token_vault_id),
       i.access_token_expires_at,
+      i.provider_user_id,
+      i.display_name,
+      i.avatar_url,
       i.metadata
     from public.integrations i
     where i.user_id = p_user_id and i.provider = p_provider;
+end;
+$$;
+
+create or replace function public.delete_integration_tokens(
+  p_user_id uuid,
+  p_provider text
+) returns void
+language plpgsql
+security definer
+set search_path = public, vault
+as $$
+declare
+  v_access_vault_id uuid;
+  v_refresh_vault_id uuid;
+begin
+  select access_token_vault_id, refresh_token_vault_id
+    into v_access_vault_id, v_refresh_vault_id
+    from public.integrations
+    where user_id = p_user_id and provider = p_provider;
+
+  delete from public.integrations where user_id = p_user_id and provider = p_provider;
+
+  if v_access_vault_id is not null then
+    delete from vault.secrets where id = v_access_vault_id;
+  end if;
+  if v_refresh_vault_id is not null then
+    delete from vault.secrets where id = v_refresh_vault_id;
+  end if;
 end;
 $$;
 
@@ -210,8 +249,10 @@ $$;
 -- sobrescrever o token de QUALQUER user_id — sempre revogar as três.
 revoke all on function public.upsert_integration_tokens from public, anon, authenticated;
 revoke all on function public.get_integration_tokens from public, anon, authenticated;
+revoke all on function public.delete_integration_tokens from public, anon, authenticated;
 grant execute on function public.upsert_integration_tokens to service_role;
 grant execute on function public.get_integration_tokens to service_role;
+grant execute on function public.delete_integration_tokens to service_role;
 
 -- ---------------------------------------------------------------------
 -- updated_at automático — sem isto, a coluna fica congelada no valor do

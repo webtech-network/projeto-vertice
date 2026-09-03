@@ -1,27 +1,20 @@
-import { getSession, isSessionValid } from '@/lib/session';
-import { createClient, getCourse, listCourseStudents } from '@/lib/canvasClient';
-import { refreshAccessToken } from '@/lib/canvasOAuth';
+import { getSession } from '@/lib/session';
+import { requireCanvasIntegration } from '@/lib/canvasIntegration';
+import { getCourse, listCourseStudents } from '@/lib/canvasClient';
 import { buildStudentRows } from '@/lib/studentReport';
 import { listProviders } from '@/lib/aiProviders';
 import { coursePeopleUrl } from '@/lib/canvasLinks';
+import CanvasNotConnected from '@/components/CanvasNotConnected';
 import StudentReport from '@/components/StudentReport';
 import ContextBanner from '@/components/ContextBanner';
 
 export default async function AlunosPage({ params }) {
   const { courseId } = await params;
-  const session = await getSession();
-  if (!isSessionValid(session)) {
-    return null;
-  }
+  const { user, canvas } = await requireCanvasIntegration();
+  if (!user) return null;
+  if (!canvas) return <CanvasNotConnected />;
 
-  const client = createClient({
-    baseUrl: session.baseUrl,
-    token: session.accessToken,
-    onUnauthorized: async () => {
-      const refreshed = await refreshAccessToken(session.refreshToken);
-      return refreshed.access_token;
-    },
-  });
+  const client = canvas.client;
 
   // Sequenced, not Promise.all — this app has a known bug where firing
   // multiple Canvas calls concurrently on a near-expired access token causes
@@ -31,6 +24,8 @@ export default async function AlunosPage({ params }) {
   const students = await listCourseStudents(client, courseId, { include: ['enrollments', 'email'] });
 
   const rows = buildStudentRows(students);
+  // aiApiKeys ainda vive no iron-session (migração pra Postgres é Fase 2).
+  const session = await getSession();
   const configuredProviders = listProviders().filter((provider) => Boolean(session.aiApiKeys?.[provider.id]));
 
   return (
@@ -41,13 +36,13 @@ export default async function AlunosPage({ params }) {
           {
             label: 'Curso',
             value: course.name,
-            link: { href: coursePeopleUrl(session.baseUrl, courseId), title: 'Abrir pessoas do curso no Canvas' },
+            link: { href: coursePeopleUrl(canvas.baseUrl, courseId), title: 'Abrir pessoas do curso no Canvas' },
           },
         ]}
       />
       <p className="lede">Listagem dos alunos ativos do curso, com dados de matrícula, atividade e notas.</p>
 
-      <StudentReport rows={rows} courseId={courseId} baseUrl={session.baseUrl} providers={configuredProviders} />
+      <StudentReport rows={rows} courseId={courseId} baseUrl={canvas.baseUrl} providers={configuredProviders} />
     </main>
   );
 }

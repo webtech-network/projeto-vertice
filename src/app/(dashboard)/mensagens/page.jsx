@@ -1,6 +1,8 @@
 import { ChevronsDown, ChevronsUp, RefreshCw, ExternalLink, Archive, Sparkles } from 'lucide-react';
-import { getSession, isSessionValid } from '@/lib/session';
+import { getSession } from '@/lib/session';
+import { requireCanvasIntegration } from '@/lib/canvasIntegration';
 import { listProviders } from '@/lib/aiProviders';
+import CanvasNotConnected from '@/components/CanvasNotConnected';
 import MessageBrowser from '@/components/MessageBrowser';
 import InfoHint from '@/components/InfoHint';
 
@@ -9,11 +11,12 @@ import InfoHint from '@/components/InfoHint';
 // revalidate cache, so navigating to /mensagens paints instantly instead of
 // blocking on a Canvas round-trip inside this Server Component render.
 export default async function MensagensPage() {
-  const session = await getSession();
-  if (!isSessionValid(session)) {
-    return null;
-  }
+  const { user, canvas } = await requireCanvasIntegration();
+  if (!user) return null;
+  if (!canvas) return <CanvasNotConnected />;
 
+  // aiApiKeys ainda vive no iron-session (migração pra Postgres é Fase 2).
+  const session = await getSession();
   const configuredProviders = listProviders().filter((provider) => Boolean(session.aiApiKeys?.[provider.id]));
 
   return (
@@ -54,7 +57,11 @@ export default async function MensagensPage() {
         </InfoHint>
       </div>
 
-      <MessageBrowser currentUserId={session.user?.id} baseUrl={session.baseUrl} providers={configuredProviders} />
+      <MessageBrowser
+        currentUserId={canvas.providerUserId ? Number(canvas.providerUserId) : null}
+        baseUrl={canvas.baseUrl}
+        providers={configuredProviders}
+      />
     </main>
   );
 }

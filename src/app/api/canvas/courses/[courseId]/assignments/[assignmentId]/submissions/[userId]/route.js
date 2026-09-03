@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getSession, isSessionValid } from '@/lib/session';
+import { requireCanvasIntegration } from '@/lib/canvasIntegration';
 import { gradeSubmissionWithRubric } from '@/lib/canvasClient';
-import { buildClient } from '@/lib/canvasSession';
 
 // Body is already Canvas-shaped (`{ rubric_assessment?, submission, comment? }`)
 // — built client-side by RubricGrader.jsx via src/lib/rubricGrading.js's
@@ -14,9 +13,10 @@ import { buildClient } from '@/lib/canvasSession';
 // rubric — RubricGrader.jsx's no-rubric fallback ("Nota" column only) sends
 // just `submission` (+ an optional comment).
 export async function PUT(request, { params }) {
-  const session = await getSession();
-  if (!isSessionValid(session)) {
-    return NextResponse.json({ error: 'Sessão inválida. Faça login novamente.' }, { status: 401 });
+  const { user, canvas } = await requireCanvasIntegration();
+  if (!user) return NextResponse.json({ error: 'Sessão inválida. Faça login novamente.' }, { status: 401 });
+  if (!canvas) {
+    return NextResponse.json({ error: 'Canvas não conectado. Conecte sua conta em /perfil.' }, { status: 409 });
   }
 
   const { courseId, assignmentId, userId } = await params;
@@ -26,7 +26,7 @@ export async function PUT(request, { params }) {
   }
 
   try {
-    const submission = await gradeSubmissionWithRubric(buildClient(session), courseId, assignmentId, userId, payload);
+    const submission = await gradeSubmissionWithRubric(canvas.client, courseId, assignmentId, userId, payload);
     return NextResponse.json({ submission });
   } catch (err) {
     const message = err.response?.data?.errors?.[0]?.message || err.message || 'Falha ao enviar a nota ao Canvas.';

@@ -1,5 +1,6 @@
 import { Star, ClipboardCheck, Megaphone, Mail, ExternalLink, ListChecks, Users } from 'lucide-react';
-import { getSession, isSessionValid } from '@/lib/session';
+import { requireCanvasIntegration } from '@/lib/canvasIntegration';
+import CanvasNotConnected from '@/components/CanvasNotConnected';
 import CourseBrowser from '@/components/CourseBrowser';
 import InfoHint from '@/components/InfoHint';
 
@@ -8,9 +9,12 @@ import InfoHint from '@/components/InfoHint';
 // revalidate cache, so navigating to /courses paints instantly instead of
 // blocking on a Canvas round-trip inside this Server Component render.
 export default async function CoursesPage() {
-  const session = await getSession();
-  if (!isSessionValid(session)) {
-    return null; // middleware already redirects unauthenticated requests to /login
+  const { user, canvas } = await requireCanvasIntegration();
+  if (!user) {
+    return null; // proxy já redireciona requests não autenticados pra /login
+  }
+  if (!canvas) {
+    return <CanvasNotConnected />;
   }
 
   return (

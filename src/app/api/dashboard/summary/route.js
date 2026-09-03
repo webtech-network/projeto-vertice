@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getSession, isSessionValid } from '@/lib/session';
-import { buildClient } from '@/lib/canvasSession';
+import { requireCanvasIntegration } from '@/lib/canvasIntegration';
 import { listCourses, listAssignments, listConversations } from '@/lib/canvasClient';
 import { isRealGroupAssignment, correctedGroupNeedsGradingCount } from '@/lib/groupGrading';
 import {
@@ -29,12 +28,13 @@ function serializePendingGradingItem(item) {
 // mensagens/page.jsx. Each Canvas sub-fetch is independently allowed to
 // fail (Promise.allSettled) so one flaky call doesn't blank the whole panel.
 export async function GET() {
-  const session = await getSession();
-  if (!isSessionValid(session)) {
-    return NextResponse.json({ error: 'Sessão inválida. Faça login novamente.' }, { status: 401 });
+  const { user, canvas } = await requireCanvasIntegration();
+  if (!user) return NextResponse.json({ error: 'Sessão inválida. Faça login novamente.' }, { status: 401 });
+  if (!canvas) {
+    return NextResponse.json({ error: 'Canvas não conectado. Conecte sua conta em /perfil.' }, { status: 409 });
   }
 
-  const client = buildClient(session);
+  const client = canvas.client;
 
   let rawCourses;
   try {

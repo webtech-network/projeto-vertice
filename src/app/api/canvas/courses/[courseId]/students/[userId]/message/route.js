@@ -1,16 +1,16 @@
 import { NextResponse } from 'next/server';
-import { getSession, isSessionValid } from '@/lib/session';
+import { requireCanvasIntegration } from '@/lib/canvasIntegration';
 import { createConversation } from '@/lib/canvasClient';
-import { buildClient } from '@/lib/canvasSession';
 
 // Backs StudentMessageModal.jsx's "Enviar mensagem" action on the Alunos
 // screen — a single-recipient sibling of courses/[courseId]/messages
 // (ComposeMessage.jsx's "send to every active student"), so no chunking is
 // needed: `recipients` is always exactly one id.
 export async function POST(request, { params }) {
-  const session = await getSession();
-  if (!isSessionValid(session)) {
-    return NextResponse.json({ error: 'Sessão inválida. Faça login novamente.' }, { status: 401 });
+  const { user, canvas } = await requireCanvasIntegration();
+  if (!user) return NextResponse.json({ error: 'Sessão inválida. Faça login novamente.' }, { status: 401 });
+  if (!canvas) {
+    return NextResponse.json({ error: 'Canvas não conectado. Conecte sua conta em /perfil.' }, { status: 409 });
   }
 
   const { courseId, userId } = await params;
@@ -21,10 +21,8 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: 'O corpo da mensagem é obrigatório.' }, { status: 400 });
   }
 
-  const client = buildClient(session);
-
   try {
-    const conversation = await createConversation(client, {
+    const conversation = await createConversation(canvas.client, {
       recipients: [userId],
       subject: subject?.trim() || undefined,
       body: body.trim(),
