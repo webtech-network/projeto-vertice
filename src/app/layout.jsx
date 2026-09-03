@@ -22,13 +22,13 @@ const body = IBM_Plex_Sans({
 
 export const metadata = {
   metadataBase: new URL(SITE_URL),
-  title: 'CanvasTools',
-  description: 'Importação em lote de questões para quizzes do Canvas LMS',
+  title: 'Vértice',
+  description: 'Organização pessoal e acadêmica, com o Canvas LMS como uma integração opcional',
   openGraph: {
-    title: 'Canvas Tools',
+    title: 'Vértice',
     description: 'Um único painel com as informações relevantes para facilitar o acompanhamento da sua rotina acadêmica.',
     url: SITE_URL,
-    siteName: 'Canvas Tools | WebTech Network',
+    siteName: 'Vértice | WebTech Network',
     images: [{ url: bannerOg.src, width: bannerOg.width, height: bannerOg.height }],
     locale: 'pt_BR',
     type: 'website',
@@ -37,7 +37,7 @@ export const metadata = {
   // beforeinstallprompt (see pwaInstall.js), so this + src/app/apple-icon.png
   // is the only PWA affordance it gets; the manifest.js icons/display below
   // are what Chrome/Edge/Android use instead.
-  appleWebApp: { capable: true, statusBarStyle: 'default', title: 'CanvasTools' },
+  appleWebApp: { capable: true, statusBarStyle: 'default', title: 'Vértice' },
 };
 
 // Explicit now (rather than relying on Next's implicit default) so

@@ -5,8 +5,8 @@ import { getDisplayName, getAvatarUrl } from '@/lib/supabaseUserDisplay';
 import UserMenu from './UserMenu';
 import MobileNavToggle from './MobileNavToggle';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
-import logoFull from '@/assets/images/logo-full.png';
-import logoFullDark from '@/assets/images/logo-full-dark.png';
+import logoFull from '@/assets/images/vertice_logo_p.png';
+import logoFullDark from '@/assets/images/vertice_logo_dark.png';
 
 export default async function Topbar() {
   const supabase = await createSupabaseServerClient();
@@ -28,8 +28,8 @@ export default async function Topbar() {
             data-theme choice, so the swap has to happen visually, not by
             picking one image server-side. */}
         <Link href="/" className="topbar-logo" title="Início">
-          <Image src={logoFull} alt="CanvasTools" priority className="topbar-logo-light" />
-          <Image src={logoFullDark} alt="CanvasTools" priority className="topbar-logo-dark" />
+          <Image src={logoFull} alt="Vértice" priority className="topbar-logo-light" />
+          <Image src={logoFullDark} alt="Vértice" priority className="topbar-logo-dark" />
         </Link>
       </div>
       {loggedIn && (

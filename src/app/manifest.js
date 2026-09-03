@@ -1,14 +1,14 @@
 // Next.js App Router manifest convention — auto-detected, served at
 // /manifest.webmanifest, and auto-linked in <head> (no need to touch
 // layout.jsx for that part). Icons generated from docs/Identidade
-// Visual/canvastools_icon.png (see public/icons/) — the transparent,
+// Visual/vertice_icon.png (see public/icons/) — the transparent,
 // text-free glyph, not the small text+logo thumbnail, since it holds up at
 // every declared size and isn't clipped in the maskable safe zone as badly.
 export default function manifest() {
   return {
-    name: 'CanvasTools',
-    short_name: 'CanvasTools',
-    description: 'Painel de professor para Canvas LMS — cursos, tarefas, mensagens e correção.',
+    name: 'Vértice',
+    short_name: 'Vértice',
+    description: 'Organização pessoal e acadêmica — tarefas, projetos e ambientes, com o Canvas LMS como integração opcional.',
     start_url: '/',
     display: 'standalone',
     background_color: '#eef3f9', // --paper

@@ -1,7 +1,7 @@
 {
-  "name": "canvas-tools",
+  "name": "vertice",
   "version": "2.0.0",
-  "description": "CanvasTools — web app (Next.js) and CLI to bulk-import quiz questions into Canvas LMS",
+  "description": "Vértice — organização pessoal e acadêmica (Next.js), com o Canvas LMS como integração opcional; inclui o CLI original de importação de questões",
   "type": "module",
   "engines": {
     "node": ">=20.9.0"

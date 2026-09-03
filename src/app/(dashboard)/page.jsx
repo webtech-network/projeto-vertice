@@ -26,7 +26,7 @@ export default async function HomePage() {
           </p>
           <p>
             Em "Atividades recentes" e "Correções pendentes", clique na linha de uma atividade para corrigi-la dentro
-            do próprio CanvasTools — o ícone à direita abre a mesma atividade direto no SpeedGrader do Canvas.
+            do próprio Vértice — o ícone à direita abre a mesma atividade direto no SpeedGrader do Canvas.
           </p>
           <h4>Ícones e botões</h4>
           <ul className="icon-legend">
