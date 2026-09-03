@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getSession, isSessionValid } from '@/lib/session';
+import { createSupabaseServerClient } from '@/lib/supabaseServerClient';
 import { refreshAccessToken } from '@/lib/googleOAuth';
 
 // No equivalent under /api/github/ — GitHub's classic OAuth App tokens don't
@@ -11,8 +11,11 @@ import { refreshAccessToken } from '@/lib/googleOAuth';
 // against Google's token endpoint, and forgets it immediately. Nothing is
 // persisted server-side.
 export async function POST(request) {
-  const session = await getSession();
-  if (!isSessionValid(session)) {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
     return NextResponse.json({ error: 'Sessão inválida. Faça login novamente.' }, { status: 401 });
   }
 

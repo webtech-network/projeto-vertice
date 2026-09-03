@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getSession, isSessionValid } from '@/lib/session';
+import { getSession } from '@/lib/session';
+import { createSupabaseServerClient } from '@/lib/supabaseServerClient';
 import { getProvider } from '@/lib/aiProviders';
 
 function resolveProvider(providerId) {
@@ -11,8 +12,11 @@ function resolveProvider(providerId) {
 }
 
 export async function POST(request, { params }) {
-  const session = await getSession();
-  if (!isSessionValid(session)) {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
     return NextResponse.json({ error: 'Sessão inválida. Faça login novamente.' }, { status: 401 });
   }
 
@@ -24,6 +28,9 @@ export async function POST(request, { params }) {
 
   const body = await request.json().catch(() => null);
   const { apiKey } = body || {};
+
+  // aiApiKeys ainda vive no iron-session (migração pra Postgres é Fase 2).
+  const session = await getSession();
 
   if (!apiKey || typeof apiKey !== 'string') {
     return NextResponse.json({ error: 'Chave de API é obrigatória.' }, { status: 400 });
@@ -41,8 +48,11 @@ export async function POST(request, { params }) {
 }
 
 export async function DELETE(request, { params }) {
-  const session = await getSession();
-  if (!isSessionValid(session)) {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
     return NextResponse.json({ error: 'Sessão inválida. Faça login novamente.' }, { status: 401 });
   }
 
@@ -51,6 +61,7 @@ export async function DELETE(request, { params }) {
     return NextResponse.json({ error: 'Provedor de IA desconhecido.' }, { status: 404 });
   }
 
+  const session = await getSession();
   let changed = false;
 
   if (session.aiApiKeys && providerId in session.aiApiKeys) {

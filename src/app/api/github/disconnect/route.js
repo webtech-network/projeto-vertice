@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getSession, isSessionValid } from '@/lib/session';
+import { createSupabaseServerClient } from '@/lib/supabaseServerClient';
 import { revokeToken } from '@/lib/githubOAuth';
 
 // The durable copy of the token lives in the browser's IndexedDB, not the
@@ -7,8 +7,11 @@ import { revokeToken } from '@/lib/githubOAuth';
 // side; GithubConnection.jsx clears its own IndexedDB record regardless of
 // whether this call succeeds.
 export async function POST(request) {
-  const session = await getSession();
-  if (!isSessionValid(session)) {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
     return NextResponse.json({ error: 'Sessão inválida. Faça login novamente.' }, { status: 401 });
   }
 

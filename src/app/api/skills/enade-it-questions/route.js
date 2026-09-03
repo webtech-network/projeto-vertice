@@ -1,7 +1,7 @@
 import path from 'node:path';
 import AdmZip from 'adm-zip';
 import { NextResponse } from 'next/server';
-import { getSession, isSessionValid } from '@/lib/session';
+import { createSupabaseServerClient } from '@/lib/supabaseServerClient';
 
 // Backs the "Baixar skill" button on the Questões screen. Zips the tracked
 // skills/enade-it-questions/ folder (SKILL.md + references/) on every
@@ -10,8 +10,11 @@ import { getSession, isSessionValid } from '@/lib/session';
 // the same folder src/lib/aiProviders/shared.js's SYSTEM_PROMPT is manually
 // condensed from and checked against (see CLAUDE.md).
 export async function GET() {
-  const session = await getSession();
-  if (!isSessionValid(session)) {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
     return NextResponse.json({ error: 'Sessão inválida. Faça login novamente.' }, { status: 401 });
   }
 

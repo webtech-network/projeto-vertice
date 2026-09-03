@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getSession, isSessionValid } from '@/lib/session';
+import { getSession } from '@/lib/session';
+import { createSupabaseServerClient } from '@/lib/supabaseServerClient';
 import { getProvider } from '@/lib/aiProviders';
 
 // Lists the models available to the professor's own already-saved key —
@@ -8,8 +9,11 @@ import { getProvider } from '@/lib/aiProviders';
 // to probe an arbitrary key without going through the normal save/validate
 // flow.
 export async function GET(request, { params }) {
-  const session = await getSession();
-  if (!isSessionValid(session)) {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
     return NextResponse.json({ error: 'Sessão inválida. Faça login novamente.' }, { status: 401 });
   }
 
@@ -21,6 +25,8 @@ export async function GET(request, { params }) {
     return NextResponse.json({ error: 'Provedor de IA desconhecido.' }, { status: 404 });
   }
 
+  // aiApiKeys ainda vive no iron-session (migração pra Postgres é Fase 2).
+  const session = await getSession();
   const apiKey = session.aiApiKeys?.[providerId];
   if (!apiKey) {
     return NextResponse.json({ error: `Nenhuma chave de API configurada para ${provider.label}.` }, { status: 401 });

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getSession, isSessionValid } from '@/lib/session';
+import { getSession } from '@/lib/session';
+import { createSupabaseServerClient } from '@/lib/supabaseServerClient';
 import { getProvider } from '@/lib/aiProviders';
 
 function resolveProvider(providerId) {
@@ -15,8 +16,11 @@ function resolveProvider(providerId) {
 // professor can pick a non-default model without that ever being confused
 // with credential storage.
 export async function POST(request, { params }) {
-  const session = await getSession();
-  if (!isSessionValid(session)) {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
     return NextResponse.json({ error: 'Sessão inválida. Faça login novamente.' }, { status: 401 });
   }
 
@@ -31,6 +35,8 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: 'Modelo é obrigatório.' }, { status: 400 });
   }
 
+  // aiModels ainda vive no iron-session (migração pra Postgres é Fase 2).
+  const session = await getSession();
   session.aiModels = { ...session.aiModels, [providerId]: model };
   await session.save();
 
@@ -39,8 +45,11 @@ export async function POST(request, { params }) {
 
 // Resets the provider back to its default model (removes the override).
 export async function DELETE(request, { params }) {
-  const session = await getSession();
-  if (!isSessionValid(session)) {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
     return NextResponse.json({ error: 'Sessão inválida. Faça login novamente.' }, { status: 401 });
   }
 
@@ -49,6 +58,7 @@ export async function DELETE(request, { params }) {
     return NextResponse.json({ error: 'Provedor de IA desconhecido.' }, { status: 404 });
   }
 
+  const session = await getSession();
   if (session.aiModels && providerId in session.aiModels) {
     const { [providerId]: _removed, ...rest } = session.aiModels;
     session.aiModels = rest;

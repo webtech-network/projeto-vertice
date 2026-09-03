@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getSession, isSessionValid } from '@/lib/session';
+import { getSession } from '@/lib/session';
+import { createSupabaseServerClient } from '@/lib/supabaseServerClient';
 import { getProvider } from '@/lib/aiProviders';
 import { validateStructural, createSchemaValidator } from '@/lib/quizValidation';
 import quizSchema from '@/lib/quiz.schema.json';
@@ -31,8 +32,11 @@ function validateSpecs(specs) {
 }
 
 export async function POST(request, { params }) {
-  const session = await getSession();
-  if (!isSessionValid(session)) {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
     return NextResponse.json({ error: 'Sessão inválida. Faça login novamente.' }, { status: 401 });
   }
 
@@ -44,6 +48,8 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: 'Provedor de IA desconhecido.' }, { status: 404 });
   }
 
+  // aiApiKeys/aiModels ainda vivem no iron-session (migração pra Postgres é Fase 2).
+  const session = await getSession();
   const apiKey = session.aiApiKeys?.[providerId];
   if (!apiKey) {
     return NextResponse.json({ error: `Nenhuma chave de API configurada para ${provider.label}.` }, { status: 401 });
