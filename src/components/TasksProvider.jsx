@@ -18,8 +18,6 @@ import {
   deleteProject as repoDeleteProject,
 } from '@/lib/tasks/projectsRepo';
 import { EMPTY_FILTERS } from '@/lib/tasks/filters';
-import { scheduleTasksSync, flushTasksSyncNow } from '@/lib/sync/tasksSyncScheduler';
-import { subscribeSyncStatus, getSyncStatusSnapshot } from '@/lib/sync/syncStatusStore';
 import { resolveTasksPreferences, patchSessionOverride } from '@/lib/tasks/tasksViewPreferences';
 
 const TasksContext = createContext(null);
@@ -89,19 +87,21 @@ function reducer(state, action) {
 
 // Wraps /tarefas' content only (mounted in tarefas/page.jsx, not the
 // dashboard layout) — this feature's state has no reason to survive
-// navigation to other routes, so IndexedDB is read once per visit.
+// navigation to other routes, so o Postgres é lido uma vez por visita.
 //
-// Local-first flow for every mutation: the repo function (tasksRepo.js/
-// projectsRepo.js) awaits the IndexedDB write first, then the resolved
-// record is dispatched into state — components never call dbPut/dbGet
-// directly, and the UI never re-reads IndexedDB after the initial hydrate,
-// only writes through it.
+// Fase 1: tasksRepo.js/projectsRepo.js agora leem/escrevem direto no
+// Postgres (RLS-scoped) em vez de IndexedDB — a sincronização via Google
+// Drive (scheduleTasksSync/flushTasksSyncNow) foi removida daqui porque
+// deixou de fazer sentido: o Postgres já é a fonte autoritativa e
+// multi-dispositivo por si só. Os módulos de sync (tasksDriveSync.js etc.)
+// continuam intocados — viram fonte de leitura pra migração da Fase 2, não
+// mecanismo de sync ativo.
 export function TasksProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, initialState);
 
   useEffect(() => {
     let cancelled = false;
-    async function hydrateFromLocal() {
+    async function hydrate() {
       const [tasks, projects] = await Promise.all([listTasks(), listProjects()]);
       if (!cancelled) {
         dispatch({
@@ -111,41 +111,9 @@ export function TasksProvider({ children }) {
         });
       }
     }
-    hydrateFromLocal();
-    // "Ao acionar a interface, automaticamente deve disparar a
-    // sincronização em background" — reconcile with Drive right away,
-    // without blocking the local-first paint above. Silently a no-op if
-    // Google isn't connected (see tasksSyncScheduler.js).
-    flushTasksSyncNow();
+    hydrate();
     return () => {
       cancelled = true;
-    };
-  }, []);
-
-  // Re-reads local IndexedDB whenever a tasks sync just completed — picks up
-  // whatever mergeSyncTasks() reconciled (tasks/projects created, edited or
-  // tombstoned on another device) without requiring a page reload.
-  useEffect(() => {
-    let cancelled = false;
-    let previousState = getSyncStatusSnapshot().tasks.state;
-    const unsubscribe = subscribeSyncStatus(() => {
-      const current = getSyncStatusSnapshot().tasks.state;
-      if (current === 'synced' && previousState !== 'synced' && !cancelled) {
-        Promise.all([listTasks(), listProjects()]).then(([tasks, projects]) => {
-          if (!cancelled) {
-            dispatch({
-              type: 'HYDRATE',
-              tasks: tasks.filter((t) => !t.deletedAt),
-              projects: projects.filter((p) => !p.deletedAt),
-            });
-          }
-        });
-      }
-      previousState = current;
-    });
-    return () => {
-      cancelled = true;
-      unsubscribe();
     };
   }, []);
 
@@ -167,7 +135,6 @@ export function TasksProvider({ children }) {
   const addTask = useCallback(async (title, projectId = null) => {
     const task = await repoCreateTask({ title, projectId });
     dispatch({ type: 'TASK_UPSERT', task });
-    scheduleTasksSync();
     return task;
   }, []);
 
@@ -175,7 +142,6 @@ export function TasksProvider({ children }) {
     const task = await repoUpdateTask(id, patch);
     if (task) {
       dispatch({ type: 'TASK_UPSERT', task });
-      scheduleTasksSync();
     }
     return task;
   }, []);
@@ -183,33 +149,27 @@ export function TasksProvider({ children }) {
   const removeTask = useCallback(async (id) => {
     await repoDeleteTask(id);
     dispatch({ type: 'TASK_REMOVE', id });
-    scheduleTasksSync();
   }, []);
 
   // Optimistic: state updates immediately (drag feels instant) via
   // TASK_PATCH (merges against the latest reducer state, not a stale
-  // closure — see the reducer case above), the IndexedDB write happens
+  // closure — see the reducer case above), the Postgres write happens
   // alongside it. On the rare failure, the authoritative record is re-read
-  // from IndexedDB rather than restoring a snapshot that may itself be
-  // stale by then.
+  // rather than restoring a snapshot that may itself be stale by then.
   const moveTaskStatus = useCallback((id, status) => {
     dispatch({ type: 'TASK_PATCH', id, patch: { status } });
-    repoSetTaskStatus(id, status)
-      .then(() => scheduleTasksSync())
-      .catch(async () => {
-        const fresh = await repoGetTask(id);
-        if (fresh) dispatch({ type: 'TASK_UPSERT', task: fresh });
-      });
+    repoSetTaskStatus(id, status).catch(async () => {
+      const fresh = await repoGetTask(id);
+      if (fresh) dispatch({ type: 'TASK_UPSERT', task: fresh });
+    });
   }, []);
 
   const moveTaskPriority = useCallback((id, priority) => {
     dispatch({ type: 'TASK_PATCH', id, patch: { priority } });
-    repoSetTaskPriority(id, priority)
-      .then(() => scheduleTasksSync())
-      .catch(async () => {
-        const fresh = await repoGetTask(id);
-        if (fresh) dispatch({ type: 'TASK_UPSERT', task: fresh });
-      });
+    repoSetTaskPriority(id, priority).catch(async () => {
+      const fresh = await repoGetTask(id);
+      if (fresh) dispatch({ type: 'TASK_UPSERT', task: fresh });
+    });
   }, []);
 
   // Drag-to-reorder within a column/quadrant (KanbanBoard.jsx's and
@@ -218,18 +178,15 @@ export function TasksProvider({ children }) {
   // patch-then-persist shape as moveTaskStatus/moveTaskPriority above.
   const moveTaskPriorityRank = useCallback((id, priorityRank) => {
     dispatch({ type: 'TASK_PATCH', id, patch: { priorityRank } });
-    repoSetTaskPriorityRank(id, priorityRank)
-      .then(() => scheduleTasksSync())
-      .catch(async () => {
-        const fresh = await repoGetTask(id);
-        if (fresh) dispatch({ type: 'TASK_UPSERT', task: fresh });
-      });
+    repoSetTaskPriorityRank(id, priorityRank).catch(async () => {
+      const fresh = await repoGetTask(id);
+      if (fresh) dispatch({ type: 'TASK_UPSERT', task: fresh });
+    });
   }, []);
 
   const addProject = useCallback(async ({ name, type, canvasReference = null, color = null }) => {
     const project = await repoCreateProject({ name, type, canvasReference, color });
     dispatch({ type: 'PROJECT_UPSERT', project });
-    scheduleTasksSync();
     return project;
   }, []);
 
@@ -237,7 +194,6 @@ export function TasksProvider({ children }) {
     const project = await repoUpdateProject(id, patch);
     if (project) {
       dispatch({ type: 'PROJECT_UPSERT', project });
-      scheduleTasksSync();
     }
     return project;
   }, []);
@@ -245,7 +201,6 @@ export function TasksProvider({ children }) {
   const removeProject = useCallback(async (id) => {
     await repoDeleteProject(id);
     dispatch({ type: 'PROJECT_REMOVE', id });
-    scheduleTasksSync();
   }, []);
 
   // setView/setCardDensity/setColumnCollapsed/setStagesCollapsed below write
@@ -297,11 +252,11 @@ export function TasksProvider({ children }) {
     [state.collapsedColumns],
   );
 
-  // For mutations that bypass the wrappers above and write to IndexedDB
-  // directly (TasksExportImport.jsx's file import, via tasksExport.js's
-  // replaceAllTasks/replaceAllProjects) — re-reads local IndexedDB and
-  // re-hydrates state, same as the post-sync effect above, but callable on
-  // demand instead of waiting for a sync transition.
+  // For mutations that bypass the wrappers above and write straight to
+  // Postgres (TasksExportImport.jsx's file import, via tasksExport.js's
+  // replaceAllTasks/replaceAllProjects — e agora também
+  // importLegacyIndexedDbData, ver efeito abaixo) — re-lê e re-hidrata o
+  // estado, callable sob demanda em vez de esperar uma transição de sync.
   const refreshFromLocal = useCallback(async () => {
     const [tasks, projects] = await Promise.all([listTasks(), listProjects()]);
     dispatch({
@@ -310,6 +265,28 @@ export function TasksProvider({ children }) {
       projects: projects.filter((p) => !p.deletedAt),
     });
   }, []);
+
+  // TEMPORÁRIO — Fase 1 (ver src/lib/migration/importLegacyIndexedDb.js):
+  // ponte pra importar, uma única vez, tasks/projects que ficaram presos no
+  // IndexedDB de antes desta sessão migrar pra Postgres. Sem UI própria de
+  // propósito — é uma operação de uma vez só; abra o console do navegador
+  // em /tarefas e rode `await importLegacyIndexedDbData()`. Remover este
+  // efeito (e o arquivo do módulo) depois que a migração automática de
+  // verdade existir (Fase 2) ou depois de usado, o que vier primeiro.
+  useEffect(() => {
+    let cancelled = false;
+    import('@/lib/migration/importLegacyIndexedDb').then(({ importLegacyIndexedDbData }) => {
+      if (cancelled) return;
+      window.importLegacyIndexedDbData = async () => {
+        const result = await importLegacyIndexedDbData();
+        await refreshFromLocal();
+        return result;
+      };
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshFromLocal]);
 
   const value = {
     ...state,

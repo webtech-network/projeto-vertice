@@ -1,19 +1,23 @@
 import { ExternalLink } from 'lucide-react';
-import { getSession, isSessionValid } from '@/lib/session';
+import { createSupabaseServerClient } from '@/lib/supabaseServerClient';
+import { getDisplayName } from '@/lib/supabaseUserDisplay';
 import DashboardPanel from '@/components/DashboardPanel';
 import WebTechFooter from '@/components/WebTechFooter';
 import InfoHint from '@/components/InfoHint';
 
 export default async function HomePage() {
-  const session = await getSession();
-  if (!isSessionValid(session)) {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
     return null; // proxy already redirects unauthenticated requests to /login
   }
 
   return (
     <main className="page">
       <div className="page-title-row">
-        <h1>Olá, {session.user?.name?.split(' ')[0] || 'professor(a)'}</h1>
+        <h1>Olá, {getDisplayName(user)?.split(' ')[0] || 'professor(a)'}</h1>
         <InfoHint label="Sobre o Dashboard">
           <p>
             Um resumo do seu dia a dia como professor: disciplinas ativas, alunos, mensagens pendentes e correções

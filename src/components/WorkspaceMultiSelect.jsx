@@ -2,10 +2,15 @@
 
 import { useWorkspaceScope } from './WorkspaceScopeProvider';
 
-// Plain checkbox list over every real workspace (Base excluded — it's
-// implicit and can't be toggled, every resource already belongs to it).
-// Used inline by ProjectFormModal.jsx and inside ResourceWorkspacesModal.jsx
-// for resource types (like Canvas courses) that don't have their own form.
+// Checkbox list sobre todo workspace real (Base excluído — é implícito, não
+// dá pra marcar, todo item já pertence a ele). Usado inline por
+// ProjectFormModal.jsx e dentro de ResourceWorkspacesModal.jsx.
+//
+// Marca no máximo um por vez (comportamento de rádio usando checkboxes) —
+// desde a Fase 1, um projeto pertence a um único ambiente
+// (projects.workspace_id, 1:N direto), não mais vários (N:N solto de
+// antes). O array `selectedIds` continua tendo 0 ou 1 elemento, não mais —
+// mantém o mesmo contrato de props pros dois consumidores.
 export default function WorkspaceMultiSelect({ selectedIds, onChange }) {
   const { workspaces } = useWorkspaceScope();
   const assignable = workspaces.filter((w) => !w.isBase);
@@ -15,7 +20,7 @@ export default function WorkspaceMultiSelect({ selectedIds, onChange }) {
   }
 
   function toggle(id) {
-    onChange(selectedIds.includes(id) ? selectedIds.filter((w) => w !== id) : [...selectedIds, id]);
+    onChange(selectedIds.includes(id) ? [] : [id]);
   }
 
   return (

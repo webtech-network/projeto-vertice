@@ -13,8 +13,6 @@ import {
   setWorkspaceResources as repoSetWorkspaceResources,
 } from '@/lib/workspaces/workspacesRepo';
 import { getActiveWorkspaceId, setActiveWorkspaceId as persistActiveWorkspaceId } from '@/lib/workspaces/activeWorkspacePreference';
-import { scheduleWorkspacesSync, flushWorkspacesSyncNow } from '@/lib/sync/workspacesSyncScheduler';
-import { subscribeSyncStatus, getSyncStatusSnapshot } from '@/lib/sync/syncStatusStore';
 
 const WorkspaceScopeContext = createContext(null);
 
@@ -22,6 +20,11 @@ const WorkspaceScopeContext = createContext(null);
 // TasksProvider) — the workspace switcher lives in Topbar.jsx, and the
 // scope filter needs to reach every dashboard route without remounting on
 // client-side navigation between them.
+//
+// Fase 1: workspacesRepo.js agora lê/escreve direto no Postgres (RLS-scoped)
+// — a sincronização via Google Drive (scheduleWorkspacesSync/
+// flushWorkspacesSyncNow) foi removida daqui pelo mesmo motivo de
+// TasksProvider.jsx: o Postgres já é a fonte autoritativa por si só.
 export function WorkspaceScopeProvider({ children }) {
   const [workspaces, setWorkspaces] = useState([BASE_WORKSPACE]);
   const [links, setLinks] = useState([]);
@@ -31,7 +34,7 @@ export function WorkspaceScopeProvider({ children }) {
   const [activeWorkspaceId, setActiveWorkspaceIdState] = useState(BASE_WORKSPACE_ID);
   const [loading, setLoading] = useState(true);
 
-  const hydrateFromLocal = useCallback(async () => {
+  const hydrate = useCallback(async () => {
     const [ws, ls] = await Promise.all([listWorkspaces(), listAllLinks()]);
     setWorkspaces(ws);
     setLinks(ls.filter((l) => !l.deletedAt));
@@ -39,30 +42,9 @@ export function WorkspaceScopeProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    hydrateFromLocal();
+    hydrate();
     setActiveWorkspaceIdState(getActiveWorkspaceId());
-    // Same "kick off a background reconcile as soon as the shell mounts"
-    // idea as TasksProvider — silently a no-op if Google isn't connected.
-    flushWorkspacesSyncNow();
-  }, [hydrateFromLocal]);
-
-  // Re-reads local IndexedDB whenever a workspaces sync just completed —
-  // same pattern as TasksProvider's own post-sync re-hydrate effect.
-  useEffect(() => {
-    let cancelled = false;
-    let previousState = getSyncStatusSnapshot().workspaces.state;
-    const unsubscribe = subscribeSyncStatus(() => {
-      const current = getSyncStatusSnapshot().workspaces.state;
-      if (current === 'synced' && previousState !== 'synced' && !cancelled) {
-        hydrateFromLocal();
-      }
-      previousState = current;
-    });
-    return () => {
-      cancelled = true;
-      unsubscribe();
-    };
-  }, [hydrateFromLocal]);
+  }, [hydrate]);
 
   // Defends against the active workspace having been deleted on another
   // device and the tombstone arriving via sync — falls back to Base rather
@@ -80,7 +62,6 @@ export function WorkspaceScopeProvider({ children }) {
   const addWorkspace = useCallback(async ({ name, color = null }) => {
     const workspace = await repoCreateWorkspace({ name, color });
     setWorkspaces((prev) => [...prev, workspace]);
-    scheduleWorkspacesSync();
     return workspace;
   }, []);
 
@@ -88,7 +69,6 @@ export function WorkspaceScopeProvider({ children }) {
     const workspace = await repoUpdateWorkspace(id, patch);
     if (workspace) {
       setWorkspaces((prev) => prev.map((w) => (w.id === id ? workspace : w)));
-      scheduleWorkspacesSync();
     }
     return workspace;
   }, []);
@@ -98,7 +78,6 @@ export function WorkspaceScopeProvider({ children }) {
       await repoDeleteWorkspace(id);
       setWorkspaces((prev) => prev.filter((w) => w.id !== id));
       if (activeWorkspaceId === id) setActiveWorkspaceId(BASE_WORKSPACE_ID);
-      scheduleWorkspacesSync();
     },
     [activeWorkspaceId, setActiveWorkspaceId],
   );
@@ -115,7 +94,6 @@ export function WorkspaceScopeProvider({ children }) {
     await repoSetResourceWorkspaces(resourceType, resourceId, workspaceIds);
     const freshLinks = await listAllLinks();
     setLinks(freshLinks.filter((l) => !l.deletedAt));
-    scheduleWorkspacesSync();
   }, []);
 
   // The mirror image of getWorkspaceIdsForResource/setResourceWorkspaces
@@ -132,7 +110,6 @@ export function WorkspaceScopeProvider({ children }) {
     await repoSetWorkspaceResources(workspaceId, resourceType, resourceIds);
     const freshLinks = await listAllLinks();
     setLinks(freshLinks.filter((l) => !l.deletedAt));
-    scheduleWorkspacesSync();
   }, []);
 
   // The central scope-filtering helper — `null` means "no filter" (Base

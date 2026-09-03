@@ -1,17 +1,21 @@
 import { redirect } from 'next/navigation';
 import Image from 'next/image';
-import { getSession, isSessionValid } from '@/lib/session';
+import { createSupabaseServerClient } from '@/lib/supabaseServerClient';
 import WebTechFooter from '@/components/WebTechFooter';
+import LoginButtons from '@/components/LoginButtons';
 import banner from '@/assets/images/banner_og.jpeg';
 
 const ERROR_MESSAGES = {
   state_invalido: 'Não foi possível validar o retorno do Canvas (state inválido). Tente novamente.',
-  oauth_falhou: 'Falha ao concluir a autenticação com o Canvas. Tente novamente.',
+  oauth_falhou: 'Falha ao concluir a autenticação. Tente novamente.',
 };
 
 export default async function LoginPage({ searchParams }) {
-  const session = await getSession();
-  if (isSessionValid(session)) {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user) {
     redirect('/');
   }
 
@@ -28,12 +32,10 @@ export default async function LoginPage({ searchParams }) {
         </p>
         {error && (
           <div className="alert alert-error" style={{ textAlign: 'left' }}>
-            {ERROR_MESSAGES[error] || 'Ocorreu um erro ao entrar com o Canvas.'}
+            {ERROR_MESSAGES[error] || 'Ocorreu um erro ao entrar.'}
           </div>
         )}
-        <a className="btn btn-primary btn-lg" href="/api/auth/login">
-          Entrar com Canvas
-        </a>
+        <LoginButtons />
       </div>
       <WebTechFooter variant="bar" />
     </main>

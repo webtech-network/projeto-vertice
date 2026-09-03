@@ -5,3 +5,6 @@ node_modules
 .env.*.local
 
 /Questoes
+
+# Dados do Postgres self-hosted (Supabase) — bind mount externo, nunca versionado
+/supabase/volumes/db/data

@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { getSession, isSessionValid } from '@/lib/session';
+import { createSupabaseServerClient } from '@/lib/supabaseServerClient';
+import { getDisplayName, getAvatarUrl } from '@/lib/supabaseUserDisplay';
 import UserMenu from './UserMenu';
 import MobileNavToggle from './MobileNavToggle';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
@@ -9,8 +10,11 @@ import logoFull from '@/assets/images/logo-full.png';
 import logoFullDark from '@/assets/images/logo-full-dark.png';
 
 export default async function Topbar() {
-  const session = await getSession();
-  const loggedIn = isSessionValid(session);
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const loggedIn = Boolean(user);
 
   return (
     <header className="topbar">
@@ -33,7 +37,7 @@ export default async function Topbar() {
         <div className="topbar-user">
           <WorkspaceSwitcher />
           <SyncStatusIndicator />
-          <UserMenu userName={session.user?.name} avatarUrl={session.user?.avatar_url} />
+          <UserMenu userName={getDisplayName(user)} avatarUrl={getAvatarUrl(user)} />
         </div>
       )}
     </header>

@@ -1,58 +1,98 @@
-import { dbGetAll, dbGet, dbPut, dbDelete, dbUpdate, STORE_PROJECTS } from '../indexedDb';
+import { createSupabaseBrowserClient } from '@/lib/supabaseBrowserClient';
 import { listTasks, updateTask } from './tasksRepo';
 
+// canvasReference é um objeto ({ courseId }) no resto do app — a coluna no
+// Postgres (canvas_course_id, ver plano — stopgap até external_references
+// existir na Fase 2) só guarda o id em si. workspaceId é campo novo, sem
+// equivalente no modelo antigo (a associação vivia numa link table à parte).
+function toApp(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    name: row.name,
+    type: row.type,
+    canvasReference: row.canvas_course_id ? { courseId: row.canvas_course_id } : null,
+    color: row.color,
+    workspaceId: row.workspace_id,
+    // Epoch-ms, não string ISO — ver o mesmo comentário em tasksRepo.js.
+    deletedAt: row.deleted_at ? new Date(row.deleted_at).getTime() : null,
+    createdAt: new Date(row.created_at).getTime(),
+    updatedAt: new Date(row.updated_at).getTime(),
+  };
+}
+
+function fromAppPatch(patch) {
+  const row = {};
+  if ('name' in patch) row.name = patch.name;
+  if ('type' in patch) row.type = patch.type;
+  if ('canvasReference' in patch) row.canvas_course_id = patch.canvasReference?.courseId ?? null;
+  if ('color' in patch) row.color = patch.color;
+  if ('workspaceId' in patch) row.workspace_id = patch.workspaceId;
+  if ('deletedAt' in patch) row.deleted_at = patch.deletedAt ? new Date(patch.deletedAt).toISOString() : null;
+  return row;
+}
+
 export async function listProjects() {
-  return dbGetAll(STORE_PROJECTS);
+  const supabase = createSupabaseBrowserClient();
+  const { data, error } = await supabase.from('projects').select('*').order('created_at', { ascending: true });
+  if (error) throw error;
+  return data.map(toApp);
 }
 
 export async function getProject(id) {
-  return dbGet(STORE_PROJECTS, id);
+  const supabase = createSupabaseBrowserClient();
+  const { data, error } = await supabase.from('projects').select('*').eq('id', id).maybeSingle();
+  if (error) throw error;
+  return toApp(data);
 }
 
-export async function createProject({ name, type, canvasReference = null, color = null }) {
-  const now = Date.now();
-  const project = {
-    id: crypto.randomUUID(),
-    name,
-    type,
-    canvasReference,
-    color,
-    deletedAt: null,
-    createdAt: now,
-    updatedAt: now,
-  };
-  await dbPut(STORE_PROJECTS, project);
-  return project;
+export async function createProject({ name, type, canvasReference = null, color = null, workspaceId = null }) {
+  const supabase = createSupabaseBrowserClient();
+  const { data, error } = await supabase
+    .from('projects')
+    .insert({
+      name,
+      type,
+      canvas_course_id: canvasReference?.courseId ?? null,
+      color,
+      workspace_id: workspaceId,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return toApp(data);
 }
 
-// Atomic read-modify-write — see tasksRepo.js's updateTask for why.
 export async function updateProject(id, patch) {
-  const updated = await dbUpdate(STORE_PROJECTS, id, (existing) =>
-    existing ? { ...existing, ...patch, updatedAt: Date.now() } : undefined,
-  );
-  return updated ?? null;
+  const supabase = createSupabaseBrowserClient();
+  const { data, error } = await supabase
+    .from('projects')
+    .update(fromAppPatch(patch))
+    .eq('id', id)
+    .select()
+    .maybeSingle();
+  if (error) throw error;
+  return toApp(data);
 }
 
-// Replace, not merge — see tasksRepo.js's replaceAllTasks. Called only from
-// tasks/tasksDriveSync.js's pull path.
+// Upsert por id, não delete+insert — ver o comentário completo em
+// tasksRepo.js's replaceAllTasks (RLS de propósito não libera DELETE
+// físico pra authenticated).
 export async function replaceAllProjects(projectsArray) {
-  const existing = await listProjects();
-  await Promise.all(existing.map((p) => dbDelete(STORE_PROJECTS, p.id)));
-  const now = Date.now();
-  await Promise.all(
-    projectsArray.map((p) =>
-      dbPut(STORE_PROJECTS, {
-        id: typeof p.id === 'string' && p.id ? p.id : crypto.randomUUID(),
-        name: p.name || '',
-        type: p.type === 'canvas-course' ? 'canvas-course' : 'personal',
-        canvasReference: p.canvasReference ?? null,
-        color: p.color ?? null,
-        deletedAt: p.deletedAt ?? null,
-        createdAt: p.createdAt ?? now,
-        updatedAt: p.updatedAt ?? now,
-      }),
-    ),
-  );
+  if (projectsArray.length === 0) return 0;
+  const supabase = createSupabaseBrowserClient();
+
+  const rows = projectsArray.map((p) => ({
+    id: typeof p.id === 'string' && p.id ? p.id : crypto.randomUUID(),
+    name: p.name || '',
+    type: p.type === 'canvas-course' ? 'canvas-course' : 'personal',
+    canvas_course_id: p.canvasReference?.courseId ?? null,
+    color: p.color ?? null,
+    workspace_id: p.workspaceId ?? null,
+    deleted_at: p.deletedAt ? new Date(p.deletedAt).toISOString() : null,
+  }));
+  const { error: upsertError } = await supabase.from('projects').upsert(rows, { onConflict: 'id' });
+  if (upsertError) throw upsertError;
   return projectsArray.length;
 }
 

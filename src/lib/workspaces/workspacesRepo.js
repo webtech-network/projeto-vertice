@@ -1,11 +1,9 @@
-import { dbGetAll, dbGet, dbPut, dbDelete, dbUpdate, STORE_WORKSPACES, STORE_WORKSPACE_LINKS } from '../indexedDb';
+import { createSupabaseBrowserClient } from '@/lib/supabaseBrowserClient';
 
-// The Base workspace is deliberately NOT a stored record — it's a synthetic
-// constant that always exists, on every device, with no sync/merge
-// questions to answer (does it exist before the first sync? what if a merge
-// drops it?). It's implicitly associated with every resource: nothing is
-// ever written to STORE_WORKSPACE_LINKS with workspaceId === BASE_WORKSPACE_ID,
-// and every scope-filtering call site treats "Base is active" as "no filter".
+// O workspace Base continua sendo um estado puramente de UI, nunca um
+// registro — agora nem existe mais uma tabela de link pra ele aparecer
+// implicitamente em; "Base ativo" só significa "sem filtro" em
+// WorkspaceScopeProvider.jsx, que nunca chama este módulo pra resolver isso.
 export const BASE_WORKSPACE_ID = 'base';
 export const BASE_WORKSPACE = {
   id: BASE_WORKSPACE_ID,
@@ -21,179 +19,187 @@ function assertNotBase(id) {
   }
 }
 
-// Base always first, never filtered out (it isn't a real record, so it has
-// no deletedAt to check).
+function toApp(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    color: row.color,
+    // Epoch-ms, não string ISO — ver o mesmo comentário em tasksRepo.js.
+    deletedAt: row.deleted_at ? new Date(row.deleted_at).getTime() : null,
+    createdAt: new Date(row.created_at).getTime(),
+    updatedAt: new Date(row.updated_at).getTime(),
+  };
+}
+
 export async function listWorkspaces() {
-  const stored = await dbGetAll(STORE_WORKSPACES);
-  return [BASE_WORKSPACE, ...stored.filter((w) => !w.deletedAt)];
+  const supabase = createSupabaseBrowserClient();
+  const { data, error } = await supabase
+    .from('workspaces')
+    .select('*')
+    .is('deleted_at', null)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return [BASE_WORKSPACE, ...data.map(toApp)];
 }
 
 export async function getWorkspace(id) {
   if (id === BASE_WORKSPACE_ID) return BASE_WORKSPACE;
-  return dbGet(STORE_WORKSPACES, id);
+  const supabase = createSupabaseBrowserClient();
+  const { data, error } = await supabase.from('workspaces').select('*').eq('id', id).maybeSingle();
+  if (error) throw error;
+  return data ? toApp(data) : null;
 }
 
 export async function createWorkspace({ name, color = null }) {
-  const now = Date.now();
-  const workspace = {
-    id: crypto.randomUUID(),
-    name,
-    color,
-    deletedAt: null,
-    createdAt: now,
-    updatedAt: now,
-  };
-  await dbPut(STORE_WORKSPACES, workspace);
-  return workspace;
+  const supabase = createSupabaseBrowserClient();
+  const { data, error } = await supabase.from('workspaces').insert({ name, color }).select().single();
+  if (error) throw error;
+  return toApp(data);
 }
 
-// Atomic read-modify-write — see tasksRepo.js's updateTask for why.
 export async function updateWorkspace(id, patch) {
   assertNotBase(id);
-  const updated = await dbUpdate(STORE_WORKSPACES, id, (existing) =>
-    existing ? { ...existing, ...patch, updatedAt: Date.now() } : undefined,
-  );
-  return updated ?? null;
+  const supabase = createSupabaseBrowserClient();
+  const row = {};
+  if ('name' in patch) row.name = patch.name;
+  if ('color' in patch) row.color = patch.color;
+  const { data, error } = await supabase.from('workspaces').update(row).eq('id', id).select().maybeSingle();
+  if (error) throw error;
+  return data ? toApp(data) : null;
 }
 
-// Soft delete — see tasksRepo.js's deleteTask for why. Links pointing at a
-// deleted workspace are deliberately left in place (no cascade), same
-// principle as deleteProject not deleting a project's tasks: at this app's
-// personal scale, an orphaned link costs nothing and never resurfaces,
-// since listWorkspaces() above already excludes the deleted workspace.
+// Soft delete — as próprias policies de RLS não liberam DELETE físico (ver
+// supabase/volumes/db/init/05_rls.sql). Projetos apontando pra este
+// workspace ficam com workspace_id ainda preenchido (mesmo princípio de
+// "link órfão não incomoda" do modelo antigo) — listWorkspaces() já exclui
+// o workspace deletado, e listAllLinks() abaixo ignora projetos cujo
+// workspace não existe mais na leitura seguinte.
 export async function deleteWorkspace(id) {
-  assertNotBase(id);
   return updateWorkspace(id, { deletedAt: Date.now() });
 }
 
-// Replace, not merge — see tasksRepo.js's replaceAllTasks. Called only from
-// workspaces/workspacesDriveSync.js's pull path. The Base workspace is never
-// part of this array (it's synthetic — see BASE_WORKSPACE above).
+// Sem uso direto de UI hoje — mantidas só porque workspacesDriveSync.js
+// importa esses dois nomes no topo do arquivo, e esse módulo é carregado
+// (ainda que não mais acionado) por SyncStatusIndicator.jsx no Topbar;
+// remover os exports quebraria essa importação e derrubaria o build
+// inteiro. Implementadas de verdade (não como stub) para não corromper
+// nada no raro caso de ainda serem chamadas.
+// Upsert por id, não delete+insert — mesmo motivo de tasksRepo.js's
+// replaceAllTasks (RLS de propósito não libera DELETE físico).
 export async function replaceAllWorkspaces(workspacesArray) {
-  const existing = await dbGetAll(STORE_WORKSPACES);
-  await Promise.all(existing.map((w) => dbDelete(STORE_WORKSPACES, w.id)));
-  const now = Date.now();
-  await Promise.all(
-    workspacesArray
-      .filter((w) => w.id !== BASE_WORKSPACE_ID)
-      .map((w) =>
-        dbPut(STORE_WORKSPACES, {
-          id: typeof w.id === 'string' && w.id ? w.id : crypto.randomUUID(),
-          name: w.name || '',
-          color: w.color ?? null,
-          deletedAt: w.deletedAt ?? null,
-          createdAt: w.createdAt ?? now,
-          updatedAt: w.updatedAt ?? now,
-        }),
-      ),
-  );
+  const supabase = createSupabaseBrowserClient();
+
+  const rows = workspacesArray
+    .filter((w) => w.id !== BASE_WORKSPACE_ID)
+    .map((w) => ({
+      id: typeof w.id === 'string' && w.id ? w.id : crypto.randomUUID(),
+      name: w.name || '',
+      color: w.color ?? null,
+      deleted_at: w.deletedAt ? new Date(w.deletedAt).toISOString() : null,
+    }));
+  if (rows.length === 0) return 0;
+  const { error: upsertError } = await supabase.from('workspaces').upsert(rows, { onConflict: 'id' });
+  if (upsertError) throw upsertError;
   return workspacesArray.length;
 }
+
+export async function replaceAllLinks(linksArray) {
+  const supabase = createSupabaseBrowserClient();
+  const desiredByProject = new Map(
+    linksArray.filter((l) => l.resourceType === 'project' && !l.deletedAt).map((l) => [String(l.resourceId), l.workspaceId]),
+  );
+
+  const { data: allProjects, error } = await supabase.from('projects').select('id, workspace_id').is('deleted_at', null);
+  if (error) throw error;
+
+  await Promise.all(
+    allProjects
+      .filter((p) => (desiredByProject.get(p.id) ?? null) !== p.workspace_id)
+      .map((p) => supabase.from('projects').update({ workspace_id: desiredByProject.get(p.id) ?? null }).eq('id', p.id)),
+  );
+  return linksArray.length;
+}
+
+// =====================================================================
+// Compatibilidade com a API "de links" que WorkspaceScopeProvider.jsx (e,
+// através dele, 11 componentes de UI — WorkspaceResourcesModal,
+// ResourceWorkspacesModal, ProjectFormModal etc.) já consome — sem isso,
+// seria necessário reescrever todos eles. A diferença real do modelo N:N
+// solto de antes pro 1:N direto de agora (projects.workspace_id) fica
+// escondida aqui dentro.
+//
+// resourceType 'course' é sempre um no-op: cursos do Canvas não têm onde
+// gravar workspace_id nesta fase (dependeria de external_references, Fase
+// 2) — ver "curso vinculado a workspace sem projeto" no plano. Lacuna
+// conhecida, não bug; hoje as telas de curso já ficam inacessíveis de
+// qualquer forma (gating de Canvas também é Fase 2), então não há UI
+// alcançável que dependa disto ainda.
+// =====================================================================
 
 function linkId(workspaceId, resourceType, resourceId) {
   return `${workspaceId}:${resourceType}:${resourceId}`;
 }
 
 export async function listAllLinks() {
-  return dbGetAll(STORE_WORKSPACE_LINKS);
+  const supabase = createSupabaseBrowserClient();
+  const { data, error } = await supabase
+    .from('projects')
+    .select('id, workspace_id')
+    .not('workspace_id', 'is', null)
+    .is('deleted_at', null);
+  if (error) throw error;
+  return data.map((p) => ({
+    id: linkId(p.workspace_id, 'project', p.id),
+    workspaceId: p.workspace_id,
+    resourceType: 'project',
+    resourceId: p.id,
+    deletedAt: null,
+  }));
 }
 
-export async function listLinksByWorkspace(workspaceId) {
-  const links = await dbGetAll(STORE_WORKSPACE_LINKS);
-  return links.filter((l) => l.workspaceId === workspaceId && !l.deletedAt);
-}
-
-export async function listLinksByResource(resourceType, resourceId) {
-  const links = await dbGetAll(STORE_WORKSPACE_LINKS);
-  return links.filter((l) => l.resourceType === resourceType && l.resourceId === String(resourceId) && !l.deletedAt);
-}
-
-// Resolves the complete set of workspaces a resource belongs to in a single
-// call — upserts a link for every workspaceId newly present, tombstones
-// every currently-active link no longer present. Every UI mutation point
-// (ProjectFormModal.jsx's multi-select, ResourceWorkspacesModal.jsx) should
-// go through this rather than calling addLink/removeLink in a loop, so a
-// single edit produces one coherent batch of writes (and one sync nudge)
-// instead of N.
 export async function setResourceWorkspaces(resourceType, resourceId, workspaceIds) {
-  const id = String(resourceId);
-  const target = new Set(workspaceIds.filter((w) => w !== BASE_WORKSPACE_ID));
-  const current = await listLinksByResource(resourceType, id);
-  const currentByWorkspace = new Map(current.map((l) => [l.workspaceId, l]));
-  const now = Date.now();
-
-  const toRemove = current.filter((l) => !target.has(l.workspaceId));
-  const toAdd = [...target].filter((workspaceId) => !currentByWorkspace.has(workspaceId));
-
-  await Promise.all(
-    toRemove.map((l) => dbPut(STORE_WORKSPACE_LINKS, { ...l, deletedAt: now, updatedAt: now })),
-  );
-  await Promise.all(
-    toAdd.map((workspaceId) =>
-      dbPut(STORE_WORKSPACE_LINKS, {
-        id: linkId(workspaceId, resourceType, id),
-        workspaceId,
-        resourceType,
-        resourceId: id,
-        deletedAt: null,
-        createdAt: now,
-        updatedAt: now,
-      }),
-    ),
-  );
-  return target.size;
+  if (resourceType !== 'project') {
+    console.warn(`setResourceWorkspaces: resourceType "${resourceType}" não é suportado nesta fase (só "project").`);
+    return 0;
+  }
+  const workspaceId = workspaceIds.filter((w) => w !== BASE_WORKSPACE_ID)[0] ?? null;
+  const supabase = createSupabaseBrowserClient();
+  const { error } = await supabase.from('projects').update({ workspace_id: workspaceId }).eq('id', resourceId);
+  if (error) throw error;
+  return workspaceId ? 1 : 0;
 }
 
-// The mirror image of setResourceWorkspaces above — resolves the complete
-// set of resources (of one type) a workspace contains, in a single call.
-// Backs WorkspaceResourcesModal.jsx's tabbed "Projetos"/"Cursos" picker,
-// which manages membership from the workspace's side rather than one
-// resource at a time.
+// O espelho de setResourceWorkspaces acima — resolve o conjunto de projetos
+// de um workspace de uma vez (backend de WorkspaceResourcesModal.jsx, que
+// gerencia a associação pelo lado do workspace). Só resourceType 'project'
+// é suportado, pelo mesmo motivo.
 export async function setWorkspaceResources(workspaceId, resourceType, resourceIds) {
   assertNotBase(workspaceId);
+  if (resourceType !== 'project') {
+    console.warn(`setWorkspaceResources: resourceType "${resourceType}" não é suportado nesta fase (só "project").`);
+    return 0;
+  }
+  const supabase = createSupabaseBrowserClient();
   const target = new Set(resourceIds.map(String));
-  const current = (await listLinksByWorkspace(workspaceId)).filter((l) => l.resourceType === resourceType);
-  const currentByResource = new Map(current.map((l) => [l.resourceId, l]));
-  const now = Date.now();
 
-  const toRemove = current.filter((l) => !target.has(l.resourceId));
-  const toAdd = [...target].filter((resourceId) => !currentByResource.has(resourceId));
+  const { data: current, error: readError } = await supabase
+    .from('projects')
+    .select('id')
+    .eq('workspace_id', workspaceId)
+    .is('deleted_at', null);
+  if (readError) throw readError;
 
-  await Promise.all(toRemove.map((l) => dbPut(STORE_WORKSPACE_LINKS, { ...l, deletedAt: now, updatedAt: now })));
-  await Promise.all(
-    toAdd.map((resourceId) =>
-      dbPut(STORE_WORKSPACE_LINKS, {
-        id: linkId(workspaceId, resourceType, resourceId),
-        workspaceId,
-        resourceType,
-        resourceId,
-        deletedAt: null,
-        createdAt: now,
-        updatedAt: now,
-      }),
-    ),
-  );
+  const currentIds = new Set(current.map((p) => p.id));
+  const toDetach = [...currentIds].filter((id) => !target.has(id));
+  const toAttach = [...target].filter((id) => !currentIds.has(id));
+
+  if (toDetach.length > 0) {
+    const { error } = await supabase.from('projects').update({ workspace_id: null }).in('id', toDetach);
+    if (error) throw error;
+  }
+  if (toAttach.length > 0) {
+    const { error } = await supabase.from('projects').update({ workspace_id: workspaceId }).in('id', toAttach);
+    if (error) throw error;
+  }
   return target.size;
-}
-
-// Replace, not merge — same reasoning as replaceAllWorkspaces above. Called
-// only from workspaces/workspacesDriveSync.js's pull path.
-export async function replaceAllLinks(linksArray) {
-  const existing = await dbGetAll(STORE_WORKSPACE_LINKS);
-  await Promise.all(existing.map((l) => dbDelete(STORE_WORKSPACE_LINKS, l.id)));
-  const now = Date.now();
-  await Promise.all(
-    linksArray.map((l) =>
-      dbPut(STORE_WORKSPACE_LINKS, {
-        id: l.id || linkId(l.workspaceId, l.resourceType, l.resourceId),
-        workspaceId: l.workspaceId,
-        resourceType: l.resourceType,
-        resourceId: String(l.resourceId),
-        deletedAt: l.deletedAt ?? null,
-        createdAt: l.createdAt ?? now,
-        updatedAt: l.updatedAt ?? now,
-      }),
-    ),
-  );
-  return linksArray.length;
 }

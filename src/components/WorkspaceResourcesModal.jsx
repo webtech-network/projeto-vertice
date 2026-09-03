@@ -6,6 +6,7 @@ import Modal from './Modal';
 import { useWorkspaceScope } from './WorkspaceScopeProvider';
 import { listProjects } from '@/lib/tasks/projectsRepo';
 import { listCoursesCached } from '@/lib/tasks/canvasResolution';
+import { filterActiveFavoriteCourses } from '@/lib/dashboard';
 
 // One tab per associable resource type — the centralized, workspace-side
 // counterpart to ResourceWorkspacesModal.jsx (which goes the other way,
@@ -41,12 +42,16 @@ export default function WorkspaceResourcesModal({ workspace, onClose }) {
 
   // Lazy, same as ProjectFormModal.jsx's own course fetch — only hit once
   // the Cursos tab is actually opened, not on every workspace management
-  // modal open.
+  // modal open. Scoped to favoritos + publicados (filterActiveFavoriteCourses,
+  // dashboard.js) — same "favorites only, for cost/relevance reasons"
+  // convention ProjectFormModal.jsx's own course dropdown already uses,
+  // narrowed further to published courses since an unpublished course isn't
+  // something a professor is actively organizing into workspaces yet.
   useEffect(() => {
     if (tab !== 'course' || courses.length > 0) return;
     setLoadingCourses(true);
     listCoursesCached()
-      .then(setCourses)
+      .then((all) => setCourses(filterActiveFavoriteCourses(all)))
       .finally(() => setLoadingCourses(false));
   }, [tab, courses.length]);
 
@@ -145,6 +150,11 @@ export default function WorkspaceResourcesModal({ workspace, onClose }) {
             </ul>
           ))}
 
+        {tab === 'course' && (
+          <span className="field-note">
+            Somente cursos favoritados e publicados no Canvas aparecem aqui.
+          </span>
+        )}
         {tab === 'course' &&
           (loadingCourses ? (
             <p className="lede">Carregando cursos…</p>

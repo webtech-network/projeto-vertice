@@ -1,13 +1,22 @@
 import { Suspense } from 'react';
-import { getSession, isSessionValid } from '@/lib/session';
+import { getSession } from '@/lib/session';
+import { createSupabaseServerClient } from '@/lib/supabaseServerClient';
+import { getDisplayName } from '@/lib/supabaseUserDisplay';
 import { listProviders } from '@/lib/aiProviders';
 import ProfileTabs from '@/components/ProfileTabs';
 
 export default async function PerfilPage() {
-  const session = await getSession();
-  if (!isSessionValid(session)) {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
     return null; // proxy already redirects unauthenticated requests to /login
   }
+
+  // aiApiKeys/aiModels ainda vivem no iron-session (migração pra Postgres é
+  // Fase 2) — só a checagem de login acima é que virou Supabase.
+  const session = await getSession();
 
   const providers = listProviders().map((provider) => ({
     ...provider,
@@ -27,7 +36,10 @@ export default async function PerfilPage() {
           callbacks redirect to ?tab=plataformas) — Next.js requires any
           useSearchParams() consumer to sit inside a Suspense boundary. */}
       <Suspense fallback={null}>
-        <ProfileTabs userName={session.user?.name} baseUrl={session.baseUrl} providers={providers} />
+        {/* baseUrl fica null até a Fase 2 popular a partir de uma
+            integração Canvas ativa (public.integrations) — sem isso hoje,
+            "Conta" só mostra o campo em branco, não quebra. */}
+        <ProfileTabs userName={getDisplayName(user)} baseUrl={null} providers={providers} />
       </Suspense>
     </main>
   );
