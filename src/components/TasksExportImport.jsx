@@ -5,7 +5,6 @@ import { Download, Upload } from 'lucide-react';
 import Modal from './Modal';
 import { useTasks } from './TasksProvider';
 import { exportTasksFile, importTasksFile } from '@/lib/tasks/tasksExport';
-import { scheduleTasksSync } from '@/lib/sync/tasksSyncScheduler';
 
 // Local JSON backup/restore for tasks + projects — independent of the
 // automatic Google Drive sync (Fase 3), for a professor who wants a plain
@@ -63,7 +62,6 @@ export default function TasksExportImport({ onClose }) {
     try {
       const result = await importTasksFile(importFile);
       await refreshFromLocal();
-      scheduleTasksSync();
       setImportMessage(`Importado: ${result.tasks} tarefa(s), ${result.projects} projeto(s) no total.`);
       setImportFile(null);
     } catch (err) {

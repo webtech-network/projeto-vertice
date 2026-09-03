@@ -78,62 +78,16 @@ export async function deleteWorkspace(id) {
   return updateWorkspace(id, { deletedAt: Date.now() });
 }
 
-// Sem uso direto de UI hoje — mantidas só porque workspacesDriveSync.js
-// importa esses dois nomes no topo do arquivo, e esse módulo é carregado
-// (ainda que não mais acionado) por SyncStatusIndicator.jsx no Topbar;
-// remover os exports quebraria essa importação e derrubaria o build
-// inteiro. Implementadas de verdade (não como stub) para não corromper
-// nada no raro caso de ainda serem chamadas.
-// Upsert por id, não delete+insert — mesmo motivo de tasksRepo.js's
-// replaceAllTasks (RLS de propósito não libera DELETE físico).
-export async function replaceAllWorkspaces(workspacesArray) {
-  const supabase = createSupabaseBrowserClient();
-
-  const rows = workspacesArray
-    .filter((w) => w.id !== BASE_WORKSPACE_ID)
-    .map((w) => ({
-      id: typeof w.id === 'string' && w.id ? w.id : crypto.randomUUID(),
-      name: w.name || '',
-      color: w.color ?? null,
-      deleted_at: w.deletedAt ? new Date(w.deletedAt).toISOString() : null,
-    }));
-  if (rows.length === 0) return 0;
-  const { error: upsertError } = await supabase.from('workspaces').upsert(rows, { onConflict: 'id' });
-  if (upsertError) throw upsertError;
-  return workspacesArray.length;
-}
-
-export async function replaceAllLinks(linksArray) {
-  const supabase = createSupabaseBrowserClient();
-  const desiredByProject = new Map(
-    linksArray.filter((l) => l.resourceType === 'project' && !l.deletedAt).map((l) => [String(l.resourceId), l.workspaceId]),
-  );
-
-  const { data: allProjects, error } = await supabase.from('projects').select('id, workspace_id').is('deleted_at', null);
-  if (error) throw error;
-
-  await Promise.all(
-    allProjects
-      .filter((p) => (desiredByProject.get(p.id) ?? null) !== p.workspace_id)
-      .map((p) => supabase.from('projects').update({ workspace_id: desiredByProject.get(p.id) ?? null }).eq('id', p.id)),
-  );
-  return linksArray.length;
-}
-
 // =====================================================================
 // Compatibilidade com a API "de links" que WorkspaceScopeProvider.jsx (e,
-// através dele, 11 componentes de UI — WorkspaceResourcesModal,
+// através dele, os componentes de UI — WorkspaceEditModal,
 // ResourceWorkspacesModal, ProjectFormModal etc.) já consome — sem isso,
 // seria necessário reescrever todos eles. A diferença real do modelo N:N
-// solto de antes pro 1:N direto de agora (projects.workspace_id) fica
-// escondida aqui dentro.
-//
-// resourceType 'course' é sempre um no-op: cursos do Canvas não têm onde
-// gravar workspace_id nesta fase (dependeria de external_references, Fase
-// 2) — ver "curso vinculado a workspace sem projeto" no plano. Lacuna
-// conhecida, não bug; hoje as telas de curso já ficam inacessíveis de
-// qualquer forma (gating de Canvas também é Fase 2), então não há UI
-// alcançável que dependa disto ainda.
+// solto de antes pro 1:N direto de agora fica escondida aqui dentro:
+// projetos guardam o workspace_id na própria linha (projects.workspace_id);
+// cursos do Canvas não têm onde guardar isso (não são uma linha em
+// `projects`), então usam a tabela dedicada `course_workspace_links` — em
+// ambos os casos, no máximo um workspace por item, nunca N:N.
 // =====================================================================
 
 function linkId(workspaceId, resourceType, resourceId) {
@@ -142,64 +96,117 @@ function linkId(workspaceId, resourceType, resourceId) {
 
 export async function listAllLinks() {
   const supabase = createSupabaseBrowserClient();
-  const { data, error } = await supabase
-    .from('projects')
-    .select('id, workspace_id')
-    .not('workspace_id', 'is', null)
-    .is('deleted_at', null);
-  if (error) throw error;
-  return data.map((p) => ({
+  const [{ data: projectRows, error: projectError }, { data: courseRows, error: courseError }] = await Promise.all([
+    supabase.from('projects').select('id, workspace_id').not('workspace_id', 'is', null).is('deleted_at', null),
+    supabase.from('course_workspace_links').select('course_id, workspace_id'),
+  ]);
+  if (projectError) throw projectError;
+  if (courseError) throw courseError;
+
+  const projectLinks = projectRows.map((p) => ({
     id: linkId(p.workspace_id, 'project', p.id),
     workspaceId: p.workspace_id,
     resourceType: 'project',
     resourceId: p.id,
     deletedAt: null,
   }));
+  const courseLinks = courseRows.map((c) => ({
+    id: linkId(c.workspace_id, 'course', c.course_id),
+    workspaceId: c.workspace_id,
+    resourceType: 'course',
+    resourceId: c.course_id,
+    deletedAt: null,
+  }));
+  return [...projectLinks, ...courseLinks];
 }
 
 export async function setResourceWorkspaces(resourceType, resourceId, workspaceIds) {
-  if (resourceType !== 'project') {
-    console.warn(`setResourceWorkspaces: resourceType "${resourceType}" não é suportado nesta fase (só "project").`);
+  const supabase = createSupabaseBrowserClient();
+  const workspaceId = workspaceIds.filter((w) => w !== BASE_WORKSPACE_ID)[0] ?? null;
+
+  if (resourceType === 'project') {
+    const { error } = await supabase.from('projects').update({ workspace_id: workspaceId }).eq('id', resourceId);
+    if (error) throw error;
+    return workspaceId ? 1 : 0;
+  }
+
+  if (resourceType === 'course') {
+    const courseId = String(resourceId);
+    if (workspaceId) {
+      const { error } = await supabase
+        .from('course_workspace_links')
+        .upsert({ course_id: courseId, workspace_id: workspaceId }, { onConflict: 'user_id,course_id' });
+      if (error) throw error;
+      return 1;
+    }
+    const { error } = await supabase.from('course_workspace_links').delete().eq('course_id', courseId);
+    if (error) throw error;
     return 0;
   }
-  const workspaceId = workspaceIds.filter((w) => w !== BASE_WORKSPACE_ID)[0] ?? null;
-  const supabase = createSupabaseBrowserClient();
-  const { error } = await supabase.from('projects').update({ workspace_id: workspaceId }).eq('id', resourceId);
-  if (error) throw error;
-  return workspaceId ? 1 : 0;
+
+  console.warn(`setResourceWorkspaces: resourceType "${resourceType}" não é suportado.`);
+  return 0;
 }
 
-// O espelho de setResourceWorkspaces acima — resolve o conjunto de projetos
-// de um workspace de uma vez (backend de WorkspaceResourcesModal.jsx, que
-// gerencia a associação pelo lado do workspace). Só resourceType 'project'
-// é suportado, pelo mesmo motivo.
+// O espelho de setResourceWorkspaces acima — resolve o conjunto de
+// projetos/cursos de um workspace de uma vez (backend de
+// WorkspaceEditModal.jsx, que gerencia a associação pelo lado do
+// workspace).
 export async function setWorkspaceResources(workspaceId, resourceType, resourceIds) {
   assertNotBase(workspaceId);
-  if (resourceType !== 'project') {
-    console.warn(`setWorkspaceResources: resourceType "${resourceType}" não é suportado nesta fase (só "project").`);
-    return 0;
-  }
   const supabase = createSupabaseBrowserClient();
   const target = new Set(resourceIds.map(String));
 
-  const { data: current, error: readError } = await supabase
-    .from('projects')
-    .select('id')
-    .eq('workspace_id', workspaceId)
-    .is('deleted_at', null);
-  if (readError) throw readError;
+  if (resourceType === 'project') {
+    const { data: current, error: readError } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('workspace_id', workspaceId)
+      .is('deleted_at', null);
+    if (readError) throw readError;
 
-  const currentIds = new Set(current.map((p) => p.id));
-  const toDetach = [...currentIds].filter((id) => !target.has(id));
-  const toAttach = [...target].filter((id) => !currentIds.has(id));
+    const currentIds = new Set(current.map((p) => p.id));
+    const toDetach = [...currentIds].filter((id) => !target.has(id));
+    const toAttach = [...target].filter((id) => !currentIds.has(id));
 
-  if (toDetach.length > 0) {
-    const { error } = await supabase.from('projects').update({ workspace_id: null }).in('id', toDetach);
-    if (error) throw error;
+    if (toDetach.length > 0) {
+      const { error } = await supabase.from('projects').update({ workspace_id: null }).in('id', toDetach);
+      if (error) throw error;
+    }
+    if (toAttach.length > 0) {
+      const { error } = await supabase.from('projects').update({ workspace_id: workspaceId }).in('id', toAttach);
+      if (error) throw error;
+    }
+    return target.size;
   }
-  if (toAttach.length > 0) {
-    const { error } = await supabase.from('projects').update({ workspace_id: workspaceId }).in('id', toAttach);
-    if (error) throw error;
+
+  if (resourceType === 'course') {
+    const { data: current, error: readError } = await supabase
+      .from('course_workspace_links')
+      .select('course_id')
+      .eq('workspace_id', workspaceId);
+    if (readError) throw readError;
+
+    const currentIds = new Set(current.map((c) => c.course_id));
+    const toDetach = [...currentIds].filter((id) => !target.has(id));
+    const toAttach = [...target].filter((id) => !currentIds.has(id));
+
+    if (toDetach.length > 0) {
+      const { error } = await supabase.from('course_workspace_links').delete().eq('workspace_id', workspaceId).in('course_id', toDetach);
+      if (error) throw error;
+    }
+    if (toAttach.length > 0) {
+      const { error } = await supabase
+        .from('course_workspace_links')
+        .upsert(
+          toAttach.map((courseId) => ({ course_id: courseId, workspace_id: workspaceId })),
+          { onConflict: 'user_id,course_id' },
+        );
+      if (error) throw error;
+    }
+    return target.size;
   }
-  return target.size;
+
+  console.warn(`setWorkspaceResources: resourceType "${resourceType}" não é suportado.`);
+  return 0;
 }

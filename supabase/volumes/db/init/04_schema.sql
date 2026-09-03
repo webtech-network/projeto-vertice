@@ -254,6 +254,65 @@ grant execute on function public.upsert_integration_tokens to service_role;
 grant execute on function public.get_integration_tokens to service_role;
 grant execute on function public.delete_integration_tokens to service_role;
 
+-- =====================================================================
+-- shortcuts / custom_prompts / course_notes — antes só existiam no
+-- IndexedDB do navegador, sincronizados via Google Drive (agora removido
+-- por completo, ver plano). Sem soft-delete: nenhum dos três tinha conceito
+-- de tombstone/merge multi-dispositivo mesmo no modelo antigo (delete
+-- físico de verdade em shortcuts; prompts/notas só se sobrescrevem, nunca
+-- são removidos).
+-- =====================================================================
+create table public.shortcuts (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  label text not null,
+  url text not null,
+  icon text not null default 'link',
+  sort_order smallint not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index shortcuts_user_id_idx on public.shortcuts (user_id);
+
+-- Um prompt customizado por capability de IA por usuário — mesmas 3
+-- capabilities de src/lib/customPrompts.js's CAPABILITIES.
+create table public.custom_prompts (
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  capability text not null check (capability in ('generateQuestions', 'suggestReply', 'improveMessage')),
+  text text not null,
+  mode text not null default 'append' check (mode in ('append', 'replace')),
+  updated_at timestamptz not null default now(),
+  primary key (user_id, capability)
+);
+
+-- Uma anotação por curso por usuário — course_code é o código legível do
+-- Canvas (não o id numérico), mesma convenção do modelo antigo.
+create table public.course_notes (
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  course_code text not null,
+  course_id text,
+  text text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (user_id, course_code)
+);
+
+-- Vínculo curso-do-Canvas <-> workspace — cursos não são uma linha em
+-- `projects`, então não têm onde guardar um workspace_id como projeto tem;
+-- esta é a versão mínima do que seria `external_references` (Fase 2) só
+-- pra isto. No máximo um workspace por curso por usuário, mesma regra "1:N
+-- direto" de projects.workspace_id (não N:N solto).
+create table public.course_workspace_links (
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  course_id text not null,
+  workspace_id uuid not null references public.workspaces(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (user_id, course_id)
+);
+
+create index course_workspace_links_workspace_id_idx on public.course_workspace_links (workspace_id);
+
 -- ---------------------------------------------------------------------
 -- updated_at automático — sem isto, a coluna fica congelada no valor do
 -- INSERT pra sempre (o default só se aplica na criação), quebrando a lógica
@@ -277,4 +336,10 @@ create trigger set_updated_at before update on public.workspaces
 create trigger set_updated_at before update on public.projects
   for each row execute function public.set_updated_at();
 create trigger set_updated_at before update on public.tasks
+  for each row execute function public.set_updated_at();
+create trigger set_updated_at before update on public.shortcuts
+  for each row execute function public.set_updated_at();
+create trigger set_updated_at before update on public.custom_prompts
+  for each row execute function public.set_updated_at();
+create trigger set_updated_at before update on public.course_notes
   for each row execute function public.set_updated_at();

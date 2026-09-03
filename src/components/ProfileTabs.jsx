@@ -9,7 +9,6 @@ import PromptCustomizer from './PromptCustomizer';
 import CanvasConnection from './CanvasConnection';
 import GithubConnection from './GithubConnection';
 import GoogleConnection from './GoogleConnection';
-import SettingsSaveLoad from './SettingsSaveLoad';
 import ThemeToggle from './ThemeToggle';
 import TarefasPreferences from './TarefasPreferences';
 import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard';
@@ -42,12 +41,6 @@ const TAB_KEYS = TABS.map((t) => t.key);
 // `hasApiKey` boolean per entry (computed server-side in perfil/page.jsx
 // from the session, never the key itself).
 //
-// SettingsSaveLoad (the "Salvar/Carregar Configurações do CanvasTools"
-// block) renders above the tab nav, not inside any single tab panel, since
-// it spans several domains (shortcuts, prompts, AI keys/models, GitHub) —
-// same reasoning the old page-header SettingsExportImport had, just moved
-// down here so it can call setTab('plataformas') when the professor picks
-// Google Drive without having connected it yet.
 export default function ProfileTabs({ userName, baseUrl, providers }) {
   const searchParams = useSearchParams();
   const initialTab = TAB_KEYS.includes(searchParams.get('tab')) ? searchParams.get('tab') : 'geral';
@@ -68,7 +61,6 @@ export default function ProfileTabs({ userName, baseUrl, providers }) {
     <div className="profile-tabs">
       <div className="page-header-row">
         <h1>Configurações</h1>
-        <SettingsSaveLoad onNavigateToPlatforms={() => setTab('plataformas')} />
       </div>
 
       <div className="profile-layout">

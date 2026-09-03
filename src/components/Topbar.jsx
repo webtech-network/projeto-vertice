@@ -5,7 +5,6 @@ import { getDisplayName, getAvatarUrl } from '@/lib/supabaseUserDisplay';
 import UserMenu from './UserMenu';
 import MobileNavToggle from './MobileNavToggle';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
-import SyncStatusIndicator from './SyncStatusIndicator';
 import logoFull from '@/assets/images/logo-full.png';
 import logoFullDark from '@/assets/images/logo-full-dark.png';
 
@@ -36,7 +35,6 @@ export default async function Topbar() {
       {loggedIn && (
         <div className="topbar-user">
           <WorkspaceSwitcher />
-          <SyncStatusIndicator />
           <UserMenu userName={getDisplayName(user)} avatarUrl={getAvatarUrl(user)} />
         </div>
       )}

@@ -1,13 +1,10 @@
 'use client';
 
 import { useEffect } from 'react';
-import { scheduleTasksSync } from '@/lib/sync/tasksSyncScheduler';
 import { claimStashedPrompt, markInstalled, INSTALL_PROMPT_READY_EVENT } from '@/lib/pwaInstall';
 
-// No visible UI — registers public/sw.js (offline shell cache, see that
-// file's own comment for why it never does the actual Drive sync itself)
-// and wires its best-effort retry message back into the real sync engine.
-// Also the app's one place listening for the PWA install lifecycle
+// No visible UI — registers public/sw.js (offline shell cache). Also the
+// app's one place listening for the PWA install lifecycle
 // (beforeinstallprompt/appinstalled), feeding pwaInstall.js's store that
 // UserMenu.jsx's "Instalar app" item reads from.
 export default function ServiceWorkerRegistration() {
@@ -17,12 +14,6 @@ export default function ServiceWorkerRegistration() {
     navigator.serviceWorker.register('/sw.js').catch(() => {
       // best-effort — offline resilience is a nicety, not a dependency
     });
-
-    function onMessage(event) {
-      if (event.data === 'retry-tasks-sync') scheduleTasksSync();
-    }
-    navigator.serviceWorker.addEventListener('message', onMessage);
-    return () => navigator.serviceWorker.removeEventListener('message', onMessage);
   }, []);
 
   useEffect(() => {

@@ -97,7 +97,7 @@ export function WorkspaceScopeProvider({ children }) {
   }, []);
 
   // The mirror image of getWorkspaceIdsForResource/setResourceWorkspaces
-  // above — backs WorkspaceResourcesModal.jsx's tabbed picker, which manages
+  // above — backs WorkspaceEditModal.jsx's tabbed picker, which manages
   // membership from a single workspace's side (all its projects, all its
   // courses) rather than one resource at a time.
   const getResourceIdsForWorkspace = useCallback(

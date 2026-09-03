@@ -1,9 +1,6 @@
-// Resilience/offline-shell layer only — never the primary sync mechanism.
-// The real Google Drive sync (OAuth token refresh, the actual push/pull)
-// only ever runs on an open page via tasksSyncScheduler.js; this worker
-// has no clean way to do that OAuth dance itself, so it doesn't try. Its
-// job is (1) let the app shell load when offline, and (2) best-effort
-// notify open tabs to retry a pending sync — nothing more.
+// Offline app-shell cache only — tasks/projects/workspaces live in Postgres
+// now (not IndexedDB+Drive), so there's no client-side sync to nudge on
+// reconnect anymore. Lets cached pages keep working when offline.
 
 const SHELL_CACHE = 'canvastools-shell-v1';
 
@@ -69,22 +66,4 @@ self.addEventListener('fetch', (event) => {
       })
       .catch(() => caches.match(request).then((cached) => cached || caches.match('/'))),
   );
-});
-
-// Best-effort only — Background Sync support and reliability vary across
-// browsers, and there's no OAuth-token access in here to actually push. All
-// this does is nudge any open tab to retry via its own already-authenticated
-// tasksSyncScheduler.js.
-self.addEventListener('message', (event) => {
-  if (event.data === 'retry-sync') {
-    self.clients.matchAll().then((clients) => clients.forEach((client) => client.postMessage('retry-tasks-sync')));
-  }
-});
-
-self.addEventListener('sync', (event) => {
-  if (event.tag === 'tasks-sync-retry') {
-    event.waitUntil(
-      self.clients.matchAll().then((clients) => clients.forEach((client) => client.postMessage('retry-tasks-sync'))),
-    );
-  }
 });

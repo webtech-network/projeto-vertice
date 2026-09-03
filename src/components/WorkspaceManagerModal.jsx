@@ -1,21 +1,22 @@
 'use client';
 
 import { useState } from 'react';
-import { Pencil, Trash2, Plus, Link2 } from 'lucide-react';
+import { Pencil, Trash2, Plus } from 'lucide-react';
 import Modal from './Modal';
 import WorkspaceFormModal from './WorkspaceFormModal';
-import WorkspaceResourcesModal from './WorkspaceResourcesModal';
+import WorkspaceEditModal from './WorkspaceEditModal';
 import { useWorkspaceScope } from './WorkspaceScopeProvider';
 
 // Mirrors ProjectsManagerModal.jsx's shape: view + maintain every registered
-// workspace, edit/delete per row, creation reuses the same
-// WorkspaceFormModal.jsx the switcher's own "+ Novo workspace" opens. The
-// Base workspace (always first in `workspaces`, see WorkspaceScopeProvider)
-// gets no row here — it isn't a real record and can't be edited or deleted.
+// workspace, edit/delete per row. Criação usa WorkspaceFormModal.jsx (só
+// nome/cor, sem associações — ainda não há um id pra associar nada); editar
+// abre WorkspaceEditModal.jsx (nome/cor/associações numa tela só, um único
+// "Salvar"). The Base workspace (always first in `workspaces`, see
+// WorkspaceScopeProvider) gets no row here — it isn't a real record and
+// can't be edited or deleted.
 export default function WorkspaceManagerModal({ onClose }) {
   const { workspaces, links, removeWorkspace } = useWorkspaceScope();
   const [editingWorkspace, setEditingWorkspace] = useState(null);
-  const [managingResourcesFor, setManagingResourcesFor] = useState(null);
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
 
@@ -61,17 +62,8 @@ export default function WorkspaceManagerModal({ onClose }) {
                     <button
                       type="button"
                       className="btn btn-secondary btn-icon btn-sm"
-                      title="Associar projetos e cursos"
-                      aria-label={`Associar projetos e cursos ao workspace ${workspace.name}`}
-                      onClick={() => setManagingResourcesFor(workspace)}
-                    >
-                      <Link2 size={14} strokeWidth={1.8} />
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-secondary btn-icon btn-sm"
-                      title="Editar workspace"
-                      aria-label={`Editar workspace ${workspace.name}`}
+                      title="Editar ambiente"
+                      aria-label={`Editar ambiente ${workspace.name}`}
                       onClick={() => setEditingWorkspace(workspace)}
                     >
                       <Pencil size={14} strokeWidth={1.8} />
@@ -102,10 +94,7 @@ export default function WorkspaceManagerModal({ onClose }) {
       </Modal>
 
       {creating && <WorkspaceFormModal onClose={() => setCreating(false)} />}
-      {editingWorkspace && <WorkspaceFormModal workspace={editingWorkspace} onClose={() => setEditingWorkspace(null)} />}
-      {managingResourcesFor && (
-        <WorkspaceResourcesModal workspace={managingResourcesFor} onClose={() => setManagingResourcesFor(null)} />
-      )}
+      {editingWorkspace && <WorkspaceEditModal workspace={editingWorkspace} onClose={() => setEditingWorkspace(null)} />}
     </>
   );
 }

@@ -1,4 +1,4 @@
-import { dbGet, dbGetAll, dbPut, dbDelete, STORE_PROMPTS } from './indexedDb';
+import { createSupabaseBrowserClient } from '@/lib/supabaseBrowserClient';
 import { SYSTEM_PROMPT } from './aiProviders/shared';
 import { REPLY_SYSTEM_PROMPT } from './aiProviders/replyPrompt';
 import { IMPROVE_SYSTEM_PROMPT } from './aiProviders/improvePrompt';
@@ -16,22 +16,44 @@ export const CAPABILITIES = [
   { key: 'improveMessage', label: 'Melhoria de mensagem', defaultPrompt: IMPROVE_SYSTEM_PROMPT },
 ];
 
+function toApp(row) {
+  if (!row) return null;
+  return { capability: row.capability, text: row.text, mode: row.mode, updatedAt: new Date(row.updated_at).getTime() };
+}
+
 export async function getCustomPrompt(capability) {
-  return (await dbGet(STORE_PROMPTS, capability)) || null;
+  const supabase = createSupabaseBrowserClient();
+  const { data, error } = await supabase
+    .from('custom_prompts')
+    .select('*')
+    .eq('capability', capability)
+    .maybeSingle();
+  if (error) throw error;
+  return toApp(data);
 }
 
 export async function getAllCustomPrompts() {
-  return dbGetAll(STORE_PROMPTS);
+  const supabase = createSupabaseBrowserClient();
+  const { data, error } = await supabase.from('custom_prompts').select('*');
+  if (error) throw error;
+  return data.map(toApp);
 }
 
 // mode: 'append' (default — text is appended to the default prompt) or
 // 'replace' (text replaces the default prompt entirely).
 export async function saveCustomPrompt(capability, { text, mode }) {
-  const record = { capability, text, mode: mode === 'replace' ? 'replace' : 'append', updatedAt: Date.now() };
-  await dbPut(STORE_PROMPTS, record);
-  return record;
+  const supabase = createSupabaseBrowserClient();
+  const { data, error } = await supabase
+    .from('custom_prompts')
+    .upsert({ capability, text, mode: mode === 'replace' ? 'replace' : 'append' }, { onConflict: 'user_id,capability' })
+    .select()
+    .single();
+  if (error) throw error;
+  return toApp(data);
 }
 
 export async function clearCustomPrompt(capability) {
-  await dbDelete(STORE_PROMPTS, capability);
+  const supabase = createSupabaseBrowserClient();
+  const { error } = await supabase.from('custom_prompts').delete().eq('capability', capability);
+  if (error) throw error;
 }

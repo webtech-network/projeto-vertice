@@ -1,107 +1,67 @@
 import { useCallback, useEffect, useState } from 'react';
-import { dbGetAll, dbPut, dbDelete, STORE_SHORTCUTS } from './indexedDb';
+import { createSupabaseBrowserClient } from '@/lib/supabaseBrowserClient';
 import { DEFAULT_SHORTCUT_ICON_ID } from './shortcutIcons';
 
-const EXPORT_KIND = 'shortcuts-export';
-const EXPORT_VERSION = 1;
+function toApp(row) {
+  return {
+    id: row.id,
+    label: row.label,
+    url: row.url,
+    icon: row.icon,
+    order: row.sort_order,
+    createdAt: new Date(row.created_at).getTime(),
+  };
+}
 
 export async function listShortcuts() {
-  const rows = await dbGetAll(STORE_SHORTCUTS);
-  return rows.sort((a, b) => a.order - b.order);
+  const supabase = createSupabaseBrowserClient();
+  const { data, error } = await supabase.from('shortcuts').select('*').order('sort_order', { ascending: true });
+  if (error) throw error;
+  return data.map(toApp);
 }
 
 export async function saveShortcut({ id, label, url, icon }) {
+  const supabase = createSupabaseBrowserClient();
+
+  if (id) {
+    const { data, error } = await supabase
+      .from('shortcuts')
+      .update({ label, url, ...(icon ? { icon } : {}) })
+      .eq('id', id)
+      .select()
+      .maybeSingle();
+    if (error) throw error;
+    return toApp(data);
+  }
+
   const shortcuts = await listShortcuts();
-  const existing = id ? shortcuts.find((s) => s.id === id) : null;
-  const record = {
-    id: id || crypto.randomUUID(),
-    label,
-    url,
-    icon: icon || existing?.icon || DEFAULT_SHORTCUT_ICON_ID,
-    order: existing?.order ?? shortcuts.length,
-    createdAt: existing?.createdAt ?? Date.now(),
-  };
-  await dbPut(STORE_SHORTCUTS, record);
-  return record;
+  const { data, error } = await supabase
+    .from('shortcuts')
+    .insert({ label, url, icon: icon || DEFAULT_SHORTCUT_ICON_ID, sort_order: shortcuts.length })
+    .select()
+    .single();
+  if (error) throw error;
+  return toApp(data);
 }
 
 export async function deleteShortcut(id) {
-  await dbDelete(STORE_SHORTCUTS, id);
+  const supabase = createSupabaseBrowserClient();
+  const { error } = await supabase.from('shortcuts').delete().eq('id', id);
+  if (error) throw error;
 }
 
-// Rewrites the `order` field for every shortcut to match `orderedIds`' index
-// — no drag library, just up/down buttons in ShortcutsManager reordering an
-// array and calling this.
+// Rewrites the `sort_order` field for every shortcut to match `orderedIds`'
+// index — no drag library, just up/down buttons in ShortcutsManager
+// reordering an array and calling this.
 export async function reorderShortcuts(orderedIds) {
-  const shortcuts = await listShortcuts();
-  const byId = new Map(shortcuts.map((s) => [s.id, s]));
+  const supabase = createSupabaseBrowserClient();
   await Promise.all(
-    orderedIds.map((id, index) => {
-      const shortcut = byId.get(id);
-      return shortcut ? dbPut(STORE_SHORTCUTS, { ...shortcut, order: index }) : null;
-    }),
+    orderedIds.map((id, index) => supabase.from('shortcuts').update({ sort_order: index }).eq('id', id)),
   );
 }
 
-// Same Blob + object-URL + programmatic <a download> pattern as
-// QuestionGenerator.jsx's handleSaveFile.
-export async function exportShortcutsFile() {
-  const shortcuts = await listShortcuts();
-  const payload = {
-    app: 'canvastools',
-    kind: EXPORT_KIND,
-    version: EXPORT_VERSION,
-    exportedAt: new Date().toISOString(),
-    shortcuts: shortcuts.map(({ id, label, url, icon, order }) => ({ id, label, url, icon, order })),
-  };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `canvastools-atalhos-${Date.now()}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-// Replace, not merge — imported ids come from a different browser's
-// crypto.randomUUID() sequence, so merging risks silent id collisions.
-// Callers (importShortcutsFromFile below, and settingsExport.js's combined
-// import) are expected to confirm with the user before calling this, since
-// it destroys the current shortcut list.
-export async function replaceAllShortcuts(shortcutsArray) {
-  const existing = await listShortcuts();
-  await Promise.all(existing.map((s) => dbDelete(STORE_SHORTCUTS, s.id)));
-  await Promise.all(
-    shortcutsArray.map((s, index) =>
-      dbPut(STORE_SHORTCUTS, {
-        id: typeof s.id === 'string' && s.id ? s.id : crypto.randomUUID(),
-        label: s.label || '',
-        url: s.url || '',
-        icon: s.icon || DEFAULT_SHORTCUT_ICON_ID,
-        order: Number.isInteger(s.order) ? s.order : index,
-        createdAt: Date.now(),
-      }),
-    ),
-  );
-  return shortcutsArray.length;
-}
-
-export async function importShortcutsFromFile(file) {
-  const text = await file.text();
-  let payload;
-  try {
-    payload = JSON.parse(text);
-  } catch {
-    throw new Error('Arquivo inválido: não é um JSON válido.');
-  }
-  if (payload?.kind !== EXPORT_KIND || !Array.isArray(payload.shortcuts)) {
-    throw new Error('Arquivo inválido: não é um export de atalhos do CanvasTools.');
-  }
-  return replaceAllShortcuts(payload.shortcuts);
-}
-
-// Client-component hook: local state mirroring the IndexedDB store, with a
-// refresh() callers invoke after any mutation (save/delete/reorder/import).
+// Client-component hook: local state mirroring the shortcuts table, with a
+// refresh() callers invoke after any mutation (save/delete/reorder).
 export function useShortcuts() {
   const [shortcuts, setShortcuts] = useState([]);
   const [loading, setLoading] = useState(true);

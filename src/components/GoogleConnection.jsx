@@ -3,20 +3,13 @@
 import { useEffect, useState } from 'react';
 import { CircleCheck } from 'lucide-react';
 import { getGoogleConnection, saveGoogleConnection, clearGoogleConnection } from '@/lib/googleConnection';
-import { resetSyncStatus } from '@/lib/sync/syncStatusStore';
-
-function formatDateTime(iso) {
-  if (!iso) return null;
-  return new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
-}
 
 // Mirrors GithubConnection.jsx's connect/disconnect handoff exactly (see
 // that file's own comment) — the durable record lives in IndexedDB, not the
 // server session; this only redeems the one-time ?google=connected handoff.
-// The push/pull sync actions that used to live here moved to the unified
-// "Salvar/Carregar Configurações do CanvasTools" section at the top of
-// /perfil (SettingsSaveLoad.jsx) — this component is connection-management
-// only now, same scope as GithubConnection.jsx.
+// Connection-only, sem nenhuma sincronização hoje — o antigo push/pull de
+// preferências pro Drive foi removido (tudo migrou pro Postgres); fica como
+// base pra futuras integrações (Drive, Calendar etc.).
 export default function GoogleConnection() {
   const [connection, setConnection] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -72,7 +65,6 @@ export default function GoogleConnection() {
       // best-effort revocation — local disconnect proceeds regardless
     } finally {
       await clearGoogleConnection();
-      resetSyncStatus();
       setConnection(null);
       setDisconnecting(false);
     }
@@ -98,8 +90,6 @@ export default function GoogleConnection() {
             <span className="card-title">{connection.name || connection.email}</span>
             <span className="card-meta">
               {connection.email} — <CircleCheck size={14} strokeWidth={2} className="inline-icon" /> Conectado
-              {connection.lastSuccessfulSyncAt &&
-                ` — última sincronização: ${formatDateTime(connection.lastSuccessfulSyncAt)}`}
             </span>
           </div>
           <button type="button" className="btn btn-ghost btn-sm" disabled={disconnecting} onClick={handleDisconnect}>
@@ -109,8 +99,7 @@ export default function GoogleConnection() {
       ) : (
         <>
           <p className="lede">
-            Conecte sua conta do Google para guardar uma cópia das suas preferências (atalhos, prompts e modelos de
-            IA) em uma área privada do seu Google Drive e recuperá-las em outro computador.
+            Conecte sua conta do Google — base para futuras integrações (Drive, Calendar e outras ferramentas).
           </p>
           <a href="/api/google/auth/login" className="btn btn-primary">
             Conectar com Google
