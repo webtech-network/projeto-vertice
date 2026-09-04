@@ -5,7 +5,9 @@ import { listTasks, updateTask } from './tasksRepo';
 // Postgres (canvas_course_id, ver plano — stopgap até external_references
 // existir na Fase 2) só guarda o id em si. workspaceId é campo novo, sem
 // equivalente no modelo antigo (a associação vivia numa link table à parte).
-function toApp(row) {
+// Exportado — reaproveitado por TasksProvider.jsx pra mapear linhas cruas
+// que chegam via Realtime (useRealtimeTable), sem duplicar este mapeamento.
+export function toApp(row) {
   if (!row) return null;
   return {
     id: row.id,

@@ -4,7 +4,7 @@ import * as claude from './claude';
 
 /**
  * Adapter contract every provider module implements:
- *   id: string                 — stable key, used in session.aiApiKeys and route URLs
+ *   id: string                 — stable key, used in public.ai_provider_keys.provider and route URLs
  *   label: string              — display name
  *   defaultModel: string       — used when no model override is supplied
  *   validateApiKey(apiKey): Promise<{ valid: boolean, error?: string }>

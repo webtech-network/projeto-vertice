@@ -1,7 +1,6 @@
-import { getSession } from '@/lib/session';
 import { requireCanvasIntegration } from '@/lib/canvasIntegration';
 import { getCourse, getQuiz } from '@/lib/canvasClient';
-import { listProviders } from '@/lib/aiProviders';
+import { getConfiguredProviders } from '@/lib/aiProviderKeys';
 import CanvasNotConnected from '@/components/CanvasNotConnected';
 import QuizImportPanel from '@/components/QuizImportPanel';
 import ContextBanner from '@/components/ContextBanner';
@@ -20,9 +19,7 @@ export default async function ImportPage({ params }) {
   // against Canvas, which isn't safe (observed causing a hard failure here).
   const course = await getCourse(client, courseId);
   const quiz = await getQuiz(client, courseId, quizId);
-  // aiApiKeys ainda vive no iron-session (migração pra Postgres é Fase 2).
-  const session = await getSession();
-  const configuredProviders = listProviders().filter((provider) => Boolean(session.aiApiKeys?.[provider.id]));
+  const configuredProviders = await getConfiguredProviders(user.id);
 
   return (
     <main className="page">

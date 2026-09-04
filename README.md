@@ -52,6 +52,34 @@ Uma mesma Developer Key pode ter várias Redirect URIs cadastradas (uma para dev
 - `.env` — valores padrão/locais (já ignorado pelo git).
 - `.env.production.local` — segredos de produção, definidos no host de deploy (também ignorado pelo git).
 
+## Rodando com Docker
+
+Sobe a stack inteira — app Next.js **e** a infra Supabase self-hosted (Postgres/Auth/PostgREST/
+Realtime/Kong) — com um único comando.
+
+**Pré-requisito**: Docker Compose ≥ 2.20.3 (o recurso `include:` usado em `docker-compose.yml` não
+existe em versões mais antigas). Confira com `docker compose version`; se estiver desatualizado,
+atualize o Docker Desktop (ou o plugin `docker-compose-plugin`, em Linux) antes de continuar.
+
+```bash
+cp .env.example .env                      # se ainda não tiver
+cp supabase/.env.example supabase/.env    # se ainda não tiver
+# preencha os dois .env — ver "Configuração" acima e supabase/README.md
+
+docker compose up -d --build
+docker compose ps      # confirma db/auth/rest/realtime/kong/app saudáveis
+```
+
+O app fica acessível em `http://localhost:${APP_PORT:-3000}` (ou a porta que você definir em
+`APP_PORT` no `.env` da raiz — ajuste `APP_URL`/`CANVAS_OAUTH_REDIRECT_URI` no mesmo arquivo para
+casar com ela, mesma lógica da seção "Ambientes de teste vs. produção" acima). `NEXT_PUBLIC_SUPABASE_URL`
+continua sendo a URL pública do Kong (a que o navegador acessa); as chamadas que o próprio processo
+Next.js faz ao Supabase usam a rede interna do Compose via `SUPABASE_INTERNAL_URL` — não precisa
+mexer nisso, já vem configurado no `docker-compose.yml`.
+
+Quer só a infra Supabase, sem o app (ex.: pra rodar o app fora do Docker com `npm run dev`)? Use
+`supabase/docker-compose.yml` sozinho — ver `supabase/README.md`.
+
 ## Uso do app web
 
 ```bash

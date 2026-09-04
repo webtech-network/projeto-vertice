@@ -1,8 +1,7 @@
-import { getSession } from '@/lib/session';
 import { requireCanvasIntegration } from '@/lib/canvasIntegration';
 import { getCourse, listCourseStudents } from '@/lib/canvasClient';
 import { buildStudentRows } from '@/lib/studentReport';
-import { listProviders } from '@/lib/aiProviders';
+import { getConfiguredProviders } from '@/lib/aiProviderKeys';
 import { coursePeopleUrl } from '@/lib/canvasLinks';
 import CanvasNotConnected from '@/components/CanvasNotConnected';
 import StudentReport from '@/components/StudentReport';
@@ -24,9 +23,7 @@ export default async function AlunosPage({ params }) {
   const students = await listCourseStudents(client, courseId, { include: ['enrollments', 'email'] });
 
   const rows = buildStudentRows(students);
-  // aiApiKeys ainda vive no iron-session (migração pra Postgres é Fase 2).
-  const session = await getSession();
-  const configuredProviders = listProviders().filter((provider) => Boolean(session.aiApiKeys?.[provider.id]));
+  const configuredProviders = await getConfiguredProviders(user.id);
 
   return (
     <main className="page">

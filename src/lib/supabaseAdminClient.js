@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { getSupabaseServerUrl } from '@/lib/supabaseUrl';
 
 /**
  * Client Supabase com a SERVICE_ROLE_KEY — ignora RLS por definição.
@@ -17,7 +18,7 @@ import { createClient } from '@supabase/supabase-js';
  */
 export function createSupabaseAdminClient() {
   return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    getSupabaseServerUrl(),
     process.env.SUPABASE_SERVICE_ROLE_KEY,
     {
       auth: {

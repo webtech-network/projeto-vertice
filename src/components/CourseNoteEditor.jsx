@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Save, Pencil, X } from 'lucide-react';
 import MarkdownEditor from './MarkdownEditor';
 import { markdownToHtml } from '@/lib/markdown';
-import { getCourseNote, saveCourseNoteLocal } from '@/lib/courseNotes/courseNotesRepo';
+import { getCourseNote, saveCourseNoteLocal, toApp as noteToApp } from '@/lib/courseNotes/courseNotesRepo';
+import { useRealtimeTable } from '@/lib/realtime/useRealtimeTable';
 
 function formatDateTime(iso) {
   if (!iso) return null;
@@ -61,6 +62,30 @@ export default function CourseNoteEditor({ courseId, courseCode }) {
       cancelled = true;
     };
   }, [courseCode]);
+
+  // Realtime — sincronização multi-dispositivo ao vivo (Fase 2). Só aplica o
+  // evento remoto fora do modo "edit" (sempre o valor do render mais
+  // recente — useRealtimeTable resincroniza os handlers a cada render) —
+  // do contrário destruiria o rascunho que o usuário está digitando. Editar
+  // depois e salvar sobrescreve com o texto local (last-write-wins, mesma
+  // filosofia de tasksRepo.js/recordMerge.js — sem merge de conflito).
+  useRealtimeTable('course_notes', {
+    filter: `course_code=eq.${courseCode}`,
+    onInsert: (row) => {
+      if (mode === 'edit') return;
+      const note = noteToApp(row);
+      setText(note.text || '');
+      savedTextRef.current = note.text || '';
+      setLastSavedAt(note.updatedAt || null);
+    },
+    onUpdate: (row) => {
+      if (mode === 'edit') return;
+      const note = noteToApp(row);
+      setText(note.text || '');
+      savedTextRef.current = note.text || '';
+      setLastSavedAt(note.updatedAt || null);
+    },
+  });
 
   async function handleSave() {
     setSaving(true);

@@ -1,7 +1,6 @@
 import { ChevronsDown, ChevronsUp, RefreshCw, ExternalLink, Archive, Sparkles } from 'lucide-react';
-import { getSession } from '@/lib/session';
 import { requireCanvasIntegration } from '@/lib/canvasIntegration';
-import { listProviders } from '@/lib/aiProviders';
+import { getConfiguredProviders } from '@/lib/aiProviderKeys';
 import CanvasNotConnected from '@/components/CanvasNotConnected';
 import MessageBrowser from '@/components/MessageBrowser';
 import InfoHint from '@/components/InfoHint';
@@ -15,9 +14,7 @@ export default async function MensagensPage() {
   if (!user) return null;
   if (!canvas) return <CanvasNotConnected />;
 
-  // aiApiKeys ainda vive no iron-session (migração pra Postgres é Fase 2).
-  const session = await getSession();
-  const configuredProviders = listProviders().filter((provider) => Boolean(session.aiApiKeys?.[provider.id]));
+  const configuredProviders = await getConfiguredProviders(user.id);
 
   return (
     <main className="page">

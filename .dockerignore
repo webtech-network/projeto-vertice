@@ -1,0 +1,19 @@
+node_modules
+.next
+.git
+.vscode
+.DS_Store
+
+# Segredos — nunca entram no contexto de build; runtime lê via env_file no
+# docker-compose.yml, não via COPY.
+.env
+.env.*
+!.env.example
+
+# Dados/assets não usados pela imagem do app (ver Dockerfile/README). Nada de
+# *.md global aqui — skills/enade-it-questions/SKILL.md (e references/*.md)
+# são lidos em runtime por src/app/api/skills/enade-it-questions/route.js.
+Questoes
+docs
+supabase/volumes/db/data
+CLAUDE.md

@@ -3,7 +3,9 @@ import { createSupabaseBrowserClient } from '@/lib/supabaseBrowserClient';
 // One record per course, keyed by the course's `course_code` (not its
 // numeric Canvas id) — per product decision, so a note travels with the
 // human-readable code a professor recognizes rather than an opaque id.
-function toApp(row) {
+// Exportado — reaproveitado por CourseNoteEditor.jsx pra mapear linhas cruas
+// que chegam via Realtime (useRealtimeTable), sem duplicar este mapeamento.
+export function toApp(row) {
   if (!row) return null;
   return {
     courseCode: row.course_code,

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createSupabaseBrowserClient } from '@/lib/supabaseBrowserClient';
+import { useRealtimeTable } from '@/lib/realtime/useRealtimeTable';
 import { DEFAULT_SHORTCUT_ICON_ID } from './shortcutIcons';
 
 function toApp(row) {
@@ -75,6 +76,14 @@ export function useShortcuts() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // Realtime — sincronização multi-dispositivo ao vivo (Fase 2). Lista
+  // simples sem campo de texto livre em edição prolongada, então um evento
+  // remoto só dispara um refresh completo (sem risco de sobrescrever um
+  // rascunho, ao contrário de PromptCustomizer.jsx/CourseNoteEditor.jsx).
+  // DELETE físico existe aqui (deleteShortcut), ao contrário das tabelas com
+  // tombstone — por isso onDelete também refaz o refresh.
+  useRealtimeTable('shortcuts', { onInsert: refresh, onUpdate: refresh, onDelete: refresh });
 
   return { shortcuts, loading, refresh };
 }

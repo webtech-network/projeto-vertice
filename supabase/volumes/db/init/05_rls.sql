@@ -8,15 +8,19 @@ alter table public.shortcuts enable row level security;
 alter table public.custom_prompts enable row level security;
 alter table public.course_notes enable row level security;
 alter table public.course_workspace_links enable row level security;
+alter table public.ai_provider_keys enable row level security;
+alter table public.ui_preferences enable row level security;
 
 -- workspaces / projects / tasks: dono só enxerga e mexe no próprio dado.
 -- Sem policy de DELETE físico — soft delete via UPDATE (deleted_at) já cobre
--- a exclusão que a app usa; DELETE fica negado por padrão.
+-- a exclusão que a app usa; DELETE fica negado por padrão. ui_preferences
+-- entra no mesmo grupo por um motivo diferente: nunca faz sentido deletar,
+-- só atualizar (uma linha por usuário, pra sempre).
 do $$
 declare
   t text;
 begin
-  foreach t in array array['workspaces', 'projects', 'tasks'] loop
+  foreach t in array array['workspaces', 'projects', 'tasks', 'ui_preferences'] loop
     execute format('create policy "select own" on public.%I for select using (auth.uid() = user_id)', t);
     execute format('create policy "insert own" on public.%I for insert with check (auth.uid() = user_id)', t);
     execute format('create policy "update own" on public.%I for update using (auth.uid() = user_id) with check (auth.uid() = user_id)', t);
@@ -42,8 +46,9 @@ begin
   end loop;
 end $$;
 
--- integrations: RLS ativo, ZERO policies para anon/authenticated — de
--- propósito. Único acesso é via service_role (que ignora RLS por definição
--- no Postgres do Supabase), sempre a partir de rotas server-side do Next.js.
--- Isso é o que garante que os tokens não vazem nem por engano via REST/
--- Realtime, mesmo antes de considerar a cifra do Vault.
+-- integrations / ai_provider_keys: RLS ativo, ZERO policies para
+-- anon/authenticated — de propósito. Único acesso é via service_role (que
+-- ignora RLS por definição no Postgres do Supabase), sempre a partir de
+-- rotas server-side do Next.js. Isso é o que garante que os tokens/chaves
+-- não vazem nem por engano via REST/Realtime, mesmo antes de considerar a
+-- cifra do Vault.

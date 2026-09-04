@@ -1,6 +1,5 @@
-import { getSession } from '@/lib/session';
 import { createSupabaseServerClient } from '@/lib/supabaseServerClient';
-import { listProviders } from '@/lib/aiProviders';
+import { getConfiguredProviders } from '@/lib/aiProviderKeys';
 import QuestionGenerator from '@/components/QuestionGenerator';
 
 export default async function QuestoesPage() {
@@ -12,9 +11,7 @@ export default async function QuestoesPage() {
     return null; // proxy already redirects unauthenticated requests to /login
   }
 
-  // aiApiKeys ainda vive no iron-session (migração pra Postgres é Fase 2).
-  const session = await getSession();
-  const configuredProviders = listProviders().filter((provider) => Boolean(session.aiApiKeys?.[provider.id]));
+  const configuredProviders = await getConfiguredProviders(user.id);
 
   return (
     <main className="page">

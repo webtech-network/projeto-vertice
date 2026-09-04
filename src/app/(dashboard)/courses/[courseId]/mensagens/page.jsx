@@ -1,7 +1,6 @@
-import { getSession } from '@/lib/session';
 import { requireCanvasIntegration } from '@/lib/canvasIntegration';
 import { getCourse, listConversations } from '@/lib/canvasClient';
-import { listProviders } from '@/lib/aiProviders';
+import { getConfiguredProviders } from '@/lib/aiProviderKeys';
 import { courseMessagesUrl } from '@/lib/canvasLinks';
 import CanvasNotConnected from '@/components/CanvasNotConnected';
 import ComposeMessage from '@/components/ComposeMessage';
@@ -14,9 +13,7 @@ export default async function CourseMensagensPage({ params }) {
   if (!user) return null;
   if (!canvas) return <CanvasNotConnected />;
 
-  // aiApiKeys ainda vive no iron-session (migração pra Postgres é Fase 2).
-  const session = await getSession();
-  const configuredProviders = listProviders().filter((provider) => Boolean(session.aiApiKeys?.[provider.id]));
+  const configuredProviders = await getConfiguredProviders(user.id);
 
   const client = canvas.client;
 

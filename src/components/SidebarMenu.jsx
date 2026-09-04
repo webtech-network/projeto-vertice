@@ -46,7 +46,7 @@ export default function SidebarMenu() {
       {open && (
         <div className="sidebar-menu-popover" role="menu">
           <Link href="/sobre" className="sidebar-menu-item" role="menuitem" onClick={closeAll}>
-            Sobre o CanvasTools
+            Sobre o Vértice
           </Link>
 
           <div className="sidebar-menu-separator" role="separator" />

@@ -1,0 +1,77 @@
+# Stack completa do Vértice: app Next.js + infra Supabase self-hosted.
+#
+# supabase/docker-compose.yml continua 100% intocado e funcional sozinho
+# (cd supabase && docker compose up -d, ver supabase/README.md) para quem só
+# quer a infra. Este arquivo compõe os dois via `include:` em vez de
+# duplicar os 5 serviços de lá — evita duas fontes de verdade pra manter em
+# sincronia. Requer Docker Compose >= 2.20.3 (`include:` não existe em
+# versões mais antigas); rode `docker compose version` antes do primeiro
+# `up` se não tiver certeza.
+#
+# Uso (a partir desta pasta):
+#   cp .env.example .env                      # se ainda não tiver
+#   cp supabase/.env.example supabase/.env     # se ainda não tiver
+#   # preencha os dois .env (ver README.md e supabase/README.md)
+#   docker compose up -d --build
+#   docker compose ps      # confirma db/auth/rest/realtime/kong/app saudáveis
+#
+# ATENÇÃO — volumes nomeados (db-config) são namespaced pelo nome do projeto
+# Compose (o `name:` abaixo), não pelo container_name. Se você já rodou
+# `supabase/docker-compose.yml` sozinho antes (projeto `vertice-supabase`) e
+# agora passa a usar este arquivo (projeto `vertice`), o volume `db-config` —
+# que guarda a chave-raiz do pgsodium/Vault (criptografia dos tokens
+# Canvas/GitHub/Google e das chaves de IA) — vira um volume NOVO e VAZIO sob
+# o namespace `vertice`, diferente do `vertice-supabase_db-config` já
+# existente. O Postgres então gera uma chave-raiz nova (ver
+# volumes/api/../pgsodium_getkey.sh via supabase/docker-compose.yml), e todo
+# segredo já cifrado com a chave antiga vira ilegível ("pgsodium_crypto_
+# aead_det_decrypt_by_id: invalid ciphertext") — os dados do Postgres em si
+# (bind mount, não volume nomeado) continuam intactos, só a chave que abre
+# os segredos é que diverge. Bug real encontrado ao vivo nesta migração.
+# Fix, se acontecer de novo: copiar o pgsodium_root.key do volume antigo pro
+# novo (`docker run --rm -v <projeto-antigo>_db-config:/old -v
+# vertice_db-config:/new alpine cp /old/pgsodium_root.key
+# /new/pgsodium_root.key`) e reiniciar o serviço `db`. Não é um problema
+# daqui pra frente — o nome do projeto (`vertice`) é fixo neste arquivo.
+
+name: vertice
+
+include:
+  - path: ./supabase/docker-compose.yml
+    env_file: ./supabase/.env
+
+services:
+  app:
+    container_name: vertice-app
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # NEXT_PUBLIC_* precisam existir em build time (ver Dockerfile) — só
+        # interpoladas aqui a partir do .env desta pasta (raiz do projeto).
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        NEXT_PUBLIC_PASSKEYS_ENABLED: ${NEXT_PUBLIC_PASSKEYS_ENABLED:-false}
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      # Chamadas servidor->Supabase (proxy.js, supabaseServerClient.js,
+      # supabaseAdminClient.js) usam a rede interna do Compose em vez da URL
+      # pública do Kong — ver src/lib/supabaseUrl.js.
+      SUPABASE_INTERNAL_URL: http://kong:8000
+    depends_on:
+      kong:
+        condition: service_healthy
+    ports:
+      - ${APP_PORT:-3000}:3000
+    healthcheck:
+      # 127.0.0.1, não "localhost" — no Alpine, "localhost" resolve primeiro
+      # pra ::1 (IPv6), e o servidor Next só aceita em IPv4 mesmo com
+      # HOSTNAME=0.0.0.0 (0.0.0.0 é wildcard IPv4-only) — wget então recebia
+      # "connection refused" tentando ::1, apesar do app respondendo normal
+      # em IPv4 (confirmado com curl direto contra o mesmo endpoint).
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s

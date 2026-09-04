@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { getAppBaseUrl } from '@/lib/appUrl';
+import { getSupabaseServerUrl, getSupabaseStorageKey } from '@/lib/supabaseUrl';
 
 /**
  * Gate de rota da Fase 1 — sessão Supabase (login: Google/GitHub/Canvas),
@@ -20,9 +21,15 @@ export async function proxy(request) {
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    getSupabaseServerUrl(),
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
+      // Sem isso, o storageKey seria derivado de getSupabaseServerUrl() (que
+      // no Docker é a URL interna, hostname diferente do público) — o
+      // proxy nunca acharia o cookie de sessão que o navegador seta, e todo
+      // request autenticado cairia em "sem usuário" mesmo com sessão válida
+      // (bug real encontrado ao vivo). Ver getSupabaseStorageKey().
+      cookieOptions: { name: getSupabaseStorageKey() },
       cookies: {
         getAll() {
           return request.cookies.getAll();

@@ -1,3 +1,5 @@
+import { upsertUiPreferences } from '@/lib/uiPreferences';
+
 export const THEME_STORAGE_KEY = 'canvastools:theme';
 export const THEMES = ['light', 'dark', 'system'];
 
@@ -18,6 +20,7 @@ export function applyTheme(theme) {
     root.removeAttribute('data-theme');
   }
   window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+  upsertUiPreferences({ theme }).catch(() => {});
 }
 
 // Inlined verbatim into a beforeInteractive <Script> in layout.jsx (must be

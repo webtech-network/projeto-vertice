@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { getSession } from '@/lib/session';
 import { createSupabaseServerClient } from '@/lib/supabaseServerClient';
 import { getProvider } from '@/lib/aiProviders';
+import { setAiProviderModel } from '@/lib/aiProviderKeys';
 
 function resolveProvider(providerId) {
   try {
@@ -12,9 +12,9 @@ function resolveProvider(providerId) {
 }
 
 // Mirrors key/route.js's shape, but for the per-provider model *preference*
-// (session.aiModels), not the key itself — a separate session field so a
-// professor can pick a non-default model without that ever being confused
-// with credential storage.
+// (ai_provider_keys.model), not the key itself — a professor pode escolher
+// um modelo não-default sem isso nunca ser confundido com armazenamento de
+// credencial.
 export async function POST(request, { params }) {
   const supabase = await createSupabaseServerClient();
   const {
@@ -35,10 +35,10 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: 'Modelo é obrigatório.' }, { status: 400 });
   }
 
-  // aiModels ainda vive no iron-session (migração pra Postgres é Fase 2).
-  const session = await getSession();
-  session.aiModels = { ...session.aiModels, [providerId]: model };
-  await session.save();
+  const ok = await setAiProviderModel(user.id, providerId, model);
+  if (!ok) {
+    return NextResponse.json({ error: 'Configure uma chave de API antes de escolher um modelo.' }, { status: 409 });
+  }
 
   return NextResponse.json({ ok: true });
 }
@@ -58,12 +58,9 @@ export async function DELETE(request, { params }) {
     return NextResponse.json({ error: 'Provedor de IA desconhecido.' }, { status: 404 });
   }
 
-  const session = await getSession();
-  if (session.aiModels && providerId in session.aiModels) {
-    const { [providerId]: _removed, ...rest } = session.aiModels;
-    session.aiModels = rest;
-    await session.save();
-  }
+  // Sem chave configurada não há linha nenhuma pra limpar — não é erro,
+  // simplesmente não há nada a fazer (ok:true de qualquer forma).
+  await setAiProviderModel(user.id, providerId, null);
 
   return NextResponse.json({ ok: true });
 }

@@ -16,7 +16,9 @@ export const CAPABILITIES = [
   { key: 'improveMessage', label: 'Melhoria de mensagem', defaultPrompt: IMPROVE_SYSTEM_PROMPT },
 ];
 
-function toApp(row) {
+// Exportado — reaproveitado por PromptCustomizer.jsx pra mapear linhas cruas
+// que chegam via Realtime (useRealtimeTable), sem duplicar este mapeamento.
+export function toApp(row) {
   if (!row) return null;
   return { capability: row.capability, text: row.text, mode: row.mode, updatedAt: new Date(row.updated_at).getTime() };
 }

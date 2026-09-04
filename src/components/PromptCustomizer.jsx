@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { CAPABILITIES, getCustomPrompt, saveCustomPrompt, clearCustomPrompt } from '@/lib/customPrompts';
+import { CAPABILITIES, getCustomPrompt, saveCustomPrompt, clearCustomPrompt, toApp as promptToApp } from '@/lib/customPrompts';
 import { resolvePrompt } from '@/lib/promptResolution';
+import { useRealtimeTable } from '@/lib/realtime/useRealtimeTable';
 
 function CapabilityEditor({ capability, onDirtyChange }) {
   const { key, label, defaultPrompt } = capability;
@@ -48,6 +49,44 @@ function CapabilityEditor({ capability, onDirtyChange }) {
     onDirtyChange?.(isDirty);
     return () => onDirtyChange?.(false);
   }, [isDirty]);
+
+  // Realtime — sincronização multi-dispositivo ao vivo (Fase 2). Só aplica o
+  // evento remoto quando não há edição em andamento (`!isDirty`, sempre o
+  // valor do render mais recente — useRealtimeTable resincroniza os
+  // handlers a cada render) — do contrário destruiria o rascunho que o
+  // usuário está digitando. Se houver edição em andamento, ignora
+  // silenciosamente: salvar depois sobrescreve com o texto local
+  // (last-write-wins, mesma filosofia de tasksRepo.js/recordMerge.js — sem
+  // merge de conflito, que não existe em lugar nenhum do app).
+  useRealtimeTable('custom_prompts', {
+    filter: `capability=eq.${key}`,
+    onInsert: (row) => {
+      if (isDirty) return;
+      const custom = promptToApp(row);
+      setText(custom.text || '');
+      setMode(custom.mode || 'append');
+      setSavedText(custom.text || '');
+      setSavedMode(custom.mode || 'append');
+      setHasSaved(true);
+    },
+    onUpdate: (row) => {
+      if (isDirty) return;
+      const custom = promptToApp(row);
+      setText(custom.text || '');
+      setMode(custom.mode || 'append');
+      setSavedText(custom.text || '');
+      setSavedMode(custom.mode || 'append');
+      setHasSaved(true);
+    },
+    onDelete: () => {
+      if (isDirty) return;
+      setText('');
+      setMode('append');
+      setSavedText('');
+      setSavedMode('append');
+      setHasSaved(false);
+    },
+  });
 
   async function handleSave() {
     if (!text.trim()) return;

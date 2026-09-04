@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Sun, Moon, MonitorSmartphone } from 'lucide-react';
 import { applyTheme, getStoredTheme } from '@/lib/theme';
+import { ensureUiPreferencesSynced } from './UiPreferencesSync';
 
 const OPTIONS = [
   { value: 'light', label: 'Claro', Icon: Sun },
@@ -20,6 +21,18 @@ export default function ThemeToggle() {
 
   useEffect(() => {
     setTheme(getStoredTheme());
+  }, []);
+
+  // Fase 2 (sincronização entre dispositivos) — ver o mesmo padrão/racional
+  // em Sidebar.jsx.
+  useEffect(() => {
+    let cancelled = false;
+    ensureUiPreferencesSynced().then(() => {
+      if (!cancelled) setTheme(getStoredTheme());
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   function handleSelect(value) {

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { getSession } from '@/lib/session';
 import { createSupabaseServerClient } from '@/lib/supabaseServerClient';
 import { getProvider } from '@/lib/aiProviders';
+import { getAiProviderKey } from '@/lib/aiProviderKeys';
 
 // Lists the models available to the professor's own already-saved key —
 // deliberately requires the key to be configured first (see key/route.js)
@@ -25,15 +25,13 @@ export async function GET(request, { params }) {
     return NextResponse.json({ error: 'Provedor de IA desconhecido.' }, { status: 404 });
   }
 
-  // aiApiKeys ainda vive no iron-session (migração pra Postgres é Fase 2).
-  const session = await getSession();
-  const apiKey = session.aiApiKeys?.[providerId];
-  if (!apiKey) {
+  const config = await getAiProviderKey(user.id, providerId);
+  if (!config) {
     return NextResponse.json({ error: `Nenhuma chave de API configurada para ${provider.label}.` }, { status: 401 });
   }
 
   try {
-    const models = await provider.listModels(apiKey);
+    const models = await provider.listModels(config.apiKey);
     return NextResponse.json({ models });
   } catch (err) {
     const message = err.response?.data?.error?.message || err.message || 'Falha ao listar os modelos disponíveis.';

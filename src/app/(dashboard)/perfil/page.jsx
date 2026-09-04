@@ -1,8 +1,8 @@
 import { Suspense } from 'react';
-import { getSession } from '@/lib/session';
 import { createSupabaseServerClient } from '@/lib/supabaseServerClient';
 import { getDisplayName } from '@/lib/supabaseUserDisplay';
 import { listProviders } from '@/lib/aiProviders';
+import { listAiProviderKeys } from '@/lib/aiProviderKeys';
 import ProfileTabs from '@/components/ProfileTabs';
 
 export default async function PerfilPage() {
@@ -14,14 +14,12 @@ export default async function PerfilPage() {
     return null; // proxy already redirects unauthenticated requests to /login
   }
 
-  // aiApiKeys/aiModels ainda vivem no iron-session (migração pra Postgres é
-  // Fase 2) — só a checagem de login acima é que virou Supabase.
-  const session = await getSession();
+  const configuredKeys = await listAiProviderKeys(user.id);
 
   const providers = listProviders().map((provider) => ({
     ...provider,
-    hasApiKey: Boolean(session.aiApiKeys?.[provider.id]),
-    currentModel: session.aiModels?.[provider.id] || null,
+    hasApiKey: Boolean(configuredKeys[provider.id]),
+    currentModel: configuredKeys[provider.id]?.model || null,
   }));
 
   return (

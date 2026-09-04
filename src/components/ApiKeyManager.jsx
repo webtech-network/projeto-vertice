@@ -6,14 +6,13 @@ import { CircleCheck, ChevronDown, ChevronRight, Pencil, Trash2 } from 'lucide-r
 // Shared between the Profile page (where keys are managed, one instance per
 // registered provider — see src/lib/aiProviders) and QuestionGenerator
 // (which only reads which providers have a key configured) — both read/write
-// the same session.aiApiKeys[provider.id] via this same form, so there is a
-// single source of truth per provider. `onDirtyChange` (optional) reports
-// whether there's typed-but-unsaved key text, so a page embedding several of
-// these (ProfileTabs) can warn before the professor navigates away.
-// `currentModel` is the professor's saved model override for this provider
-// (session.aiModels[provider.id]), or null if none — read once server-side
-// (perfil/page.jsx), cheap since it's just a session field, not a network
-// call to the provider.
+// the same public.ai_provider_keys row (per user, per provider — see
+// src/lib/aiProviderKeys.js) via this same form, so there is a single
+// source of truth per provider. `onDirtyChange` (optional) reports whether
+// there's typed-but-unsaved key text, so a page embedding several of these
+// (ProfileTabs) can warn before the professor navigates away. `currentModel`
+// is the professor's saved model override for this provider, or null if
+// none — read once server-side (perfil/page.jsx) via listAiProviderKeys.
 export default function ApiKeyManager({ provider, hasApiKey, currentModel, onDirtyChange }) {
   const [keyConfigured, setKeyConfigured] = useState(hasApiKey);
   const [showKeyForm, setShowKeyForm] = useState(!hasApiKey);

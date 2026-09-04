@@ -108,7 +108,7 @@ body {
 h1,
 h2,
 h3 {
-  font-family: var(--font-display), Georgia, serif;
+  font-family: var(--font-display), 'Segoe UI', serif;
   font-weight: 600;
   letter-spacing: -0.01em;
   margin: 0 0 0.5em;
@@ -993,15 +993,20 @@ a {
   color: var(--err);
 }
 
-/* One continuous dark panel — banner, welcome copy, login button and the
-   WebTech footer all sit together on the same black background, rather than
-   a black hero band handing off to a separate light band underneath. */
+/* One continuous light panel — welcome copy, banner, login buttons and the
+   WebTech footer all sit together on the same soft, brand-tinted gradient.
+   Colors here are fixed (not the --paper/--ink theme tokens) so this
+   pre-auth screen always reads the same regardless of a stored dark-theme
+   preference — same reasoning the previous fixed-black version relied on,
+   just inverted to a light backdrop. The dark .webtech-footer card is
+   untouched (still --sidebar-bg etc.) — its light-stroke logo still needs a
+   dark backdrop, it just now floats on a light page instead of a black one. */
 .login-page {
   min-height: 100vh;
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  background: #000;
+  background: linear-gradient(160deg, #f4f8fc 0%, #e7eff8 45%, #d7e6f5 100%);
   text-align: center;
 }
 /* Fills the space above the footer and centers its children inside it —
@@ -1024,25 +1029,75 @@ a {
   height: auto;
   border-radius: var(--radius);
   display: block;
-  margin-bottom: 0.4rem;
+  margin-top: 0.4rem;
+  box-shadow: var(--shadow);
 }
 .login-page h1 {
-  color: #fff;
+  color: #173a60;
   font-size: clamp(1.4rem, 1rem + 1.5vw, 1.9rem);
 }
 .login-page p {
-  color: rgba(255, 255, 255, 0.7);
+  color: #4a5268;
   margin: 0;
   max-width: 480px;
 }
-.login-page .btn-lg {
-  margin-top: 0.4rem;
-}
+/* Kept as its own dark card (--sidebar-bg/--sidebar-fg, not transparent) even
+   though it now sits on a light page — the WebTech copy/links still need a
+   dark backdrop for contrast, same reasoning as the sidebar. No logo here
+   (WebTechFooter's showLogo={false}), so the remaining lone child (the
+   copyright line) is centered instead of the bar variant's default
+   space-between, which assumes a logo on the other side. */
 .login-page .webtech-footer {
   flex-shrink: 0;
-  background: transparent;
+  justify-content: center;
   padding: clamp(1rem, 3vh, 1.5rem) 1.5rem;
   margin: 0 auto;
+}
+
+/* Login buttons — one per provider, full-width and evenly spaced inside a
+   narrow column, each carrying its own brand-recognizable color/icon rather
+   than sharing the generic .btn-primary/.btn-secondary look. */
+.login-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  width: 100%;
+  max-width: 320px;
+  margin-top: 0.6rem;
+}
+.login-buttons .btn-lg {
+  width: 100%;
+}
+.login-btn-google {
+  background: #fff;
+  color: #3c4043;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+.login-btn-google:hover:not(:disabled) {
+  background: #f8fafd;
+  border-color: #b9cbe0;
+}
+.login-btn-github {
+  background: #181717;
+  color: #fff;
+}
+.login-btn-github:hover:not(:disabled) {
+  background: #2b2a2a;
+}
+.login-btn-canvas {
+  background: #173a60;
+  color: #fff9f2;
+  box-shadow: var(--shadow);
+}
+.login-btn-canvas:hover:not(:disabled) {
+  background: #102943;
+}
+.login-btn-passkey {
+  color: #4a5268;
+}
+.login-btn-passkey:hover:not(:disabled) {
+  color: #9c3b32;
 }
 
 /* Shared dark attribution footer — used both on the pre-login screen
@@ -2972,6 +3027,11 @@ tr.is-expanded .course-name-btn {
 }
 
 .tutorial-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+.tutorial-group ul {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -2979,8 +3039,16 @@ tr.is-expanded .course-name-btn {
   flex-direction: column;
   gap: 0.3rem;
 }
+.tutorial-group-label {
+  padding: 0 0.85rem 0.3rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+}
 @media (max-width: 720px) {
-  .tutorial-list {
+  .tutorial-group ul {
     flex-direction: row;
     flex-wrap: wrap;
   }
@@ -3014,6 +3082,14 @@ tr.is-expanded .course-name-btn {
 .tutorial-detail {
   min-width: 0;
 }
+.tutorial-detail-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  margin-bottom: 0.25rem;
+}
 .tutorial-detail h2 {
   margin-top: 0;
 }
@@ -3044,6 +3120,49 @@ tr.is-expanded .course-name-btn {
   margin: 0;
   color: var(--ink);
   line-height: 1.55;
+}
+
+.tutorial-screenshot-placeholder {
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+.tutorial-screenshot-placeholder code {
+  display: inline-block;
+  margin-top: 0.35rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  background: var(--paper);
+  font-size: 0.8rem;
+}
+
+.tutorial-icon-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.tutorial-icon-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+.tutorial-icon-list svg {
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+  color: var(--accent);
+}
+.tutorial-icon-list strong {
+  font-weight: 600;
+}
+.tutorial-icon-list span {
+  display: block;
+  color: var(--ink-soft);
+  line-height: 1.5;
 }
 
 /* Tarefas — Kanban board + Eisenhower matrix, both built from

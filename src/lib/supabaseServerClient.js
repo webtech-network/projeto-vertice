@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
+import { getSupabaseServerUrl, getSupabaseStorageKey } from '@/lib/supabaseUrl';
 
 /**
  * Client Supabase para Server Components, Route Handlers e o proxy — lê/
@@ -16,9 +17,13 @@ export async function createSupabaseServerClient() {
   const cookieStore = await cookies();
 
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    getSupabaseServerUrl(),
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
+      // Sem isso, o storageKey seria derivado de getSupabaseServerUrl() (que
+      // no Docker é a URL interna, hostname diferente do público) — ver
+      // getSupabaseStorageKey().
+      cookieOptions: { name: getSupabaseStorageKey() },
       cookies: {
         getAll() {
           return cookieStore.getAll();

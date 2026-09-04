@@ -15,6 +15,8 @@ import {
 } from 'lucide-react';
 import SidebarMenu from './SidebarMenu';
 import { useMobileNav } from './MobileNavProvider';
+import { getSidebarCollapsed, setSidebarCollapsed } from '@/lib/sidebarPreference';
+import { ensureUiPreferencesSynced } from './UiPreferencesSync';
 
 const NAV_ITEMS = [
   { href: '/', label: 'Dashboard', Icon: LayoutDashboard, exact: true },
@@ -24,8 +26,6 @@ const NAV_ITEMS = [
   { href: '/questoes', label: 'Questões', Icon: Sparkles },
   { href: '/tutorial', label: 'Tutorial', Icon: BookOpen },
 ];
-
-const COLLAPSE_STORAGE_KEY = 'canvastools:sidebar-collapsed';
 
 // The CanvasTools mark used to sit here as a link to "/" — that job moved to
 // the full logo lockup in Topbar.jsx (see Topbar's own comment). This spot
@@ -49,9 +49,23 @@ export default function Sidebar() {
   const { open: mobileOpen, setOpen: setMobileOpen } = useMobileNav();
 
   useEffect(() => {
-    if (window.localStorage.getItem(COLLAPSE_STORAGE_KEY) === '1') {
-      setCollapsed(true);
-    }
+    setCollapsed(getSidebarCollapsed());
+  }, []);
+
+  // Fase 2 (sincronização entre dispositivos): `ensureUiPreferencesSynced()`
+  // é memoizada a nível de módulo — não importa se este componente montou
+  // antes ou depois da leitura do Postgres já ter começado/terminado em
+  // outro lugar (ex.: o componente UiPreferencesSync no layout), o
+  // `.then()` abaixo sempre roda assim que resolver. Reler depois, porque
+  // o Postgres pode ter um valor diferente do que já foi lido acima.
+  useEffect(() => {
+    let cancelled = false;
+    ensureUiPreferencesSynced().then(() => {
+      if (!cancelled) setCollapsed(getSidebarCollapsed());
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Closes the drawer on every route change (including a nav link pointing
@@ -65,7 +79,7 @@ export default function Sidebar() {
   function toggleCollapsed() {
     setCollapsed((prev) => {
       const next = !prev;
-      window.localStorage.setItem(COLLAPSE_STORAGE_KEY, next ? '1' : '0');
+      setSidebarCollapsed(next);
       return next;
     });
   }

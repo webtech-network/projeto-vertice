@@ -1,7 +1,7 @@
 import Image from 'next/image';
 import webtechLogo from '@/assets/images/webtech-logo.png';
 
-export default function WebTechFooter({ variant = 'logo', showLinks = true, compact = false }) {
+export default function WebTechFooter({ variant = 'logo', showLinks = true, showLogo = true, compact = false }) {
   if (variant === 'bar') {
     return (
       <footer className={`webtech-footer webtech-footer-bar${compact ? ' webtech-footer-compact' : ''}`}>
@@ -21,18 +21,22 @@ export default function WebTechFooter({ variant = 'logo', showLinks = true, comp
             '© WebTech Network'
           )}
         </p>
-        <a href="https://webtech.network/" target="_blank" rel="noopener noreferrer" className="webtech-footer-link">
-          <Image src={webtechLogo} alt="WebTech Network" className="webtech-footer-logo" />
-        </a>
+        {showLogo && (
+          <a href="https://webtech.network/" target="_blank" rel="noopener noreferrer" className="webtech-footer-link">
+            <Image src={webtechLogo} alt="WebTech Network" className="webtech-footer-logo" />
+          </a>
+        )}
       </footer>
     );
   }
 
   return (
     <footer className="webtech-footer">
-      <a href="https://webtech.network/" target="_blank" rel="noopener noreferrer" className="webtech-footer-link">
-        <Image src={webtechLogo} alt="WebTech Network" className="webtech-footer-logo" />
-      </a>
+      {showLogo && (
+        <a href="https://webtech.network/" target="_blank" rel="noopener noreferrer" className="webtech-footer-link">
+          <Image src={webtechLogo} alt="WebTech Network" className="webtech-footer-logo" />
+        </a>
+      )}
     </footer>
   );
 }

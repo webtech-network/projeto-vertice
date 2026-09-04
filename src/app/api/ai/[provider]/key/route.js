@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { getSession } from '@/lib/session';
 import { createSupabaseServerClient } from '@/lib/supabaseServerClient';
 import { getProvider } from '@/lib/aiProviders';
+import { saveAiProviderKey, deleteAiProviderKey } from '@/lib/aiProviderKeys';
 
 function resolveProvider(providerId) {
   try {
@@ -29,9 +29,6 @@ export async function POST(request, { params }) {
   const body = await request.json().catch(() => null);
   const { apiKey } = body || {};
 
-  // aiApiKeys ainda vive no iron-session (migração pra Postgres é Fase 2).
-  const session = await getSession();
-
   if (!apiKey || typeof apiKey !== 'string') {
     return NextResponse.json({ error: 'Chave de API é obrigatória.' }, { status: 400 });
   }
@@ -41,8 +38,7 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: result.error }, { status: 400 });
   }
 
-  session.aiApiKeys = { ...session.aiApiKeys, [providerId]: apiKey };
-  await session.save();
+  await saveAiProviderKey(user.id, providerId, apiKey);
 
   return NextResponse.json({ ok: true });
 }
@@ -61,26 +57,9 @@ export async function DELETE(request, { params }) {
     return NextResponse.json({ error: 'Provedor de IA desconhecido.' }, { status: 404 });
   }
 
-  const session = await getSession();
-  let changed = false;
-
-  if (session.aiApiKeys && providerId in session.aiApiKeys) {
-    const { [providerId]: _removed, ...rest } = session.aiApiKeys;
-    session.aiApiKeys = rest;
-    changed = true;
-  }
-
-  // A model preference with no key behind it is meaningless — clear it too
-  // so a later reconfigured key doesn't silently inherit a stale choice.
-  if (session.aiModels && providerId in session.aiModels) {
-    const { [providerId]: _removedModel, ...restModels } = session.aiModels;
-    session.aiModels = restModels;
-    changed = true;
-  }
-
-  if (changed) {
-    await session.save();
-  }
+  // Apaga a chave e o modelo junto (mesma linha na tabela) — ver o
+  // comentário em src/lib/aiProviderKeys.js.
+  await deleteAiProviderKey(user.id, providerId);
 
   return NextResponse.json({ ok: true });
 }

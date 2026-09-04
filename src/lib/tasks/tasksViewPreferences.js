@@ -1,17 +1,17 @@
-// Two-tier preference system for the Tarefas module's view state (card
-// density, default view, per-column Kanban collapse):
-//  - "default" tier — persistent (localStorage), edited only via /perfil's
-//    Preferências tab (TarefasPreferences.jsx). What a brand-new browser
-//    session starts from.
-//  - "session" tier — sessionStorage, written automatically by
-//    TasksProvider.jsx whenever the professor toggles one of these
-//    straight from the Tarefas toolbar or a Kanban column's own close
-//    button. Takes precedence over the default for the rest of this browser
-//    tab's session, without touching the persistent default itself —
-//    closing the tab clears it, so the next session starts from the
-//    default again.
+import { upsertUiPreferences } from '@/lib/uiPreferences';
+
+// Preferência persistente e única do módulo Tarefas (card density, visão
+// padrão, colunas do Kanban fechadas, agrupar por projeto) — localStorage
+// como cache local rápido/síncrono (evita hydration mismatch, ver
+// TasksProvider.jsx) + write-through pro Postgres (Fase 2: sincroniza
+// entre dispositivos, ver UiPreferencesSync.jsx).
+//
+// Até a Fase 2 existia um segundo tier — "session" (sessionStorage),
+// gravado sozinho por todo toggle feito direto na tela de Tarefas,
+// nunca sobrevivendo a fechar a aba nem sincronizando entre dispositivos.
+// Removido por pedido explícito do usuário: agora qualquer toggle feito
+// direto na tela de Tarefas grava aqui mesmo, na única fonte.
 const DEFAULTS_KEY = 'canvastools:tarefas-default-prefs';
-const SESSION_KEY = 'canvastools:tarefas-session-prefs';
 
 // Pre-dates this two-tier system — density and Backlog/Block collapse used
 // to each persist under their own always-on localStorage key, no "default
@@ -71,32 +71,32 @@ export function getDefaultPreferences() {
   }
 }
 
-// Called only from TarefasPreferences.jsx (the /perfil settings form) —
-// never from the Tarefas toolbar itself, see patchSessionOverride below.
+// Chamado tanto por TarefasPreferences.jsx (formulário de /perfil) quanto
+// por TasksProvider.jsx (todo toggle feito direto na tela de Tarefas) —
+// única fonte de escrita agora, sem tier de sessão separado.
 export function patchDefaultPreferences(patch) {
   const current = getDefaultPreferences();
   window.localStorage.setItem(DEFAULTS_KEY, JSON.stringify({ ...current, ...patch }));
-}
 
-function getSessionOverride() {
-  if (typeof window === 'undefined') return {};
-  try {
-    return JSON.parse(window.sessionStorage.getItem(SESSION_KEY) || '{}');
-  } catch {
-    return {};
+  // Write-through pro Postgres (Fase 2: sincroniza entre dispositivos) —
+  // melhor esforço, nunca bloqueia nem quebra a UI se falhar (ex.: sessão
+  // Supabase expirada no meio da edição). localStorage acima já é a
+  // aplicação real da mudança nesta aba.
+  const row = {};
+  if ('cardDensity' in patch) row.card_density = patch.cardDensity;
+  if ('view' in patch) row.tasks_view = patch.view;
+  if ('groupByProject' in patch) row.group_by_project = patch.groupByProject;
+  if ('collapsedColumns' in patch) row.collapsed_columns = patch.collapsedColumns;
+  if (Object.keys(row).length > 0) {
+    upsertUiPreferences(row).catch(() => {});
   }
 }
 
-// Called from TasksProvider.jsx's setCardDensity/setView/setStagesCollapsed
-// — every toggle made directly on the Tarefas screen lands here, not in the
-// persistent default.
-export function patchSessionOverride(patch) {
-  window.sessionStorage.setItem(SESSION_KEY, JSON.stringify({ ...getSessionOverride(), ...patch }));
-}
-
-// Merges the persistent default with this tab's session override (session
-// wins) — called once, on TasksProvider mount, to resolve the module's
-// initial density/view/collapsedColumns.
+// Mantido como alias de getDefaultPreferences() — chamado no mount de
+// TasksProvider.jsx. Sem tier de sessão pra mesclar mais, mas o nome
+// "resolve" (em vez de simplesmente reexportar getDefaultPreferences) fica
+// documentando que esta é a leitura inicial resolvida do módulo, ponto
+// único de entrada consumido de fora deste arquivo.
 export function resolveTasksPreferences() {
-  return { ...getDefaultPreferences(), ...getSessionOverride() };
+  return getDefaultPreferences();
 }

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { getSession } from '@/lib/session';
 import { createSupabaseServerClient } from '@/lib/supabaseServerClient';
 import { getProvider } from '@/lib/aiProviders';
+import { getAiProviderKey } from '@/lib/aiProviderKeys';
 import { IMPROVE_SYSTEM_PROMPT } from '@/lib/aiProviders/improvePrompt';
 import { resolvePrompt } from '@/lib/promptResolution';
 
@@ -22,10 +22,8 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: 'Provedor de IA desconhecido.' }, { status: 404 });
   }
 
-  // aiApiKeys/aiModels ainda vivem no iron-session (migração pra Postgres é Fase 2).
-  const session = await getSession();
-  const apiKey = session.aiApiKeys?.[providerId];
-  if (!apiKey) {
+  const config = await getAiProviderKey(user.id, providerId);
+  if (!config) {
     return NextResponse.json({ error: `Nenhuma chave de API configurada para ${provider.label}.` }, { status: 401 });
   }
 
@@ -39,8 +37,8 @@ export async function POST(request, { params }) {
 
   try {
     const improved = await provider.improveMessage({
-      apiKey,
-      model: session.aiModels?.[providerId] || process.env[`${providerId.toUpperCase()}_MODEL`],
+      apiKey: config.apiKey,
+      model: config.model || process.env[`${providerId.toUpperCase()}_MODEL`],
       text,
       systemPrompt,
     });

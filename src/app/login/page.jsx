@@ -24,8 +24,8 @@ export default async function LoginPage({ searchParams }) {
   return (
     <main className="login-page">
       <div className="login-page-content">
-        <Image src={banner} alt="Vértice" className="login-hero-banner" priority />
         <h1>Bem-vindo(a) ao Vértice</h1>
+        <Image src={banner} alt="Vértice" className="login-hero-banner" priority />
         <p>
           Um ambiente criado pelo WebTech Network para organizar e agilizar o trabalho de professores e alunos
           potencializando o processo de ensino e aprendizagem.
@@ -37,7 +37,7 @@ export default async function LoginPage({ searchParams }) {
         )}
         <LoginButtons />
       </div>
-      <WebTechFooter variant="bar" />
+      <WebTechFooter variant="bar" showLogo={false} />
     </main>
   );
 }

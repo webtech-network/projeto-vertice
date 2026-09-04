@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useCallback, useEffect, useState } from 'react';
+import { createContext, useContext, useCallback, useEffect, useRef, useState } from 'react';
 import {
   BASE_WORKSPACE_ID,
   BASE_WORKSPACE,
@@ -11,8 +11,11 @@ import {
   deleteWorkspace as repoDeleteWorkspace,
   setResourceWorkspaces as repoSetResourceWorkspaces,
   setWorkspaceResources as repoSetWorkspaceResources,
+  toApp as workspaceToApp,
 } from '@/lib/workspaces/workspacesRepo';
 import { getActiveWorkspaceId, setActiveWorkspaceId as persistActiveWorkspaceId } from '@/lib/workspaces/activeWorkspacePreference';
+import { useRealtimeTable } from '@/lib/realtime/useRealtimeTable';
+import { ensureUiPreferencesSynced } from './UiPreferencesSync';
 
 const WorkspaceScopeContext = createContext(null);
 
@@ -45,6 +48,50 @@ export function WorkspaceScopeProvider({ children }) {
     hydrate();
     setActiveWorkspaceIdState(getActiveWorkspaceId());
   }, [hydrate]);
+
+  // Fase 2 (sincronização entre dispositivos) — ver o mesmo padrão/racional
+  // em TasksProvider.jsx (promise memoizada em vez de evento, pra não
+  // depender da ordem de mount entre este provider e o componente
+  // UiPreferencesSync no layout).
+  useEffect(() => {
+    let cancelled = false;
+    ensureUiPreferencesSynced().then(() => {
+      if (!cancelled) setActiveWorkspaceIdState(getActiveWorkspaceId());
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const refetchLinks = useCallback(async () => {
+    const freshLinks = await listAllLinks();
+    setLinks(freshLinks.filter((l) => !l.deletedAt));
+  }, []);
+
+  // Realtime — sincronização multi-dispositivo ao vivo (Fase 2). `links` é
+  // um dado derivado (projects.workspace_id + course_workspace_links), não
+  // uma tabela própria — em vez de reconciliar linha a linha, qualquer
+  // mudança relevante nas duas fontes só dispara um refetch completo, o
+  // mesmo padrão que setResourceWorkspaces/setWorkspaceResources acima já
+  // usam depois de escrever.
+  useRealtimeTable('workspaces', {
+    onInsert: (row) => setWorkspaces((prev) => [...prev, workspaceToApp(row)]),
+    onUpdate: (row) => {
+      const workspace = workspaceToApp(row);
+      if (workspace.deletedAt) {
+        setWorkspaces((prev) => prev.filter((w) => w.id !== workspace.id));
+        if (activeWorkspaceId === workspace.id) setActiveWorkspaceId(BASE_WORKSPACE_ID);
+      } else {
+        setWorkspaces((prev) => prev.map((w) => (w.id === workspace.id ? workspace : w)));
+      }
+    },
+  });
+  useRealtimeTable('projects', { onInsert: refetchLinks, onUpdate: refetchLinks });
+  useRealtimeTable('course_workspace_links', {
+    onInsert: refetchLinks,
+    onUpdate: refetchLinks,
+    onDelete: refetchLinks,
+  });
 
   // Defends against the active workspace having been deleted on another
   // device and the tombstone arriving via sync — falls back to Base rather

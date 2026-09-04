@@ -60,7 +60,7 @@ export async function importTasksFile(file) {
     throw new Error('Arquivo inválido: não é um JSON válido.');
   }
   if (parsed.kind !== TASKS_EXPORT_KIND || !Array.isArray(parsed.tasks) || !Array.isArray(parsed.projects)) {
-    throw new Error('Arquivo inválido: não é um export de tarefas do CanvasTools.');
+    throw new Error('Arquivo inválido: não é um export de tarefas do Vértice.');
   }
 
   const [localTasks, localProjects] = await Promise.all([listTasks(), listProjects()]);

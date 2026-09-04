@@ -11,6 +11,10 @@ const nextConfig = {
   turbopack: {
     root: __dirname,
   },
+  // Emite .next/standalone (server + node_modules mínimos, traçados a partir
+  // dos imports reais) — é o que o Dockerfile copia pro estágio final, bem
+  // mais enxuto que copiar node_modules inteiro pra imagem.
+  output: 'standalone',
 };
 
 export default nextConfig;

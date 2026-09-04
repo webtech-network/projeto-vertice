@@ -23,6 +23,15 @@ import { getAppBaseUrl } from '@/lib/appUrl';
 export async function GET(request) {
   const url = new URL(request.url);
   const code = url.searchParams.get('code');
+  // @supabase/auth-js >=2.x guarda o code_verifier do PKCE por flow
+  // (cookie `sb-<ref>-auth-token-flow-<id>-code-verifier`), não mais numa
+  // chave fixa única — `signInWithOAuth` embute esse id como `sb_flow_id`
+  // na própria `redirectTo` quando `auth.experimental.appendPkceFlowIdToRedirects`
+  // está ligado (ver supabaseBrowserClient.js). No navegador o SDK lê isso
+  // sozinho de `window.location.href`; aqui, num Route Handler server-side,
+  // precisa ser passado explicitamente — é o padrão documentado pelo
+  // próprio SDK para "server-side callback handler".
+  const flowId = url.searchParams.get('sb_flow_id');
   const baseUrl = getAppBaseUrl();
 
   if (!code) {
@@ -30,7 +39,7 @@ export async function GET(request) {
   }
 
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+  const { data, error } = await supabase.auth.exchangeCodeForSession(code, flowId ? { flowId } : undefined);
 
   if (error || !data?.session || !data?.user) {
     console.error('Falha ao trocar o código OAuth por sessão Supabase:', error?.message);

@@ -11,7 +11,9 @@ import GithubConnection from './GithubConnection';
 import GoogleConnection from './GoogleConnection';
 import ThemeToggle from './ThemeToggle';
 import TarefasPreferences from './TarefasPreferences';
+import PasskeyManager from './PasskeyManager';
 import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard';
+import { PASSKEYS_ENABLED } from '@/lib/passkeys';
 
 const TABS = [
   { key: 'geral', label: 'Geral', Icon: User },
@@ -101,6 +103,17 @@ export default function ProfileTabs({ userName, baseUrl, providers }) {
               <ThemeToggle />
             </div>
 
+            {PASSKEYS_ENABLED && (
+              <div className="preferences-section">
+                <h3>Segurança — passkeys</h3>
+                <p className="tab-folder-description">
+                  Cadastre uma passkey do seu dispositivo (Face ID, Touch ID, Windows Hello ou chave de segurança)
+                  para entrar sem senha. Recurso experimental.
+                </p>
+                <PasskeyManager />
+              </div>
+            )}
+
             <p className="lede">
               Além do tema e dos atalhos e prompts nas seções ao lado, outras preferências (idioma, provedor de IA
               padrão, notificações) devem chegar aqui conforme forem implementadas.
@@ -111,7 +124,7 @@ export default function ProfileTabs({ userName, baseUrl, providers }) {
         {tab === 'plataformas' && (
           <>
             <p className="tab-folder-description">
-              Conecte plataformas externas à sua conta CanvasTools. A conexão com o Canvas fica salva no servidor
+              Conecte plataformas externas à sua conta Vértice. A conexão com o Canvas fica salva no servidor
               (cifrada); GitHub e Google Drive ficam salvas neste navegador.
             </p>
             <h3>Canvas</h3>

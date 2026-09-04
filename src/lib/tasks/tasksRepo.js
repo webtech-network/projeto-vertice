@@ -11,7 +11,9 @@ export const STATUSES = ['BACKLOG', 'BLOCK', 'TODO', 'DOING', 'DONE'];
 // exatamente o shape que TasksProvider.jsx e o resto do app já esperam
 // (o mesmo formato que vinha do IndexedDB), então esses consumidores não
 // precisam mudar uma linha.
-function toApp(row) {
+// Exportado — reaproveitado por TasksProvider.jsx pra mapear linhas cruas
+// que chegam via Realtime (useRealtimeTable), sem duplicar este mapeamento.
+export function toApp(row) {
   if (!row) return null;
   return {
     id: row.id,

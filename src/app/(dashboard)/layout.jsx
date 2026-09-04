@@ -3,6 +3,7 @@ import Topbar from '@/components/Topbar';
 import { MobileNavProvider } from '@/components/MobileNavProvider';
 import { WorkspaceScopeProvider } from '@/components/WorkspaceScopeProvider';
 import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
+import UiPreferencesSync from '@/components/UiPreferencesSync';
 
 export default function DashboardLayout({ children }) {
   return (
@@ -12,6 +13,7 @@ export default function DashboardLayout({ children }) {
     <WorkspaceScopeProvider>
       <MobileNavProvider>
         <ServiceWorkerRegistration />
+        <UiPreferencesSync />
         <div className="dashboard-shell">
           <Sidebar />
           <div className="dashboard-main">

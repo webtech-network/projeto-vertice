@@ -41,6 +41,24 @@ saudáveis:
 docker compose exec -T db psql -U postgres -d postgres < volumes/db/manual/06_realtime_publication.sql
 ```
 
+Depois disso, `volumes/db/manual/07_realtime_publication_v2.sql` adiciona à mesma publicação as
+tabelas que migraram do IndexedDB pro Postgres depois da Fase 1 (`shortcuts`, `custom_prompts`,
+`course_notes`, `course_workspace_links`) — arquivo separado porque `alter publication ... add
+table` falha se a tabela já for membro, e as três de cima já foram adicionadas pelo script anterior:
+
+```sh
+docker compose exec -T db psql -U postgres -d postgres < volumes/db/manual/07_realtime_publication_v2.sql
+```
+
+`volumes/db/manual/08_ai_provider_keys.sql` cria a tabela `ai_provider_keys` (chaves de API de IA +
+modelo escolhido por provedor, migradas do iron-session) — mesma ressalva de "instalação já
+inicializada" das duas anteriores; instalações novas já ganham essa tabela direto de `04_schema.sql`/
+`05_rls.sql`:
+
+```sh
+docker compose exec -T db psql -U postgres -d postgres < volumes/db/manual/08_ai_provider_keys.sql
+```
+
 ## Provedores OAuth (Google/GitHub)
 
 Preencha `GOOGLE_*`/`GITHUB_*` no `.env` e marque os respectivos

@@ -19,7 +19,9 @@ function assertNotBase(id) {
   }
 }
 
-function toApp(row) {
+// Exportado — reaproveitado por WorkspaceScopeProvider.jsx pra mapear linhas
+// cruas que chegam via Realtime (useRealtimeTable), sem duplicar este mapeamento.
+export function toApp(row) {
   return {
     id: row.id,
     name: row.name,

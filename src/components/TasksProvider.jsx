@@ -10,15 +10,19 @@ import {
   setTaskStatus as repoSetTaskStatus,
   setTaskPriority as repoSetTaskPriority,
   setTaskPriorityRank as repoSetTaskPriorityRank,
+  toApp as taskToApp,
 } from '@/lib/tasks/tasksRepo';
 import {
   listProjects,
   createProject as repoCreateProject,
   updateProject as repoUpdateProject,
   deleteProject as repoDeleteProject,
+  toApp as projectToApp,
 } from '@/lib/tasks/projectsRepo';
 import { EMPTY_FILTERS } from '@/lib/tasks/filters';
-import { resolveTasksPreferences, patchSessionOverride } from '@/lib/tasks/tasksViewPreferences';
+import { resolveTasksPreferences, patchDefaultPreferences } from '@/lib/tasks/tasksViewPreferences';
+import { useRealtimeTable } from '@/lib/realtime/useRealtimeTable';
+import { ensureUiPreferencesSynced } from './UiPreferencesSync';
 
 const TasksContext = createContext(null);
 
@@ -117,19 +121,64 @@ export function TasksProvider({ children }) {
     };
   }, []);
 
+  // Realtime — sincronização multi-dispositivo ao vivo (Fase 2). `deleted_at`
+  // preenchido na linha nova vira TASK_REMOVE/PROJECT_REMOVE (mesma reducer
+  // action que removeTask/removeProject já disparam localmente) em vez de
+  // um TASK_UPSERT com deletedAt setado — o estado hidratado nunca guarda
+  // itens já deletados (ver o filter no hydrate acima), então manter essa
+  // invariante aqui evita reintroduzir um item "fantasma" na lista.
+  useRealtimeTable('tasks', {
+    onInsert: (row) => dispatch({ type: 'TASK_UPSERT', task: taskToApp(row) }),
+    onUpdate: (row) => {
+      const task = taskToApp(row);
+      if (task.deletedAt) dispatch({ type: 'TASK_REMOVE', id: task.id });
+      else dispatch({ type: 'TASK_UPSERT', task });
+    },
+  });
+
+  useRealtimeTable('projects', {
+    onInsert: (row) => dispatch({ type: 'PROJECT_UPSERT', project: projectToApp(row) }),
+    onUpdate: (row) => {
+      const project = projectToApp(row);
+      if (project.deletedAt) dispatch({ type: 'PROJECT_REMOVE', id: project.id });
+      else dispatch({ type: 'PROJECT_UPSERT', project });
+    },
+  });
+
   // Read after mount only (like Sidebar.jsx's collapse preference) so the
   // server-rendered markup (initialState's hardcoded values, which match
   // FALLBACK_PREFERENCES) never mismatches the client's first paint.
-  // Resolves the persistent default (edited in /perfil's Preferências tab)
-  // merged with this tab's session override (see tasksViewPreferences.js) —
-  // "abra com as configurações predefinidas" on a session's first visit,
-  // then whatever was toggled directly on this screen for the rest of it.
+  // Resolves o padrão persistente (tasksViewPreferences.js) — mesma fonte
+  // que qualquer toggle feito direto nesta tela grava, então isso é
+  // literalmente "o que ficou salvo da última vez", em qualquer dispositivo.
   useEffect(() => {
     const prefs = resolveTasksPreferences();
     dispatch({ type: 'SET_DENSITY', density: prefs.cardDensity });
     dispatch({ type: 'SET_VIEW', view: prefs.view });
     dispatch({ type: 'SET_COLLAPSED_COLUMNS', columns: prefs.collapsedColumns });
     dispatch({ type: 'SET_GROUP_BY_PROJECT', groupByProject: prefs.groupByProject });
+  }, []);
+
+  // Fase 2 (sincronização entre dispositivos): `ensureUiPreferencesSynced()`
+  // é memoizada a nível de módulo — TasksProvider só monta dentro da
+  // página /tarefas (atrás de qualquer fronteira assíncrona própria dela),
+  // então pode montar bem depois do componente UiPreferencesSync no layout
+  // já ter terminado a leitura; a promise entrega o valor de qualquer jeito,
+  // ao contrário de um evento que só chega em quem já estava ouvindo (bug
+  // real observado ao vivo com a versão anterior baseada em evento).
+  useEffect(() => {
+    let cancelled = false;
+    ensureUiPreferencesSynced().then(() => {
+      if (cancelled) return;
+      const prefs = resolveTasksPreferences();
+      dispatch({ type: 'SET_DENSITY', density: prefs.cardDensity });
+      dispatch({ type: 'SET_VIEW', view: prefs.view });
+      dispatch({ type: 'SET_COLLAPSED_COLUMNS', columns: prefs.collapsedColumns });
+      dispatch({ type: 'SET_GROUP_BY_PROJECT', groupByProject: prefs.groupByProject });
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const addTask = useCallback(async (title, projectId = null) => {
@@ -204,23 +253,23 @@ export function TasksProvider({ children }) {
   }, []);
 
   // setView/setCardDensity/setColumnCollapsed/setStagesCollapsed below write
-  // only to the session-tier override (tasksViewPreferences.js) — never to
-  // the persistent default, which is only ever changed via /perfil's
-  // Preferências tab (TarefasPreferences.jsx). "Ao alterar algo [na tela de
-  // Tarefas], mantenha estas opções nas configurações de sessão que devem
-  // sobrepor as configurações padrões durante a sessão." (setFilters below
-  // doesn't persist at all — filters reset every visit.)
+  // direto no padrão persistente (tasksViewPreferences.js) — sincroniza
+  // entre dispositivos via UiPreferencesSync.jsx. Até a Fase 2 isso escrevia
+  // só num tier de sessão efêmero (nunca sobrevivia a fechar a aba); removido
+  // por pedido explícito do usuário, que espera ver qualquer toggle feito
+  // aqui refletido em outro dispositivo. (setFilters below doesn't persist
+  // at all — filters reset every visit, isso continua.)
   const setFilters = useCallback((filters) => dispatch({ type: 'SET_FILTERS', filters }), []);
   const setView = useCallback((view) => {
-    patchSessionOverride({ view });
+    patchDefaultPreferences({ view });
     dispatch({ type: 'SET_VIEW', view });
   }, []);
   const setCardDensity = useCallback((density) => {
-    patchSessionOverride({ cardDensity: density });
+    patchDefaultPreferences({ cardDensity: density });
     dispatch({ type: 'SET_DENSITY', density });
   }, []);
   const setGroupByProject = useCallback((groupByProject) => {
-    patchSessionOverride({ groupByProject });
+    patchDefaultPreferences({ groupByProject });
     dispatch({ type: 'SET_GROUP_BY_PROJECT', groupByProject });
   }, []);
   // Closes/reopens a single Kanban column — the header close button (any
@@ -231,7 +280,7 @@ export function TasksProvider({ children }) {
       const next = collapsed
         ? Array.from(new Set([...state.collapsedColumns, status]))
         : state.collapsedColumns.filter((s) => s !== status);
-      patchSessionOverride({ collapsedColumns: next });
+      patchDefaultPreferences({ collapsedColumns: next });
       dispatch({ type: 'SET_COLLAPSED_COLUMNS', columns: next });
     },
     [state.collapsedColumns],
@@ -246,7 +295,7 @@ export function TasksProvider({ children }) {
       const next = collapsed
         ? Array.from(new Set([...state.collapsedColumns, 'BACKLOG', 'BLOCK']))
         : state.collapsedColumns.filter((s) => s !== 'BACKLOG' && s !== 'BLOCK');
-      patchSessionOverride({ collapsedColumns: next });
+      patchDefaultPreferences({ collapsedColumns: next });
       dispatch({ type: 'SET_COLLAPSED_COLUMNS', columns: next });
     },
     [state.collapsedColumns],

@@ -127,10 +127,21 @@ services:
       # aqui — ver "Canvas como provedor de login" no plano.
 
       # --- Passkeys / WebAuthn (beta desde mai/2026 — opt-in explícito) ---
-      # Nome exato da variável a confirmar contra a versão pinada do GoTrue no
-      # momento da implementação — API beta, pode mudar sem aviso (ver plano).
-      GOTRUE_WEBAUTHN_ENABLED: ${PASSKEYS_ENABLED:-false}
+      # O toggle que liga/desliga o recurso vive em internal/conf, não em
+      # internal/conf.WebAuthnConfiguration — é GOTRUE_PASSKEY_ENABLED
+      # (struct `Passkey.Enabled`), não GOTRUE_WEBAUTHN_ENABLED (esse nome
+      # não existe no binário; confirmado ao vivo — settings devolvia
+      # "passkeys_enabled": false mesmo com RP_ID/RP_ORIGINS certos, e a
+      # fonte oficial (github.com/supabase/auth@v2.189.0,
+      # internal/conf/configuration.go) mostra os dois estruct separados:
+      # `WebAuthn WebAuthnConfiguration` só guarda RP_ID/RP_DISPLAY_NAME/
+      # RP_ORIGINS; quem liga o recurso é `Passkey PasskeyConfiguration{Enabled}`).
+      # RP_DISPLAY_NAME também é obrigatória e tinha ficado de fora — sem ela
+      # WebAuthnConfiguration.Validate() falha e o /auth/v1/settings segue
+      # reportando passkeys_enabled:false mesmo com Enabled=true.
+      GOTRUE_PASSKEY_ENABLED: ${PASSKEYS_ENABLED:-false}
       GOTRUE_WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID}
+      GOTRUE_WEBAUTHN_RP_DISPLAY_NAME: ${WEBAUTHN_RP_DISPLAY_NAME:-Vértice}
       GOTRUE_WEBAUTHN_RP_ORIGINS: ${WEBAUTHN_RP_ORIGINS}
 
   rest:
@@ -197,6 +208,16 @@ services:
       SEED_SELF_HOST: "true"
       RUN_JANITOR: "true"
       DISABLE_HEALTHCHECK_LOGGING: "true"
+      # Default do Cowboy (4096 bytes) estoura com o próprio cookie de sessão
+      # do Supabase Auth — um JWT razoável já chega perto de 6KB depois de
+      # dividido em chunks (sb-<host>-auth-token.0/.1), tudo mandado numa
+      # única linha "Cookie:" pelo navegador. Sem isso, o handshake do
+      # WebSocket (/realtime/v1/websocket) falha com 431 assim que existe
+      # uma sessão de verdade — não é bloat de cookies de teste, é o
+      # tamanho normal de uma sessão válida. Confirmado ao vivo: variável
+      # lida em max_header_value_length (runtime.exs da imagem
+      # supabase/realtime).
+      MAX_HEADER_LENGTH: "32768"
 
   kong:
     container_name: vertice-supabase-kong

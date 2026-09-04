@@ -1,10 +1,13 @@
 import { BASE_WORKSPACE_ID } from './workspacesRepo';
+import { upsertUiPreferences } from '@/lib/uiPreferences';
 
-// Deliberately just localStorage, no session-tier override like
-// tasksViewPreferences.js's two-tier scheme — the active workspace is a
-// per-device choice, not something exported/synced (decision: the active
-// workspace selector is local-only, never sent to Google Drive alongside
-// the workspaces themselves).
+// Ainda deliberadamente sem tier de sessão como tasksViewPreferences.js
+// (a escolha ativa não tem um "override temporário desta aba" fazendo
+// sentido) — mas, ao contrário do que este comentário dizia antes, agora
+// sincroniza entre dispositivos via write-through pro Postgres
+// (ui_preferences.active_workspace_id) — pedido explícito do usuário.
+// localStorage continua sendo o cache local rápido/síncrono (evita
+// hydration mismatch, ver WorkspaceScopeProvider.jsx).
 const ACTIVE_WORKSPACE_KEY = 'canvastools:active-workspace-id';
 
 export function getActiveWorkspaceId() {
@@ -23,4 +26,8 @@ export function setActiveWorkspaceId(id) {
   } catch {
     // best-effort — worst case the choice doesn't survive a reload
   }
+
+  // BASE_WORKSPACE_ID ('base') é um id sintético, nunca uma linha real de
+  // workspaces — vira null na coluna (mesmo significado: "nenhum filtro").
+  upsertUiPreferences({ active_workspace_id: id === BASE_WORKSPACE_ID ? null : id }).catch(() => {});
 }
