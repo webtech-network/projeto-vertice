@@ -30,7 +30,9 @@ export default function TasksExportImport({ onClose }) {
     setExportMessage(null);
     try {
       const result = await exportTasksFile();
-      setExportMessage(`Arquivo exportado: ${result.tasks} tarefa(s), ${result.projects} projeto(s).`);
+      setExportMessage(
+        `Arquivo exportado: ${result.tasks} tarefa(s), ${result.projects} projeto(s), ${result.workspaces} ambiente(s).`,
+      );
     } catch (err) {
       setExportError(err.message);
     } finally {
@@ -62,7 +64,9 @@ export default function TasksExportImport({ onClose }) {
     try {
       const result = await importTasksFile(importFile);
       await refreshFromLocal();
-      setImportMessage(`Importado: ${result.tasks} tarefa(s), ${result.projects} projeto(s) no total.`);
+      setImportMessage(
+        `Importado: ${result.tasks} tarefa(s), ${result.projects} projeto(s), ${result.workspaces} ambiente(s) resolvido(s) no total.`,
+      );
       setImportFile(null);
     } catch (err) {
       setImportError(err.message);
