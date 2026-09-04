@@ -5,8 +5,8 @@ import { THEME_INIT_SCRIPT } from '@/lib/theme';
 import { INSTALL_PROMPT_CAPTURE_SCRIPT } from '@/lib/pwaInstall';
 import './globals.css';
 
-const GA_MEASUREMENT_ID = 'G-15544DM2DE';
-const SITE_URL = 'https://canvastools.apps.webtech.network/';
+const GA_MEASUREMENT_ID = 'G-P5YTWPHMFR';
+const SITE_URL = 'https://vertice.apps.webtech.network/';
 
 const display = Fraunces({
   subsets: ['latin'],
