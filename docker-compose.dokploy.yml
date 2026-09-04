@@ -1,0 +1,266 @@
+# Compose achatado só para deploy no Dokploy (ou qualquer PaaS que faça git
+# clone limpo a cada deploy e não suporte `include:`/env_file apontando pra
+# fora do diretório do compose).
+#
+# Diferenças deliberadas em relação a docker-compose.yml + supabase/docker-
+# compose.yml (que continuam intocados, servem pro dev local via
+# `cd supabase && docker compose up -d` e `docker compose up -d --build`
+# na raiz):
+#
+# 1. Sem `include:` — os 5 serviços do stack Supabase (db/auth/rest/
+#    realtime/kong) e o `app` do Next.js estão todos aqui, no mesmo
+#    arquivo. O Dokploy escreve UM único .env ao lado do compose que ele
+#    aponta (populado pela própria UI de env vars) — um `env_file:`
+#    apontando pra `supabase/.env` nunca existiria nesse .env, já que esse
+#    arquivo é gitignored e nunca vai pro repo.
+#
+# 2. `db` usa volume NOMEADO (db-data) em vez de bind mount
+#    (./volumes/db/data). O Dokploy faz `git clone` limpo a cada deploy —
+#    um bind mount dentro do próprio checkout do repo apagaria o banco a
+#    cada redeploy. Volume nomeado é gerenciado pelo Docker, sobrevive.
+#
+# 3. `app` e `kong` usam `expose` em vez de `ports`. No Dokploy você não
+#    expõe porta de host diretamente — aponta um domínio pra cada serviço
+#    pela aba Domains da aplicação Compose (Settings → Domains), e o
+#    Dokploy injeta os labels do Traefik sozinho. Configure dois domínios:
+#      - SEU-DOMINIO         -> serviço `app`,  porta 3000
+#      - api.SEU-DOMINIO     -> serviço `kong`, porta 8000
+#    (NEXT_PUBLIC_SUPABASE_URL do app precisa apontar pro segundo domínio
+#    — é o browser quem fala com o Kong diretamente, não só o server.)
+#
+# 4. Todas as variáveis vêm de UM .env só (o que o Dokploy gerencia pra
+#    esta aplicação) — união do que hoje está em .env (raiz) e
+#    supabase/.env. Cole a lista completa na UI de Environment do
+#    Dokploy antes do primeiro deploy; ver comentários de cada variável
+#    abaixo pro que precisa virar URL de produção.
+
+name: vertice
+
+services:
+  # ---------------------------------------------------------------------
+  # Infra Supabase self-hosted (db + auth + rest + realtime + kong)
+  # ---------------------------------------------------------------------
+  db:
+    image: supabase/postgres:17.6.1.136
+    restart: unless-stopped
+    volumes:
+      - ./supabase/volumes/db/init/01_roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:Z
+      - ./supabase/volumes/db/init/02_jwt.sql:/docker-entrypoint-initdb.d/init-scripts/99-jwt.sql:Z
+      - ./supabase/volumes/db/init/03_realtime_schema.sql:/docker-entrypoint-initdb.d/migrations/99-realtime.sql:Z
+      - ./supabase/volumes/db/init/04_schema.sql:/docker-entrypoint-initdb.d/migrations/zz-vertice-01-schema.sql:Z
+      - ./supabase/volumes/db/init/05_rls.sql:/docker-entrypoint-initdb.d/migrations/zz-vertice-02-rls.sql:Z
+      # Named volume — NÃO bind mount (ver nota 2 no topo do arquivo).
+      - db-data:/var/lib/postgresql/data
+      - db-config:/etc/postgresql-custom
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    environment:
+      POSTGRES_HOST: /var/run/postgresql
+      PGPORT: ${POSTGRES_PORT}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+      POSTGRES_DB: ${POSTGRES_DB}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXP: ${JWT_EXPIRY}
+    command:
+      [
+        "postgres",
+        "-c", "config_file=/etc/postgresql/postgresql.conf",
+        "-c", "log_min_messages=fatal",
+      ]
+
+  auth:
+    image: supabase/gotrue:v2.189.0
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9999/health"]
+      timeout: 5s
+      interval: 5s
+      retries: 3
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      API_EXTERNAL_URL: ${API_EXTERNAL_URL}
+
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@db:${POSTGRES_PORT}/${POSTGRES_DB}
+
+      GOTRUE_SITE_URL: ${SITE_URL}
+      GOTRUE_URI_ALLOW_LIST: ${ADDITIONAL_REDIRECT_URLS}
+      GOTRUE_DISABLE_SIGNUP: ${DISABLE_SIGNUP}
+
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_JWT_EXP: ${JWT_EXPIRY}
+      GOTRUE_JWT_SECRET: ${JWT_SECRET}
+      GOTRUE_JWT_ISSUER: ${API_EXTERNAL_URL}
+
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: ${ENABLE_EMAIL_SIGNUP:-false}
+      GOTRUE_MAILER_AUTOCONFIRM: ${ENABLE_EMAIL_AUTOCONFIRM:-true}
+      GOTRUE_EXTERNAL_ANONYMOUS_USERS_ENABLED: "false"
+      GOTRUE_EXTERNAL_PHONE_ENABLED: "false"
+
+      GOTRUE_EXTERNAL_GOOGLE_ENABLED: ${GOOGLE_ENABLED:-false}
+      GOTRUE_EXTERNAL_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOTRUE_EXTERNAL_GOOGLE_SECRET: ${GOOGLE_SECRET}
+      GOTRUE_EXTERNAL_GOOGLE_REDIRECT_URI: ${API_EXTERNAL_URL}/callback
+
+      GOTRUE_EXTERNAL_GITHUB_ENABLED: ${GITHUB_ENABLED:-false}
+      GOTRUE_EXTERNAL_GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GOTRUE_EXTERNAL_GITHUB_SECRET: ${GITHUB_SECRET}
+      GOTRUE_EXTERNAL_GITHUB_REDIRECT_URI: ${API_EXTERNAL_URL}/callback
+
+      # Canvas: sem entrada aqui de propósito — ver supabase/README.md
+      # ("Canvas como provedor de login").
+
+      # GOTRUE_PASSKEY_ENABLED (não GOTRUE_WEBAUTHN_ENABLED — ver
+      # supabase/docker-compose.yml pro racional completo dessa correção).
+      GOTRUE_PASSKEY_ENABLED: ${PASSKEYS_ENABLED:-false}
+      GOTRUE_WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID}
+      GOTRUE_WEBAUTHN_RP_DISPLAY_NAME: ${WEBAUTHN_RP_DISPLAY_NAME:-Vértice}
+      GOTRUE_WEBAUTHN_RP_ORIGINS: ${WEBAUTHN_RP_ORIGINS}
+
+  rest:
+    image: postgrest/postgrest:v14.12
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "postgrest", "--ready"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+    environment:
+      PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD}@db:${POSTGRES_PORT}/${POSTGRES_DB}
+      PGRST_DB_SCHEMAS: public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_DB_USE_LEGACY_GUCS: "false"
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+      PGRST_APP_SETTINGS_JWT_SECRET: ${JWT_SECRET}
+      PGRST_APP_SETTINGS_JWT_EXP: ${JWT_EXPIRY}
+      PGRST_ADMIN_SERVER_PORT: 3001
+      PGRST_ADMIN_SERVER_HOST: localhost
+    command: ["postgrest"]
+
+  realtime:
+    image: supabase/realtime:v2.102.3
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -sSfL --head -o /dev/null -H \"Authorization: Bearer ${ANON_KEY}\" http://localhost:4000/api/tenants/realtime-dev/health",
+        ]
+      timeout: 5s
+      interval: 30s
+      retries: 3
+      start_period: 10s
+    environment:
+      PORT: 4000
+      DB_HOST: db
+      DB_PORT: ${POSTGRES_PORT}
+      DB_USER: supabase_admin
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: ${POSTGRES_DB}
+      DB_AFTER_CONNECT_QUERY: "SET search_path TO _realtime"
+      DB_ENC_KEY: ${REALTIME_DB_ENC_KEY:-supabaserealtime}
+      API_JWT_SECRET: ${JWT_SECRET}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      METRICS_JWT_SECRET: ${JWT_SECRET}
+      ERL_AFLAGS: -proto_dist inet_tcp
+      DNS_NODES: "''"
+      RLIMIT_NOFILE: "10000"
+      APP_NAME: realtime
+      SEED_SELF_HOST: "true"
+      RUN_JANITOR: "true"
+      DISABLE_HEALTHCHECK_LOGGING: "true"
+      MAX_HEADER_LENGTH: "32768"
+
+  kong:
+    image: kong/kong:3.9.3
+    restart: unless-stopped
+    depends_on:
+      - auth
+      - rest
+      - realtime
+    # Sem "ports:" — Dokploy expõe publicamente via domínio apontado pra
+    # este serviço na porta 8000 (aba Domains). Ver nota 3 no topo.
+    expose:
+      - "8000"
+    volumes:
+      - ./supabase/volumes/api/kong.yml:/home/kong/temp.yml:ro,Z
+      - ./supabase/volumes/api/kong-entrypoint.sh:/home/kong/kong-entrypoint.sh:ro,Z
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /usr/local/kong/kong.yml
+      KONG_ROUTER_FLAVOR: expressions
+      KONG_DNS_ORDER: LAST,A,CNAME
+      KONG_DNS_NOT_FOUND_TTL: 1
+      KONG_DNS_VALID_TTL: 5
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl,request-termination
+      KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
+      KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
+      KONG_PROXY_ACCESS_LOG: /dev/stdout combined
+      SUPABASE_ANON_KEY: ${ANON_KEY}
+      SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      SUPABASE_PUBLISHABLE_KEY: ""
+      SUPABASE_SECRET_KEY: ""
+      ANON_KEY_ASYMMETRIC: ""
+      SERVICE_ROLE_KEY_ASYMMETRIC: ""
+    entrypoint: ["/bin/sh", "/home/kong/kong-entrypoint.sh"]
+
+  # ---------------------------------------------------------------------
+  # App Next.js (Vértice)
+  # ---------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Embutidas no bundle do browser em build time — precisam já
+        # apontar pros valores de produção antes do primeiro build aqui.
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        NEXT_PUBLIC_PASSKEYS_ENABLED: ${NEXT_PUBLIC_PASSKEYS_ENABLED:-false}
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Chamada servidor->Supabase usa o nome do serviço na rede interna
+      # deste mesmo compose, não a URL pública do Kong.
+      SUPABASE_INTERNAL_URL: http://kong:8000
+    depends_on:
+      kong:
+        condition: service_healthy
+    # Sem "ports:" — aponte um domínio pro serviço `app` na porta 3000
+    # pela aba Domains do Dokploy. Ver nota 3 no topo.
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  db-data:
+  db-config:
