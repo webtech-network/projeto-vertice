@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { User, KeyRound, Bookmark, Wand2, Link2, SlidersHorizontal } from 'lucide-react';
-import ApiKeyManager from './ApiKeyManager';
+import IntegrationManager from './IntegrationManager';
 import ShortcutsManager from './ShortcutsManager';
 import PromptCustomizer from './PromptCustomizer';
 import CanvasConnection from './CanvasConnection';
@@ -39,11 +39,12 @@ const TAB_KEYS = TABS.map((t) => t.key);
 // (github/oauth2/callback, google/oauth2/callback) both redirect back to
 // /perfil?tab=plataformas so the professor lands on the right section
 // instead of "Geral" — read once at mount, not kept in sync afterward.
-// `providers` here is listProviders()'s output already merged with a
-// `hasApiKey` boolean per entry (computed server-side in perfil/page.jsx
-// from the session, never the key itself).
-//
-export default function ProfileTabs({ userName, baseUrl, providers }) {
+// `integrations` here is listAiIntegrations()'s output (computed
+// server-side in perfil/page.jsx) — never includes the key itself, only a
+// `hasApiKey` boolean per entry. `driverProviders` is listDriverProviders()'s
+// output (id/label/defaultModel for the 4 built-in drivers), used only to
+// populate the "Provedor" <select> when creating a new integration.
+export default function ProfileTabs({ userName, baseUrl, integrations, driverProviders }) {
   const searchParams = useSearchParams();
   const initialTab = TAB_KEYS.includes(searchParams.get('tab')) ? searchParams.get('tab') : 'geral';
   const [tab, setTab] = useState(initialTab);
@@ -139,20 +140,15 @@ export default function ProfileTabs({ userName, baseUrl, providers }) {
         {tab === 'ia' && (
           <>
             <p className="tab-folder-description">
-              Registre chaves de API para os provedores usados na geração de questões e nas demais funcionalidades de
-              IA — cada uma fica salva separadamente e pode ser trocada ou removida a qualquer momento.
+              Cadastre quantas integrações de IA precisar — inclusive várias do mesmo provedor, com chaves, URLs base,
+              modelos e parâmetros de geração diferentes. Cada uma fica disponível como uma opção separada nas telas
+              que usam IA.
             </p>
-            <div className="ai-providers-list">
-              {providers.map((provider) => (
-                <ApiKeyManager
-                  key={provider.id}
-                  provider={provider}
-                  hasApiKey={provider.hasApiKey}
-                  currentModel={provider.currentModel}
-                  onDirtyChange={(isDirty) => setDirty(`apikey-${provider.id}`, isDirty)}
-                />
-              ))}
-            </div>
+            <IntegrationManager
+              integrations={integrations}
+              driverProviders={driverProviders}
+              onDirtyChange={(isDirty) => setDirty('integrations', isDirty)}
+            />
           </>
         )}
 

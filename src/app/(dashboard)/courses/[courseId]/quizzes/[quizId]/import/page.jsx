@@ -1,6 +1,6 @@
 import { requireCanvasIntegration } from '@/lib/canvasIntegration';
 import { getCourse, getQuiz } from '@/lib/canvasClient';
-import { getConfiguredProviders } from '@/lib/aiProviderKeys';
+import { getConfiguredIntegrations } from '@/lib/aiIntegrations';
 import CanvasNotConnected from '@/components/CanvasNotConnected';
 import QuizImportPanel from '@/components/QuizImportPanel';
 import ContextBanner from '@/components/ContextBanner';
@@ -19,7 +19,7 @@ export default async function ImportPage({ params }) {
   // against Canvas, which isn't safe (observed causing a hard failure here).
   const course = await getCourse(client, courseId);
   const quiz = await getQuiz(client, courseId, quizId);
-  const configuredProviders = await getConfiguredProviders(user.id);
+  const configuredIntegrations = await getConfiguredIntegrations(user.id);
 
   return (
     <main className="page">
@@ -30,7 +30,7 @@ export default async function ImportPage({ params }) {
           { label: 'Atividade', value: quiz.title },
         ]}
       />
-      <QuizImportPanel courseId={courseId} quizId={quizId} providers={configuredProviders} />
+      <QuizImportPanel courseId={courseId} quizId={quizId} integrations={configuredIntegrations} />
     </main>
   );
 }

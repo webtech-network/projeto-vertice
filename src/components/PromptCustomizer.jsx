@@ -43,7 +43,7 @@ function CapabilityEditor({ capability, onDirtyChange }) {
   }, [key]);
 
   const isDirty = !loading && (text !== savedText || mode !== savedMode);
-  // Deliberately depends only on `isDirty` — see ApiKeyManager.jsx's own
+  // Deliberately depends only on `isDirty` — see IntegrationManager.jsx's own
   // effect for why `onDirtyChange` itself isn't in the dependency array.
   useEffect(() => {
     onDirtyChange?.(isDirty);
@@ -201,7 +201,7 @@ export default function PromptCustomizer({ onDirtyChange }) {
   }
 
   const anyDirty = Object.values(dirtyMap).some(Boolean);
-  // Deliberately depends only on `anyDirty` — see ApiKeyManager.jsx's own
+  // Deliberately depends only on `anyDirty` — see IntegrationManager.jsx's own
   // effect for why `onDirtyChange` itself isn't in the dependency array.
   useEffect(() => {
     onDirtyChange?.(anyDirty);

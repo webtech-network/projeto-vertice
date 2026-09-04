@@ -255,34 +255,78 @@ grant execute on function public.get_integration_tokens to service_role;
 grant execute on function public.delete_integration_tokens to service_role;
 
 -- =====================================================================
--- ai_provider_keys — chaves de API de IA (openai/gemini/claude) + modelo
--- escolhido por provedor. Migrado do iron-session (session.aiApiKeys/
--- session.aiModels) — mesmo padrão de integrations acima: chave nunca em
--- texto plano (só o id do secret no Vault), acesso exclusivo via função
--- SECURITY DEFINER + service_role. Tabela própria, não reaproveita
--- integrations (que tem colunas de OAuth que não fazem sentido aqui).
--- Ambientes já inicializados antes desta tabela existir aplicam a mesma DDL
--- via supabase/volumes/db/manual/08_ai_provider_keys.sql.
+-- ai_integrations — integrações de IA cadastradas pelo usuário: múltiplas
+-- por driver-base (openai/gemini/claude/zai) permitidas, cada uma com seu
+-- próprio nome, URL base, modelo, prompt de sistema e parâmetros de
+-- geração (temperatura, limite de tokens, penalidades). Mesmo padrão de
+-- integrations acima: chave nunca em texto plano (só o id do secret no
+-- Vault), acesso exclusivo via função SECURITY DEFINER + service_role.
+-- Tabela própria, não reaproveita integrations (que tem colunas de OAuth
+-- que não fazem sentido aqui). Substitui a antiga ai_provider_keys (uma
+-- linha por usuário+provider, sem esses parâmetros). Ambientes já
+-- inicializados antes desta tabela existir aplicam a mesma DDL via
+-- supabase/volumes/db/manual/10_ai_integrations.sql (que também migra os
+-- dados de ai_provider_keys).
 -- =====================================================================
-create table public.ai_provider_keys (
+create table public.ai_integrations (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
-  provider text not null check (provider in ('openai', 'gemini', 'claude')),
-  api_key_vault_id uuid not null,
-  -- Não é segredo, não vai pro Vault. Fica na mesma linha da chave de
-  -- propósito — ver o comentário completo em 08_ai_provider_keys.sql.
+  -- Driver/protocolo — qual dos módulos em src/lib/aiProviders/ sabe falar
+  -- com essa integração. Múltiplas integrações do MESMO driver (ex.: duas
+  -- 'openai' com base_url/api_key diferentes, apontando pra um serviço
+  -- OpenAI-compatible de terceiro) não exigem nenhuma mudança de código.
+  provider text not null check (provider in ('openai', 'gemini', 'claude', 'zai')),
+  -- Rótulo do próprio usuário — diferencia duas integrações do mesmo
+  -- provider nos seletores da UI.
+  name text not null,
+  api_key_vault_id uuid,
+  -- null = usa o host hardcoded do driver.
+  base_url text,
+  -- null = usa o defaultModel do driver.
   model text,
+  system_prompt text,
+  -- 'append' (default) acrescenta depois do prompt padrão da capacidade +
+  -- prompt customizado global (public.custom_prompts) já resolvidos;
+  -- 'replace' substitui tudo. Ver src/lib/promptResolution.js.
+  system_prompt_mode text not null default 'append' check (system_prompt_mode in ('append', 'replace')),
+  temperature numeric(3, 2) not null default 0.7 check (temperature between 0 and 1),
+  max_tokens integer check (max_tokens is null or max_tokens > 0),
+  -- Sem efeito nos drivers Claude e Z.ai (as APIs não expõem esses
+  -- parâmetros) — aceitos aqui por uniformidade do formulário/schema.
+  presence_penalty numeric(3, 2) check (presence_penalty between -2 and 2),
+  frequency_penalty numeric(3, 2) check (frequency_penalty between -2 and 2),
+  -- Uma integração padrão por usuário, pré-selecionada nos seletores das
+  -- telas de geração (ver índice único parcial abaixo).
+  is_default boolean not null default false,
+  -- Desativa temporariamente sem apagar a config — some dos seletores.
+  is_active boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  unique (user_id, provider)
+  unique (user_id, name)
 );
 
-create index ai_provider_keys_user_id_idx on public.ai_provider_keys (user_id);
+create unique index ai_integrations_one_default_per_user
+  on public.ai_integrations (user_id) where is_default;
+create index ai_integrations_user_id_idx on public.ai_integrations (user_id);
 
-create or replace function public.upsert_ai_provider_key(
+-- Sem trigger set_updated_at (diferente de shortcuts/custom_prompts/etc.)
+-- — toda escrita passa pelas RPCs abaixo, que já setam updated_at = now()
+-- explicitamente onde importa, mesmo padrão da antiga ai_provider_keys.
+
+create or replace function public.create_ai_integration(
   p_user_id uuid,
   p_provider text,
-  p_api_key text
+  p_name text,
+  p_api_key text,
+  p_base_url text,
+  p_model text,
+  p_system_prompt text,
+  p_system_prompt_mode text,
+  p_temperature numeric,
+  p_max_tokens integer,
+  p_presence_penalty numeric,
+  p_frequency_penalty numeric,
+  p_is_default boolean
 ) returns uuid
 language plpgsql
 security definer
@@ -292,48 +336,91 @@ declare
   v_id uuid;
   v_vault_id uuid;
 begin
-  select id, api_key_vault_id into v_id, v_vault_id
-    from public.ai_provider_keys
-    where user_id = p_user_id and provider = p_provider;
+  v_vault_id := vault.create_secret(p_api_key, p_user_id::text || ':' || p_provider || ':' || gen_random_uuid());
 
-  if v_vault_id is not null then
-    perform vault.update_secret(v_vault_id, p_api_key);
-  else
-    v_vault_id := vault.create_secret(p_api_key, p_user_id::text || ':' || p_provider || ':' || gen_random_uuid());
+  if p_is_default then
+    update public.ai_integrations set is_default = false where user_id = p_user_id and is_default;
   end if;
 
-  insert into public.ai_provider_keys (user_id, provider, api_key_vault_id, updated_at)
-  values (p_user_id, p_provider, v_vault_id, now())
-  on conflict (user_id, provider) do update set
-    api_key_vault_id = excluded.api_key_vault_id,
-    updated_at = now()
+  insert into public.ai_integrations (
+    user_id, provider, name, api_key_vault_id, base_url, model,
+    system_prompt, system_prompt_mode, temperature, max_tokens,
+    presence_penalty, frequency_penalty, is_default
+  )
+  values (
+    p_user_id, p_provider, p_name, v_vault_id, p_base_url, p_model,
+    p_system_prompt, coalesce(p_system_prompt_mode, 'append'), coalesce(p_temperature, 0.7), p_max_tokens,
+    p_presence_penalty, p_frequency_penalty, coalesce(p_is_default, false)
+  )
   returning id into v_id;
 
   return v_id;
 end;
 $$;
 
-create or replace function public.get_ai_provider_key(
+create or replace function public.update_ai_integration(
   p_user_id uuid,
-  p_provider text
-) returns table (api_key text, model text)
+  p_integration_id uuid,
+  p_name text,
+  p_api_key text, -- null = mantém a chave atual
+  p_base_url text,
+  p_model text,
+  p_system_prompt text,
+  p_system_prompt_mode text,
+  p_temperature numeric,
+  p_max_tokens integer,
+  p_presence_penalty numeric,
+  p_frequency_penalty numeric,
+  p_is_default boolean, -- null = não mexe; true = vira a padrão
+  p_is_active boolean -- null = não mexe
+) returns boolean
 language plpgsql
 security definer
 set search_path = public, vault
 as $$
+declare
+  v_vault_id uuid;
+  v_row_count integer;
 begin
-  return query
-    select
-      (select decrypted_secret from vault.decrypted_secrets where id = k.api_key_vault_id),
-      k.model
-    from public.ai_provider_keys k
-    where k.user_id = p_user_id and k.provider = p_provider;
+  select api_key_vault_id into v_vault_id
+    from public.ai_integrations
+    where id = p_integration_id and user_id = p_user_id;
+
+  if v_vault_id is null and p_api_key is not null then
+    return false;
+  end if;
+
+  if p_api_key is not null then
+    perform vault.update_secret(v_vault_id, p_api_key);
+  end if;
+
+  if p_is_default then
+    update public.ai_integrations set is_default = false where user_id = p_user_id and is_default;
+  end if;
+
+  update public.ai_integrations set
+    name = coalesce(p_name, name),
+    base_url = p_base_url,
+    model = p_model,
+    system_prompt = p_system_prompt,
+    system_prompt_mode = coalesce(p_system_prompt_mode, system_prompt_mode),
+    temperature = coalesce(p_temperature, temperature),
+    max_tokens = p_max_tokens,
+    presence_penalty = p_presence_penalty,
+    frequency_penalty = p_frequency_penalty,
+    is_default = coalesce(p_is_default, is_default),
+    is_active = coalesce(p_is_active, is_active),
+    updated_at = now()
+  where id = p_integration_id and user_id = p_user_id;
+
+  get diagnostics v_row_count = row_count;
+  return v_row_count > 0;
 end;
 $$;
 
-create or replace function public.delete_ai_provider_key(
+create or replace function public.delete_ai_integration(
   p_user_id uuid,
-  p_provider text
+  p_integration_id uuid
 ) returns void
 language plpgsql
 security definer
@@ -343,10 +430,10 @@ declare
   v_vault_id uuid;
 begin
   select api_key_vault_id into v_vault_id
-    from public.ai_provider_keys
-    where user_id = p_user_id and provider = p_provider;
+    from public.ai_integrations
+    where id = p_integration_id and user_id = p_user_id;
 
-  delete from public.ai_provider_keys where user_id = p_user_id and provider = p_provider;
+  delete from public.ai_integrations where id = p_integration_id and user_id = p_user_id;
 
   if v_vault_id is not null then
     delete from vault.secrets where id = v_vault_id;
@@ -354,46 +441,78 @@ begin
 end;
 $$;
 
-create or replace function public.set_ai_provider_model(
+create or replace function public.get_ai_integration(
   p_user_id uuid,
-  p_provider text,
-  p_model text
-) returns boolean
+  p_integration_id uuid
+) returns table (
+  api_key text,
+  provider text,
+  base_url text,
+  model text,
+  system_prompt text,
+  system_prompt_mode text,
+  temperature numeric,
+  max_tokens integer,
+  presence_penalty numeric,
+  frequency_penalty numeric
+)
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, vault
 as $$
-declare
-  v_row_count integer;
 begin
-  update public.ai_provider_keys
-    set model = p_model, updated_at = now()
-    where user_id = p_user_id and provider = p_provider;
-  get diagnostics v_row_count = row_count;
-  return v_row_count > 0;
+  return query
+    select
+      (select decrypted_secret from vault.decrypted_secrets where id = i.api_key_vault_id),
+      i.provider, i.base_url, i.model, i.system_prompt, i.system_prompt_mode,
+      i.temperature, i.max_tokens, i.presence_penalty, i.frequency_penalty
+    from public.ai_integrations i
+    where i.id = p_integration_id and i.user_id = p_user_id and i.is_active;
 end;
 $$;
 
-create or replace function public.list_ai_provider_keys(
+create or replace function public.list_ai_integrations(
   p_user_id uuid
-) returns table (provider text, model text)
+) returns table (
+  id uuid,
+  provider text,
+  name text,
+  has_api_key boolean,
+  base_url text,
+  model text,
+  system_prompt text,
+  system_prompt_mode text,
+  temperature numeric,
+  max_tokens integer,
+  presence_penalty numeric,
+  frequency_penalty numeric,
+  is_default boolean,
+  is_active boolean,
+  created_at timestamptz
+)
 language sql
 security definer
 set search_path = public
 as $$
-  select k.provider, k.model from public.ai_provider_keys k where k.user_id = p_user_id;
+  select
+    i.id, i.provider, i.name, i.api_key_vault_id is not null, i.base_url, i.model,
+    i.system_prompt, i.system_prompt_mode, i.temperature, i.max_tokens,
+    i.presence_penalty, i.frequency_penalty, i.is_default, i.is_active, i.created_at
+  from public.ai_integrations i
+  where i.user_id = p_user_id
+  order by i.is_default desc, i.name asc;
 $$;
 
-revoke all on function public.upsert_ai_provider_key from public, anon, authenticated;
-revoke all on function public.get_ai_provider_key from public, anon, authenticated;
-revoke all on function public.delete_ai_provider_key from public, anon, authenticated;
-revoke all on function public.set_ai_provider_model from public, anon, authenticated;
-revoke all on function public.list_ai_provider_keys from public, anon, authenticated;
-grant execute on function public.upsert_ai_provider_key to service_role;
-grant execute on function public.get_ai_provider_key to service_role;
-grant execute on function public.delete_ai_provider_key to service_role;
-grant execute on function public.set_ai_provider_model to service_role;
-grant execute on function public.list_ai_provider_keys to service_role;
+revoke all on function public.create_ai_integration from public, anon, authenticated;
+revoke all on function public.update_ai_integration from public, anon, authenticated;
+revoke all on function public.delete_ai_integration from public, anon, authenticated;
+revoke all on function public.get_ai_integration from public, anon, authenticated;
+revoke all on function public.list_ai_integrations from public, anon, authenticated;
+grant execute on function public.create_ai_integration to service_role;
+grant execute on function public.update_ai_integration to service_role;
+grant execute on function public.delete_ai_integration to service_role;
+grant execute on function public.get_ai_integration to service_role;
+grant execute on function public.list_ai_integrations to service_role;
 
 -- =====================================================================
 -- shortcuts / custom_prompts / course_notes — antes só existiam no

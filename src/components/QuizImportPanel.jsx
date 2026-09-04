@@ -26,7 +26,7 @@ const TABS = [
   },
 ];
 
-export default function QuizImportPanel({ courseId, quizId, providers }) {
+export default function QuizImportPanel({ courseId, quizId, integrations }) {
   const [mode, setMode] = useState('file');
   const active = TABS.find((tab) => tab.key === mode);
 
@@ -54,7 +54,7 @@ export default function QuizImportPanel({ courseId, quizId, providers }) {
         {mode === 'file' ? (
           <ImportQuestions courseId={courseId} quizId={quizId} />
         ) : (
-          <QuestionGenerator providers={providers} courseId={courseId} quizId={quizId} />
+          <QuestionGenerator integrations={integrations} courseId={courseId} quizId={quizId} />
         )}
       </div>
     </div>

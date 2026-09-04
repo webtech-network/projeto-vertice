@@ -15,10 +15,12 @@ import Modal from './Modal';
 // typed," with no reply framing to invent. `preventBackdropClose` (see
 // Modal.jsx) guards the draft the same way MessageList.jsx's AI reply modal
 // does, once there's text worth losing.
-export default function StudentMessageModal({ student, courseId, providers = [], onClose }) {
+export default function StudentMessageModal({ student, courseId, integrations = [], onClose }) {
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
-  const [providerId, setProviderId] = useState(providers[0]?.id || '');
+  const [integrationId, setIntegrationId] = useState(
+    integrations.find((i) => i.isDefault)?.id || integrations[0]?.id || '',
+  );
   const [improving, setImproving] = useState(false);
   const [improveError, setImproveError] = useState(null);
   const [sending, setSending] = useState(false);
@@ -31,7 +33,7 @@ export default function StudentMessageModal({ student, courseId, providers = [],
     setImproveError(null);
     try {
       const custom = await getCustomPrompt('improveMessage');
-      const response = await fetch(`/api/ai/${providerId}/improve-message`, {
+      const response = await fetch(`/api/ai/integrations/${integrationId}/improve-message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: body, customPromptText: custom?.text, customPromptMode: custom?.mode }),
@@ -94,17 +96,21 @@ export default function StudentMessageModal({ student, courseId, providers = [],
         />
       </label>
 
-      {providers.length === 0 ? (
+      {integrations.length === 0 ? (
         <p className="lede">
-          Configure uma chave de API de IA em <Link href="/perfil">seu perfil</Link> para melhorar a mensagem com IA.
+          Configure uma integração de IA em <Link href="/perfil">seu perfil</Link> para melhorar a mensagem com IA.
         </p>
       ) : (
         <div className="compose-message-actions">
-          {providers.length > 1 && (
-            <select aria-label="Motor de IA" value={providerId} onChange={(e) => setProviderId(e.target.value)}>
-              {providers.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label}
+          {integrations.length > 1 && (
+            <select
+              aria-label="Integração de IA"
+              value={integrationId}
+              onChange={(e) => setIntegrationId(e.target.value)}
+            >
+              {integrations.map((i) => (
+                <option key={i.id} value={i.id}>
+                  {i.name} — {i.providerLabel} ({i.model})
                 </option>
               ))}
             </select>

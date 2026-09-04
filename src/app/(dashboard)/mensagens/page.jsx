@@ -1,6 +1,6 @@
 import { ChevronsDown, ChevronsUp, RefreshCw, ExternalLink, Archive, Sparkles } from 'lucide-react';
 import { requireCanvasIntegration } from '@/lib/canvasIntegration';
-import { getConfiguredProviders } from '@/lib/aiProviderKeys';
+import { getConfiguredIntegrations } from '@/lib/aiIntegrations';
 import CanvasNotConnected from '@/components/CanvasNotConnected';
 import MessageBrowser from '@/components/MessageBrowser';
 import InfoHint from '@/components/InfoHint';
@@ -14,7 +14,7 @@ export default async function MensagensPage() {
   if (!user) return null;
   if (!canvas) return <CanvasNotConnected />;
 
-  const configuredProviders = await getConfiguredProviders(user.id);
+  const configuredIntegrations = await getConfiguredIntegrations(user.id);
 
   return (
     <main className="page">
@@ -57,7 +57,7 @@ export default async function MensagensPage() {
       <MessageBrowser
         currentUserId={canvas.providerUserId ? Number(canvas.providerUserId) : null}
         baseUrl={canvas.baseUrl}
-        providers={configuredProviders}
+        integrations={configuredIntegrations}
       />
     </main>
   );

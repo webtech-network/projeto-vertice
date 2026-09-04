@@ -8,7 +8,7 @@ alter table public.shortcuts enable row level security;
 alter table public.custom_prompts enable row level security;
 alter table public.course_notes enable row level security;
 alter table public.course_workspace_links enable row level security;
-alter table public.ai_provider_keys enable row level security;
+alter table public.ai_integrations enable row level security;
 alter table public.ui_preferences enable row level security;
 
 -- workspaces / projects / tasks: dono só enxerga e mexe no próprio dado.
@@ -46,7 +46,7 @@ begin
   end loop;
 end $$;
 
--- integrations / ai_provider_keys: RLS ativo, ZERO policies para
+-- integrations / ai_integrations: RLS ativo, ZERO policies para
 -- anon/authenticated — de propósito. Único acesso é via service_role (que
 -- ignora RLS por definição no Postgres do Supabase), sempre a partir de
 -- rotas server-side do Next.js. Isso é o que garante que os tokens/chaves

@@ -1,8 +1,7 @@
 import { Suspense } from 'react';
 import { createSupabaseServerClient } from '@/lib/supabaseServerClient';
 import { getDisplayName } from '@/lib/supabaseUserDisplay';
-import { listProviders } from '@/lib/aiProviders';
-import { listAiProviderKeys } from '@/lib/aiProviderKeys';
+import { listAiIntegrations, listDriverProviders } from '@/lib/aiIntegrations';
 import ProfileTabs from '@/components/ProfileTabs';
 
 export default async function PerfilPage() {
@@ -14,13 +13,8 @@ export default async function PerfilPage() {
     return null; // proxy already redirects unauthenticated requests to /login
   }
 
-  const configuredKeys = await listAiProviderKeys(user.id);
-
-  const providers = listProviders().map((provider) => ({
-    ...provider,
-    hasApiKey: Boolean(configuredKeys[provider.id]),
-    currentModel: configuredKeys[provider.id]?.model || null,
-  }));
+  const integrations = await listAiIntegrations(user.id);
+  const driverProviders = listDriverProviders();
 
   return (
     <main className="page">
@@ -37,7 +31,12 @@ export default async function PerfilPage() {
         {/* baseUrl fica null até a Fase 2 popular a partir de uma
             integração Canvas ativa (public.integrations) — sem isso hoje,
             "Conta" só mostra o campo em branco, não quebra. */}
-        <ProfileTabs userName={getDisplayName(user)} baseUrl={null} providers={providers} />
+        <ProfileTabs
+          userName={getDisplayName(user)}
+          baseUrl={null}
+          integrations={integrations}
+          driverProviders={driverProviders}
+        />
       </Suspense>
     </main>
   );

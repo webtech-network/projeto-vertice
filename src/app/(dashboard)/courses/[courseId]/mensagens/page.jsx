@@ -1,6 +1,6 @@
 import { requireCanvasIntegration } from '@/lib/canvasIntegration';
 import { getCourse, listConversations } from '@/lib/canvasClient';
-import { getConfiguredProviders } from '@/lib/aiProviderKeys';
+import { getConfiguredIntegrations } from '@/lib/aiIntegrations';
 import { courseMessagesUrl } from '@/lib/canvasLinks';
 import CanvasNotConnected from '@/components/CanvasNotConnected';
 import ComposeMessage from '@/components/ComposeMessage';
@@ -13,7 +13,7 @@ export default async function CourseMensagensPage({ params }) {
   if (!user) return null;
   if (!canvas) return <CanvasNotConnected />;
 
-  const configuredProviders = await getConfiguredProviders(user.id);
+  const configuredIntegrations = await getConfiguredIntegrations(user.id);
 
   const client = canvas.client;
 
@@ -46,7 +46,7 @@ export default async function CourseMensagensPage({ params }) {
       />
       <p className="lede">Mensagens da caixa de entrada do Canvas associadas a este curso.</p>
 
-      <ComposeMessage courseId={courseId} providers={configuredProviders} />
+      <ComposeMessage courseId={courseId} integrations={configuredIntegrations} />
 
       {loadError ? (
         <p className="alert alert-error" role="alert">
@@ -57,7 +57,7 @@ export default async function CourseMensagensPage({ params }) {
           conversations={conversations}
           currentUserId={canvas.providerUserId ? Number(canvas.providerUserId) : null}
           baseUrl={canvas.baseUrl}
-          providers={configuredProviders}
+          integrations={configuredIntegrations}
         />
       )}
     </main>

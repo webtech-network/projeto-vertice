@@ -102,7 +102,7 @@ const SORTERS = {
   finalScore: (r) => r.finalScore ?? -1,
 };
 
-export default function StudentReport({ rows, courseId, baseUrl, providers = [] }) {
+export default function StudentReport({ rows, courseId, baseUrl, integrations = [] }) {
   const [query, setQuery] = useState('');
   const [messageStudent, setMessageStudent] = useState(null);
   const [sort, setSort] = useState({ key: null, direction: 'asc' });
@@ -282,7 +282,7 @@ export default function StudentReport({ rows, courseId, baseUrl, providers = [] 
         <StudentMessageModal
           student={messageStudent}
           courseId={courseId}
-          providers={providers}
+          integrations={integrations}
           onClose={() => setMessageStudent(null)}
         />
       )}

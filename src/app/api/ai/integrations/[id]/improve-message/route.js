@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabaseServerClient';
 import { getProvider } from '@/lib/aiProviders';
-import { getAiProviderKey } from '@/lib/aiProviderKeys';
+import { getAiIntegration } from '@/lib/aiIntegrations';
 import { IMPROVE_SYSTEM_PROMPT } from '@/lib/aiProviders/improvePrompt';
 import { resolvePrompt } from '@/lib/promptResolution';
 
@@ -14,18 +14,12 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: 'Sessão inválida. Faça login novamente.' }, { status: 401 });
   }
 
-  const { provider: providerId } = await params;
-  let provider;
-  try {
-    provider = getProvider(providerId);
-  } catch {
-    return NextResponse.json({ error: 'Provedor de IA desconhecido.' }, { status: 404 });
-  }
-
-  const config = await getAiProviderKey(user.id, providerId);
+  const { id } = await params;
+  const config = await getAiIntegration(user.id, id);
   if (!config) {
-    return NextResponse.json({ error: `Nenhuma chave de API configurada para ${provider.label}.` }, { status: 401 });
+    return NextResponse.json({ error: 'Integração não encontrada ou sem chave de API configurada.' }, { status: 404 });
   }
+  const provider = getProvider(config.provider);
 
   const body = await request.json().catch(() => null);
   const { text, customPromptText, customPromptMode } = body || {};
@@ -33,12 +27,18 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: 'Texto da mensagem é obrigatório.' }, { status: 400 });
   }
 
-  const systemPrompt = resolvePrompt(IMPROVE_SYSTEM_PROMPT, customPromptText, customPromptMode);
+  const capabilityPrompt = resolvePrompt(IMPROVE_SYSTEM_PROMPT, customPromptText, customPromptMode);
+  const systemPrompt = resolvePrompt(capabilityPrompt, config.systemPrompt, config.systemPromptMode);
 
   try {
     const improved = await provider.improveMessage({
       apiKey: config.apiKey,
-      model: config.model || process.env[`${providerId.toUpperCase()}_MODEL`],
+      baseUrl: config.baseUrl,
+      model: config.model,
+      temperature: config.temperature,
+      maxTokens: config.maxTokens,
+      presencePenalty: config.presencePenalty,
+      frequencyPenalty: config.frequencyPenalty,
       text,
       systemPrompt,
     });

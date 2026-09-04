@@ -92,14 +92,17 @@ const SORTERS = {
 // already scoped to one course) and each course group on the global one
 // (/mensagens) — course context doesn't need its own column here since both
 // callers already scope the list to a single course before rendering it.
-// `providers` (from src/lib/aiProviders, filtered to ones the user has a key
-// for) powers the "Responder com IA" action on each expanded row.
-export default function MessageList({ conversations, currentUserId, baseUrl, providers = [] }) {
+// `integrations` (from src/lib/aiIntegrations, filtered to active ones with
+// a key configured) powers the "Responder com IA" action on each expanded
+// row.
+export default function MessageList({ conversations, currentUserId, baseUrl, integrations = [] }) {
   const [sort, setSort] = useState({ key: 'date', direction: 'desc' });
   const [expandedIds, setExpandedIds] = useState(() => new Set());
   // conversation id -> { status: 'loading'|'loaded'|'error', messages, error }
   const [threads, setThreads] = useState({});
-  const [providerId, setProviderId] = useState(providers[0]?.id || '');
+  const [integrationId, setIntegrationId] = useState(
+    integrations.find((i) => i.isDefault)?.id || integrations[0]?.id || '',
+  );
   // AI-assisted reply modal state, or null when closed. `status` walks
   // 'draft' (collecting the professor's prior info) -> 'generating' ->
   // 'ready' (editable suggestion, ready to send or regenerate).
@@ -194,7 +197,7 @@ export default function MessageList({ conversations, currentUserId, baseUrl, pro
     setAssist((prev) => (prev ? { ...prev, generating: true, generateError: null } : prev));
     try {
       const custom = await getCustomPrompt('suggestReply');
-      const response = await fetch(`/api/ai/${providerId}/suggest-reply`, {
+      const response = await fetch(`/api/ai/integrations/${integrationId}/suggest-reply`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -364,17 +367,17 @@ export default function MessageList({ conversations, currentUserId, baseUrl, pro
                             Abrir no Canvas
                           </Link>
 
-                          {providers.length > 0 && (
+                          {integrations.length > 0 && (
                             <>
-                              {providers.length > 1 && (
+                              {integrations.length > 1 && (
                                 <select
-                                  aria-label="Motor de IA"
-                                  value={providerId}
-                                  onChange={(e) => setProviderId(e.target.value)}
+                                  aria-label="Integração de IA"
+                                  value={integrationId}
+                                  onChange={(e) => setIntegrationId(e.target.value)}
                                 >
-                                  {providers.map((p) => (
-                                    <option key={p.id} value={p.id}>
-                                      {p.label}
+                                  {integrations.map((i) => (
+                                    <option key={i.id} value={i.id}>
+                                      {i.name} — {i.providerLabel} ({i.model})
                                     </option>
                                   ))}
                                 </select>
@@ -386,9 +389,9 @@ export default function MessageList({ conversations, currentUserId, baseUrl, pro
                             </>
                           )}
                         </div>
-                        {providers.length === 0 && (
+                        {integrations.length === 0 && (
                           <p className="lede">
-                            Configure uma chave de API de IA em <Link href="/perfil">seu perfil</Link> para responder
+                            Configure uma integração de IA em <Link href="/perfil">seu perfil</Link> para responder
                             com IA.
                           </p>
                         )}
@@ -470,11 +473,15 @@ export default function MessageList({ conversations, currentUserId, baseUrl, pro
           )}
 
           <div className="compose-message-actions">
-            {providers.length > 1 && (
-              <select aria-label="Motor de IA" value={providerId} onChange={(e) => setProviderId(e.target.value)}>
-                {providers.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.label}
+            {integrations.length > 1 && (
+              <select
+                aria-label="Integração de IA"
+                value={integrationId}
+                onChange={(e) => setIntegrationId(e.target.value)}
+              >
+                {integrations.map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {i.name} — {i.providerLabel} ({i.model})
                   </option>
                 ))}
               </select>

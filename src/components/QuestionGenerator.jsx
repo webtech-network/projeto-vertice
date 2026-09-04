@@ -32,8 +32,10 @@ function stripHtml(html) {
   return doc.body.textContent || '';
 }
 
-export default function QuestionGenerator({ providers, courseId, quizId }) {
-  const [providerId, setProviderId] = useState(providers[0]?.id || '');
+export default function QuestionGenerator({ integrations, courseId, quizId }) {
+  const [integrationId, setIntegrationId] = useState(
+    integrations.find((i) => i.isDefault)?.id || integrations[0]?.id || '',
+  );
   const [specs, setSpecs] = useState([emptySpec()]);
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState(null);
@@ -70,7 +72,7 @@ export default function QuestionGenerator({ providers, courseId, quizId }) {
 
     try {
       const custom = await getCustomPrompt('generateQuestions');
-      const response = await fetch(`/api/ai/${providerId}/generate-questions`, {
+      const response = await fetch(`/api/ai/integrations/${integrationId}/generate-questions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ specs, customPromptText: custom?.text, customPromptMode: custom?.mode }),
@@ -151,19 +153,19 @@ export default function QuestionGenerator({ providers, courseId, quizId }) {
         )}
       </div>
 
-      {providers.length === 0 ? (
+      {integrations.length === 0 ? (
         <div className="alert alert-warning">
-          Configure ao menos uma chave de API de IA em <Link href="/perfil">seu perfil</Link> para gerar questões.
+          Configure ao menos uma integração de IA em <Link href="/perfil">seu perfil</Link> para gerar questões.
         </div>
       ) : (
         <>
-          {providers.length > 1 && (
+          {integrations.length > 1 && (
             <div className="provider-select">
-              <label htmlFor="ai-provider">Motor de IA</label>
-              <select id="ai-provider" value={providerId} onChange={(e) => setProviderId(e.target.value)}>
-                {providers.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.label}
+              <label htmlFor="ai-integration">Integração de IA</label>
+              <select id="ai-integration" value={integrationId} onChange={(e) => setIntegrationId(e.target.value)}>
+                {integrations.map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {i.name} — {i.providerLabel} ({i.model})
                   </option>
                 ))}
               </select>

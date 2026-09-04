@@ -1,7 +1,7 @@
 import { requireCanvasIntegration } from '@/lib/canvasIntegration';
 import { getCourse, listCourseStudents } from '@/lib/canvasClient';
 import { buildStudentRows } from '@/lib/studentReport';
-import { getConfiguredProviders } from '@/lib/aiProviderKeys';
+import { getConfiguredIntegrations } from '@/lib/aiIntegrations';
 import { coursePeopleUrl } from '@/lib/canvasLinks';
 import CanvasNotConnected from '@/components/CanvasNotConnected';
 import StudentReport from '@/components/StudentReport';
@@ -23,7 +23,7 @@ export default async function AlunosPage({ params }) {
   const students = await listCourseStudents(client, courseId, { include: ['enrollments', 'email'] });
 
   const rows = buildStudentRows(students);
-  const configuredProviders = await getConfiguredProviders(user.id);
+  const configuredIntegrations = await getConfiguredIntegrations(user.id);
 
   return (
     <main className="page">
@@ -39,7 +39,7 @@ export default async function AlunosPage({ params }) {
       />
       <p className="lede">Listagem dos alunos ativos do curso, com dados de matrícula, atividade e notas.</p>
 
-      <StudentReport rows={rows} courseId={courseId} baseUrl={canvas.baseUrl} providers={configuredProviders} />
+      <StudentReport rows={rows} courseId={courseId} baseUrl={canvas.baseUrl} integrations={configuredIntegrations} />
     </main>
   );
 }

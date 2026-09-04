@@ -26,7 +26,7 @@ function groupKey(group) {
 // with an IndexedDB stale-while-revalidate cache — grouping and the course
 // filter both happen client-side too, so switching courses/expanding groups
 // never re-hits the Canvas API.
-export default function MessageBrowser({ currentUserId, baseUrl, providers }) {
+export default function MessageBrowser({ currentUserId, baseUrl, integrations }) {
   const [courses, setCourses] = useState([]);
   const [conversations, setConversations] = useState([]);
   // Defaults to "Mensagens diretas" (courseFilter='other', see groupKey())
@@ -224,7 +224,7 @@ export default function MessageBrowser({ currentUserId, baseUrl, providers }) {
                     conversations={group.conversations}
                     currentUserId={currentUserId}
                     baseUrl={baseUrl}
-                    providers={providers}
+                    integrations={integrations}
                   />
                 </div>
               )}
