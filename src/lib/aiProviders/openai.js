@@ -7,6 +7,8 @@ import { logAiRequest } from './debugLog';
 export const id = 'openai';
 export const label = 'OpenAI (ChatGPT)';
 export const defaultModel = 'gpt-4o-mini';
+export const supportsTemperature = true;
+export const supportsPenalties = true;
 
 const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
 

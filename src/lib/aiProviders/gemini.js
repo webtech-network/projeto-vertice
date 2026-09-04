@@ -7,6 +7,8 @@ import { logAiRequest } from './debugLog';
 export const id = 'gemini';
 export const label = 'Google Gemini';
 export const defaultModel = 'gemini-2.0-flash';
+export const supportsTemperature = true;
+export const supportsPenalties = true;
 
 const DEFAULT_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
 

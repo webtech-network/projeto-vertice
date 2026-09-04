@@ -13,6 +13,8 @@ const REQUEST_TIMEOUT_MS = 120_000;
 export const id = 'zai';
 export const label = 'Z.ai (GLM)';
 export const defaultModel = 'glm-4.6';
+export const supportsTemperature = true;
+export const supportsPenalties = false;
 
 const DEFAULT_BASE_URL = 'https://api.z.ai/api/paas/v4';
 

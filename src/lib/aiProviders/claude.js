@@ -7,6 +7,10 @@ import { logAiRequest } from './debugLog';
 export const id = 'claude';
 export const label = 'Anthropic Claude';
 export const defaultModel = 'claude-sonnet-5';
+// Ver o comentário grande acima de generateQuestions: a Anthropic
+// descontinuou temperature/top_p/top_k nos modelos atuais.
+export const supportsTemperature = false;
+export const supportsPenalties = false;
 
 const DEFAULT_BASE_URL = 'https://api.anthropic.com/v1';
 const ANTHROPIC_VERSION = '2023-06-01';
@@ -53,13 +57,18 @@ export async function listModels(apiKey, baseUrl) {
 }
 
 // Anthropic's Messages API has no presence_penalty/frequency_penalty
-// concept at all — those two are accepted in every call below for contract
-// consistency with the other drivers, but simply never sent.
+// concept at all, and — as of the current model generation (including
+// claude-sonnet-5, this driver's own default) — no longer accepts
+// `temperature`/`top_p`/`top_k` either: Anthropic deprecated those sampling
+// params on newer models and the API now rejects the *whole* request with a
+// 400 ("temperature is deprecated for this model") if the field is present
+// at all, even set to 1. Unlike the penalties (accepted-but-dropped for
+// contract consistency, see index.js), `temperature` isn't even read out of
+// the destructured params below — it must never reach the request body.
 export async function generateQuestions({
   apiKey,
   baseUrl,
   model,
-  temperature,
   maxTokens,
   specs,
   systemPrompt = SYSTEM_PROMPT,
@@ -71,7 +80,6 @@ export async function generateQuestions({
   const payload = {
     model: model || defaultModel,
     max_tokens: maxTokens || 8192,
-    ...(temperature != null && { temperature }),
     system: systemPrompt,
     messages: [{ role: 'user', content: buildUserMessage(specs) }],
     tools: [
@@ -99,7 +107,6 @@ export async function suggestReply({
   apiKey,
   baseUrl,
   model,
-  temperature,
   maxTokens,
   context,
   systemPrompt = REPLY_SYSTEM_PROMPT,
@@ -108,7 +115,6 @@ export async function suggestReply({
   const payload = {
     model: model || defaultModel,
     max_tokens: maxTokens || 1024,
-    ...(temperature != null && { temperature }),
     system: systemPrompt,
     messages: [{ role: 'user', content: buildReplyUserMessage(context) }],
   };
@@ -128,7 +134,6 @@ export async function improveMessage({
   apiKey,
   baseUrl,
   model,
-  temperature,
   maxTokens,
   text,
   systemPrompt = IMPROVE_SYSTEM_PROMPT,
@@ -137,7 +142,6 @@ export async function improveMessage({
   const payload = {
     model: model || defaultModel,
     max_tokens: maxTokens || 1024,
-    ...(temperature != null && { temperature }),
     system: systemPrompt,
     messages: [{ role: 'user', content: buildImproveUserMessage(text) }],
   };

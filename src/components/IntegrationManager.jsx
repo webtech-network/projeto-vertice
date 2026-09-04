@@ -3,8 +3,6 @@
 import { useEffect, useState } from 'react';
 import { CircleCheck, ChevronDown, ChevronRight, Pencil, Trash2, Star, Plus } from 'lucide-react';
 
-const PENALTY_FREE_PROVIDERS = new Set(['claude', 'zai']);
-
 function emptyForm(providerId) {
   return {
     provider: providerId,
@@ -55,7 +53,8 @@ function IntegrationForm({ driverProviders, initial, hasApiKey, onCancel, onSubm
   const [error, setError] = useState(null);
 
   const driver = driverProviders.find((p) => p.id === form.provider) || driverProviders[0];
-  const penaltiesSupported = !PENALTY_FREE_PROVIDERS.has(form.provider);
+  const temperatureSupported = driver?.supportsTemperature !== false;
+  const penaltiesSupported = driver?.supportsPenalties !== false;
 
   function set(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -203,9 +202,15 @@ function IntegrationForm({ driverProviders, initial, hasApiKey, onCancel, onSubm
           min={0}
           max={1}
           step={0.05}
+          disabled={!temperatureSupported}
           value={form.temperature}
           onChange={(e) => set('temperature', e.target.value)}
         />
+        {!temperatureSupported && (
+          <p className="field-hint">
+            {driver?.label} descontinuou esse parâmetro nos modelos atuais — ignorado por este provedor.
+          </p>
+        )}
       </div>
 
       <div className="integration-form-row">
