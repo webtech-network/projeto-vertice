@@ -66,8 +66,11 @@ export async function importTasksFile(file) {
   const [localTasks, localProjects] = await Promise.all([listTasks(), listProjects()]);
   const mergedTasks = mergeRecords(localTasks, parsed.tasks);
   const mergedProjects = mergeRecords(localProjects, parsed.projects);
-  await replaceAllTasks(mergedTasks);
+  // Projetos primeiro: tasks.project_id tem FK pra projects(id) (Postgres,
+  // ao contrário do IndexedDB de antes, não deixa inserir uma tarefa
+  // apontando pra um projeto que ainda não existe na tabela).
   await replaceAllProjects(mergedProjects);
+  await replaceAllTasks(mergedTasks);
 
   return {
     tasks: mergedTasks.filter((t) => !t.deletedAt).length,
