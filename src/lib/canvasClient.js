@@ -201,7 +201,7 @@ export async function createQuestion(client, courseId, quizId, payload) {
  */
 export async function listConversations(client, { filter, scope } = {}) {
   return fetchAllPages(client, '/conversations', {
-    per_page: 50,
+    per_page: 100,
     ...(scope ? { scope } : {}),
     ...(filter && filter.length ? { 'filter[]': filter } : {}),
   });

@@ -17,20 +17,25 @@ export default async function CourseMensagensPage({ params }) {
 
   const client = canvas.client;
 
-  const course = await getCourse(client, courseId);
+  // getCourse and listConversations are independent Canvas reads using the
+  // same already-authenticated `client` — no OAuth-token race to serialize
+  // for, so they're fetched in parallel instead of paying two sequential
+  // round-trips before the page can render.
+  //
+  // A 401 from listConversations (as opposed to elsewhere in the app) almost
+  // always means the Canvas Developer Key has "Enforce Scopes" on without
+  // the Conversations API in its allowed list — a Canvas-admin config issue,
+  // not a bug — so it's caught locally instead of crashing the whole page.
+  const [course, conversationsResult] = await Promise.all([
+    getCourse(client, courseId),
+    listConversations(client, { filter: [`course_${courseId}`] }).catch(() => null),
+  ]);
 
-  // A 401 here (as opposed to elsewhere in the app) almost always means the
-  // Canvas Developer Key has "Enforce Scopes" on without the Conversations
-  // API in its allowed list — a Canvas-admin config issue, not a bug — so
-  // this is caught locally instead of crashing the whole page.
-  let conversations = [];
-  let loadError = null;
-  try {
-    conversations = await listConversations(client, { filter: [`course_${courseId}`] });
-  } catch {
-    loadError =
-      'Não foi possível carregar as mensagens deste curso. Se o problema persistir, verifique se a Developer Key do Canvas usada por este app tem o escopo de Conversas (Conversations API) habilitado.';
-  }
+  const conversations = conversationsResult ?? [];
+  const loadError =
+    conversationsResult === null
+      ? 'Não foi possível carregar as mensagens deste curso. Se o problema persistir, verifique se a Developer Key do Canvas usada por este app tem o escopo de Conversas (Conversations API) habilitado.'
+      : null;
 
   return (
     <main className="page">

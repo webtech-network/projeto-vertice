@@ -32,17 +32,23 @@ export async function GET() {
   const CONVERSATIONS_ERROR =
     'Não foi possível carregar as mensagens. Se o problema persistir, verifique se a Developer Key do Canvas usada por este app tem o escopo de Conversas (Conversations API) habilitado.';
 
-  let conversations = [];
-  let loadError = null;
-  if (favoriteCourses.length > 0) {
-    try {
-      conversations = await listConversations(client, {
-        filter: favoriteCourses.map((c) => `course_${c.id}`),
-      });
-    } catch {
-      loadError = CONVERSATIONS_ERROR;
-    }
-  }
+  // The two listConversations calls below are independent Canvas reads (one
+  // scoped to favorite courses, one unscoped for the whole inbox — see the
+  // comment further down) using the same already-authenticated `client`, so
+  // there's no OAuth-token race to serialize for (unlike the sequential
+  // multi-call pages elsewhere in this app, which serialize specifically to
+  // avoid concurrent refreshes of the *session's* token). Running them in
+  // parallel roughly halves this route's latency, dominated by the unscoped
+  // call paginating the professor's entire inbox.
+  const [favoritesResult, allResult] = await Promise.allSettled([
+    favoriteCourses.length > 0
+      ? listConversations(client, { filter: favoriteCourses.map((c) => `course_${c.id}`) })
+      : Promise.resolve([]),
+    listConversations(client),
+  ]);
+
+  let conversations = favoritesResult.status === 'fulfilled' ? favoritesResult.value : [];
+  let loadError = favoritesResult.status === 'rejected' ? CONVERSATIONS_ERROR : null;
 
   // "Direct" (no course) is defined relative to what's already fetched
   // above, not by inspecting audience_contexts/context_code directly:
@@ -51,19 +57,18 @@ export async function GET() {
   // teacher in many courses that's nearly always non-empty, even for a
   // one-off account-level notice, so "empty audience_contexts.courses" was
   // never true in practice and the bucket stayed permanently empty. The
-  // second, unscoped call below fetches the user's whole inbox; anything in
+  // second, unscoped call above fetches the user's whole inbox; anything in
   // it that ISN'T already one of the favorites-scoped conversations above
   // (by id) is, by construction, not associated with any favorite course —
   // Canvas's own filter[]=course_<id> on the first call already guarantees
   // that (same audience_contexts matching, done Canvas-side) — so it's
   // exactly the "not linked to a course" set groupConversationsByCourse's
   // "other" bucket is meant to catch.
-  try {
+  if (allResult.status === 'fulfilled') {
     const favoriteConversationIds = new Set(conversations.map((c) => c.id));
-    const all = await listConversations(client);
-    const extra = all.filter((c) => !favoriteConversationIds.has(c.id));
+    const extra = allResult.value.filter((c) => !favoriteConversationIds.has(c.id));
     conversations = [...conversations, ...extra];
-  } catch {
+  } else {
     loadError = loadError || CONVERSATIONS_ERROR;
   }
 
