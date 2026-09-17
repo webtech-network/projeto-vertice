@@ -1,14 +1,11 @@
 import Image from 'next/image';
-import { createSupabaseServerClient } from '@/lib/supabaseServerClient';
+import { getSupabaseUser } from '@/lib/supabaseServerClient';
 import { getDisplayName } from '@/lib/supabaseUserDisplay';
 import banner from '@/assets/images/banner_og.jpeg';
 import TutorialExplorer from '@/components/TutorialExplorer';
 
 export default async function TutorialPage() {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await getSupabaseUser();
   if (!user) {
     return null; // proxy already redirects unauthenticated requests to /login
   }

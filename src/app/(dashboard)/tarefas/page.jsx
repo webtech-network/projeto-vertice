@@ -12,7 +12,7 @@ import {
   Flag,
   Zap,
 } from 'lucide-react';
-import { createSupabaseServerClient } from '@/lib/supabaseServerClient';
+import { getSupabaseUser } from '@/lib/supabaseServerClient';
 import { TasksProvider } from '@/components/TasksProvider';
 import TasksView from '@/components/TasksView';
 import InfoHint from '@/components/InfoHint';
@@ -23,10 +23,7 @@ import InfoHint from '@/components/InfoHint';
 // /api/canvas/courses route (same pattern as courses/page.jsx not blocking
 // navigation on a Canvas round-trip).
 export default async function TarefasPage() {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await getSupabaseUser();
   if (!user) {
     return null;
   }

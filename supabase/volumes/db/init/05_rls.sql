@@ -10,17 +10,23 @@ alter table public.course_notes enable row level security;
 alter table public.course_workspace_links enable row level security;
 alter table public.ai_integrations enable row level security;
 alter table public.ui_preferences enable row level security;
+alter table public.student_engagement_snapshots enable row level security;
 
 -- workspaces / projects / tasks: dono só enxerga e mexe no próprio dado.
 -- Sem policy de DELETE físico — soft delete via UPDATE (deleted_at) já cobre
 -- a exclusão que a app usa; DELETE fica negado por padrão. ui_preferences
 -- entra no mesmo grupo por um motivo diferente: nunca faz sentido deletar,
 -- só atualizar (uma linha por usuário, pra sempre).
+-- student_engagement_snapshots também entra aqui: é um log apensado (nunca
+-- deletado), mas ainda precisa da policy de UPDATE — o upsert de "1
+-- snapshot/aluno/dia" (ver studentEngagementRepo.js) é um
+-- "insert ... on conflict (...) do update", e esse branch de conflito é
+-- avaliado sob RLS como um UPDATE de verdade.
 do $$
 declare
   t text;
 begin
-  foreach t in array array['workspaces', 'projects', 'tasks', 'ui_preferences'] loop
+  foreach t in array array['workspaces', 'projects', 'tasks', 'ui_preferences', 'student_engagement_snapshots'] loop
     execute format('create policy "select own" on public.%I for select using (auth.uid() = user_id)', t);
     execute format('create policy "insert own" on public.%I for insert with check (auth.uid() = user_id)', t);
     execute format('create policy "update own" on public.%I for update using (auth.uid() = user_id) with check (auth.uid() = user_id)', t);

@@ -1,9 +1,12 @@
 'use client';
 
+import { useState } from 'react';
+import Link from 'next/link';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { Flag, Zap, CalendarDays } from 'lucide-react';
+import { Flag, Zap, CalendarDays, GraduationCap } from 'lucide-react';
 import { useTasks } from './TasksProvider';
+import TaskContextMenu from './TaskContextMenu';
 import { STATUS_META } from '@/lib/tasks/statusMeta';
 import { projectCardStyle } from '@/lib/tasks/projectColors';
 import { formatDueDate, isPastDue } from '@/lib/tasks/dueDate';
@@ -32,10 +35,22 @@ function withSeparators(nodes) {
 // label visibility) so both densities stay in sync automatically.
 export default function TaskCard({ task, onSelect }) {
   const { projects, cardDensity } = useTasks();
+  // Desktop right-click affordance (see TaskContextMenu.jsx) — local state
+  // per card instance is enough since only the card that was actually
+  // right-clicked ever has it set.
+  const [contextMenu, setContextMenu] = useState(null);
   const project = task.projectId ? projects.find((p) => p.id === task.projectId) : null;
   const dueDate = formatDueDate(task.dueDate);
   const StatusIcon = STATUS_META[task.status]?.Icon;
   const overdue = isPastDue(task.dueDate, task.status);
+  // The task's own Canvas reference wins over its project's (same priority
+  // TaskDetailModal.jsx uses when saving canvasReferences) — a task can be
+  // linked to a specific course/assignment even when its project isn't a
+  // Canvas-course project at all.
+  const canvasCourseId = task.canvasReferences?.courseId || project?.canvasReference?.courseId || null;
+  const courseHref = canvasCourseId
+    ? `/courses/${canvasCourseId}${task.canvasReferences?.assignmentId ? '?tab=atividades' : ''}`
+    : null;
 
   const { attributes, listeners, setNodeRef: setDragRef, transform, isDragging } = useDraggable({
     id: task.id,
@@ -103,7 +118,22 @@ export default function TaskCard({ task, onSelect }) {
     </span>
   ) : null;
 
-  const metaSegments = withSeparators([priorityRankSeg, statusSeg, classificationSeg, dueSeg]);
+  const courseSeg = courseHref ? (
+    <Link
+      key="course"
+      href={courseHref}
+      className="kanban-card-course-link"
+      title="Abrir a página do curso no Vértice"
+      // Stops the click from also bubbling to the card's own onClick (which
+      // opens the task detail modal) — this link should navigate instead.
+      onClick={(e) => e.stopPropagation()}
+    >
+      <GraduationCap size={iconSize} strokeWidth={1.8} />
+      {!condensed && ' Curso'}
+    </Link>
+  ) : null;
+
+  const metaSegments = withSeparators([priorityRankSeg, statusSeg, classificationSeg, dueSeg, courseSeg]);
 
   return (
     <div
@@ -111,17 +141,28 @@ export default function TaskCard({ task, onSelect }) {
       style={style}
       className={`kanban-card${isDragging ? ' is-dragging' : ''}${condensed ? ' kanban-card--condensed' : ''}${isOver ? ' kanban-card--drop-over' : ''}`}
       onClick={() => onSelect(task)}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setContextMenu({ x: e.clientX, y: e.clientY });
+      }}
     >
       {condensed ? (
         <>
           <div className="kanban-card-condensed-text">
             {/* Drag activation is scoped to the title text (not the whole
                 card) — on touch, dragging from anywhere else on the card
-                fought with tapping to open it or scrolling the column. */}
-            <div className="kanban-card-title" {...listeners} {...attributes}>
+                fought with tapping to open it or scrolling the column. `title`
+                is a native tooltip — condensed is the only density that
+                truncates with an ellipsis (see .kanban-card--condensed
+                .kanban-card-title/.kanban-card-project in globals.css), so
+                this is the only place the full text needs to be recoverable
+                on hover. */}
+            <div className="kanban-card-title" title={task.title} {...listeners} {...attributes}>
               {task.title}
             </div>
-            <div className="kanban-card-project">{project ? project.name : 'Sem projeto'}</div>
+            <div className="kanban-card-project" title={project ? project.name : 'Sem projeto'}>
+              {project ? project.name : 'Sem projeto'}
+            </div>
           </div>
           <div className="kanban-card-condensed-side">
             {task.tags?.length > 0 && (
@@ -153,6 +194,9 @@ export default function TaskCard({ task, onSelect }) {
           )}
           <div className="kanban-card-footer">{metaSegments}</div>
         </>
+      )}
+      {contextMenu && (
+        <TaskContextMenu task={task} position={contextMenu} onClose={() => setContextMenu(null)} />
       )}
     </div>
   );

@@ -5,60 +5,65 @@ import { IMPROVE_SYSTEM_PROMPT, buildImproveUserMessage } from './improvePrompt'
 import { STUDENT_ANALYSIS_SYSTEM_PROMPT } from './studentAnalysisPrompt';
 import { logAiRequest } from './debugLog';
 
-export const id = 'openai';
-export const label = 'OpenAI (ChatGPT)';
-export const defaultModel = 'gpt-4o-mini';
+// Sem timeout de framework aqui (isso não roda em serverless) — sem um
+// limite próprio, uma chamada anormalmente lenta fica pendurada
+// indefinidamente em vez de falhar com um erro claro pro professor. Mesma
+// margem que openai.js/zai.js usam.
+const REQUEST_TIMEOUT_MS = 120_000;
+
+export const id = 'deepseek';
+export const label = 'DeepSeek';
+export const defaultModel = 'deepseek-chat';
 export const supportsTemperature = true;
 export const supportsPenalties = true;
 
-const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
+const DEFAULT_BASE_URL = 'https://api.deepseek.com';
 
-// Sem timeout de framework aqui (isso não roda em serverless) — sem um
-// limite próprio, uma chamada anormalmente lenta fica pendurada
-// indefinidamente em vez de falhar com um erro claro pro professor.
-const REQUEST_TIMEOUT_MS = 120_000;
-
-const OPENAI_SCHEMA = buildQuizOutputSchema();
+// DeepSeek's Chat Completions API (api-docs.deepseek.com) is deliberately
+// OpenAI-compatible — same request/response shape, same auth header, same
+// /models discovery endpoint — but response_format only documents
+// 'text' | 'json_object', no 'json_schema'/strict mode like OpenAI's. So,
+// same reasoning as zai.js: the exact shape is described as text inside the
+// prompt instead of a native schema field, and validateStructural()
+// downstream (src/app/api/ai/integrations/[id]/generate-questions/route.js)
+// is the real safety net. DeepSeek's own docs note json_object mode requires
+// the word "json" to appear somewhere in the messages — already true here,
+// the appended instruction below says "objeto JSON"/"JSON Schema".
+const QUIZ_SCHEMA_TEXT = JSON.stringify(buildQuizOutputSchema());
 
 function resolveBaseUrl(baseUrl) {
   return (baseUrl?.trim() || DEFAULT_BASE_URL).replace(/\/+$/, '');
 }
 
+// GET /models is documented specifically as the way to verify an API key is
+// valid (api-docs.deepseek.com/api/list-models) — cheap, no tokens spent,
+// same approach openai.js uses.
 export async function validateApiKey(apiKey, baseUrl) {
   try {
     await axios.get(`${resolveBaseUrl(baseUrl)}/models`, {
       headers: { Authorization: `Bearer ${apiKey}` },
+      timeout: REQUEST_TIMEOUT_MS,
     });
     return { valid: true };
   } catch (error) {
     if (error.response?.status === 401) {
       return { valid: false, error: 'Chave de API inválida ou sem permissão.' };
     }
-    return { valid: false, error: 'Não foi possível validar a chave junto à OpenAI. Tente novamente.' };
+    return { valid: false, error: 'Não foi possível validar a chave junto à DeepSeek. Tente novamente.' };
   }
 }
 
-// GET /v1/models returns every model OpenAI has (chat, embeddings, whisper,
-// tts, dall-e, moderation, ...) with no capability/type field to filter by —
-// unlike Anthropic's and Gemini's equivalents. Filtering down to
-// chat-capable models is therefore a heuristic on the id string, not
-// something the API tells us directly.
-const NON_CHAT_MODEL_PATTERN =
-  /whisper|tts|dall-e|embedding|moderation|davinci|babbage|curie|(^|-)ada(-|$)|audio|realtime|transcribe|image|computer-use|search-preview/i;
-
+// Unlike OpenAI's /models (which mixes in embeddings/whisper/etc.), DeepSeek
+// only ever lists its own chat models here — no filtering needed, same as
+// claude.js's approach.
 export async function listModels(apiKey, baseUrl) {
   const response = await axios.get(`${resolveBaseUrl(baseUrl)}/models`, {
     headers: { Authorization: `Bearer ${apiKey}` },
+    timeout: REQUEST_TIMEOUT_MS,
   });
-  return (response.data?.data || [])
-    .filter((m) => !NON_CHAT_MODEL_PATTERN.test(m.id))
-    .sort((a, b) => (b.created || 0) - (a.created || 0))
-    .map((m) => ({ id: m.id, label: m.id }));
+  return (response.data?.data || []).map((m) => ({ id: m.id, label: m.id }));
 }
 
-// Sampling knobs shared by the 3 generation calls below — omitted from the
-// payload when undefined/null so the API falls back to its own default,
-// rather than us second-guessing what that default is.
 function samplingParams({ temperature, maxTokens, presencePenalty, frequencyPenalty }) {
   const params = {};
   if (temperature != null) params.temperature = temperature;
@@ -68,19 +73,10 @@ function samplingParams({ temperature, maxTokens, presencePenalty, frequencyPena
   return params;
 }
 
-// Extracts the assistant's text (or throws on refusal/content-filter) from a
-// Chat Completions response — shared by all 3 capabilities below.
-function extractMessageText(response, providerLabel) {
-  const choice = response.data?.choices?.[0];
-  const message = choice?.message;
-  if (!message) {
-    throw new Error(`A resposta da ${providerLabel} não contém conteúdo utilizável.`);
-  }
-  if (message.refusal) {
-    throw new Error(`A ${providerLabel} recusou a geração: ${message.refusal}`);
-  }
-  if (choice.finish_reason === 'content_filter') {
-    throw new Error(`A ${providerLabel} recusou a geração (filtro de conteúdo).`);
+function extractMessageText(response) {
+  const message = response.data?.choices?.[0]?.message;
+  if (!message?.content) {
+    throw new Error('A resposta da DeepSeek não contém conteúdo utilizável.');
   }
   return message.content;
 }
@@ -96,28 +92,26 @@ export async function generateQuestions({
   specs,
   systemPrompt = SYSTEM_PROMPT,
 }) {
+  const userMessage = `${buildUserMessage(specs)}\n\nResponda apenas com um único objeto JSON que siga rigorosamente este JSON Schema, sem markdown e sem texto fora do JSON:\n${QUIZ_SCHEMA_TEXT}`;
+
   const url = `${resolveBaseUrl(baseUrl)}/chat/completions`;
   const payload = {
     model: model || defaultModel,
     messages: [
       { role: 'system', content: systemPrompt },
-      { role: 'user', content: buildUserMessage(specs) },
+      { role: 'user', content: userMessage },
     ],
-    response_format: {
-      type: 'json_schema',
-      json_schema: { name: 'quiz', schema: OPENAI_SCHEMA, strict: true },
-    },
+    response_format: { type: 'json_object' },
     ...samplingParams({ temperature, maxTokens, presencePenalty, frequencyPenalty }),
   };
-  logAiRequest('openai', url, payload);
+  logAiRequest('deepseek', url, payload);
 
   const response = await axios.post(url, payload, {
     headers: { Authorization: `Bearer ${apiKey}` },
     timeout: REQUEST_TIMEOUT_MS,
   });
 
-  const text = extractMessageText(response, 'OpenAI');
-  return JSON.parse(text);
+  return JSON.parse(extractMessageText(response));
 }
 
 export async function suggestReply({
@@ -140,14 +134,14 @@ export async function suggestReply({
     ],
     ...samplingParams({ temperature, maxTokens, presencePenalty, frequencyPenalty }),
   };
-  logAiRequest('openai', url, payload);
+  logAiRequest('deepseek', url, payload);
 
   const response = await axios.post(url, payload, {
     headers: { Authorization: `Bearer ${apiKey}` },
     timeout: REQUEST_TIMEOUT_MS,
   });
 
-  return extractMessageText(response, 'OpenAI');
+  return extractMessageText(response);
 }
 
 export async function improveMessage({
@@ -170,14 +164,14 @@ export async function improveMessage({
     ],
     ...samplingParams({ temperature, maxTokens, presencePenalty, frequencyPenalty }),
   };
-  logAiRequest('openai', url, payload);
+  logAiRequest('deepseek', url, payload);
 
   const response = await axios.post(url, payload, {
     headers: { Authorization: `Bearer ${apiKey}` },
     timeout: REQUEST_TIMEOUT_MS,
   });
 
-  return extractMessageText(response, 'OpenAI');
+  return extractMessageText(response);
 }
 
 export async function analyzeStudent({
@@ -200,12 +194,12 @@ export async function analyzeStudent({
     ],
     ...samplingParams({ temperature, maxTokens, presencePenalty, frequencyPenalty }),
   };
-  logAiRequest('openai', url, payload);
+  logAiRequest('deepseek', url, payload);
 
   const response = await axios.post(url, payload, {
     headers: { Authorization: `Bearer ${apiKey}` },
     timeout: REQUEST_TIMEOUT_MS,
   });
 
-  return extractMessageText(response, 'OpenAI');
+  return extractMessageText(response);
 }

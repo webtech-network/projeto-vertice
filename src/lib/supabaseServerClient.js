@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { getSupabaseServerUrl, getSupabaseStorageKey } from '@/lib/supabaseUrl';
@@ -41,3 +42,26 @@ export async function createSupabaseServerClient() {
     },
   );
 }
+
+/**
+ * `auth.getUser()` memoizado por requisição via `cache()` do React.
+ * `createSupabaseServerClient()` em si é barato (só embrulha `cookies()`,
+ * nenhuma chamada de rede) — o custo real é `getUser()`, que revalida o JWT
+ * contra o GoTrue pela rede. Sem este cache, cada Server Component que
+ * precisa do usuário (Topbar.jsx, cada page.jsx do dashboard,
+ * requireCanvasIntegration()) disparava sua própria chamada independente:
+ * se qualquer uma delas falhasse de forma transitória, só aquele componente
+ * perdia o usuário — Topbar.jsx escondendo `topbar-user` inteiro (workspace
+ * switcher incluído) sem o resto da página piscar era o sintoma mais visível
+ * — mesmo a requisição já tendo passado pelo próprio gate do
+ * `src/proxy.js`. Cachear colapsa todas essas chamadas em uma só por
+ * requisição, então não têm mais como discordar entre si.
+ */
+export const getSupabaseUser = cache(async () => {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+  return { user, error };
+});

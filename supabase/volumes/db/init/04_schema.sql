@@ -275,7 +275,7 @@ create table public.ai_integrations (
   -- com essa integração. Múltiplas integrações do MESMO driver (ex.: duas
   -- 'openai' com base_url/api_key diferentes, apontando pra um serviço
   -- OpenAI-compatible de terceiro) não exigem nenhuma mudança de código.
-  provider text not null check (provider in ('openai', 'gemini', 'claude', 'zai')),
+  provider text not null check (provider in ('openai', 'gemini', 'claude', 'zai', 'deepseek')),
   -- Rótulo do próprio usuário — diferencia duas integrações do mesmo
   -- provider nos seletores da UI.
   name text not null,
@@ -535,11 +535,11 @@ create table public.shortcuts (
 
 create index shortcuts_user_id_idx on public.shortcuts (user_id);
 
--- Um prompt customizado por capability de IA por usuário — mesmas 3
+-- Um prompt customizado por capability de IA por usuário — as mesmas
 -- capabilities de src/lib/customPrompts.js's CAPABILITIES.
 create table public.custom_prompts (
   user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
-  capability text not null check (capability in ('generateQuestions', 'suggestReply', 'improveMessage')),
+  capability text not null check (capability in ('generateQuestions', 'suggestReply', 'improveMessage', 'analyzeStudent')),
   text text not null,
   mode text not null default 'append' check (mode in ('append', 'replace')),
   updated_at timestamptz not null default now(),
@@ -628,3 +628,32 @@ create trigger set_updated_at before update on public.course_notes
   for each row execute function public.set_updated_at();
 create trigger set_updated_at before update on public.ui_preferences
   for each row execute function public.set_updated_at();
+
+-- =====================================================================
+-- student_engagement_snapshots — histórico do índice de risco por aluno
+-- (aba "Alunos" de um curso, StudentReport.jsx). Um registro por cálculo
+-- sob demanda, no máximo um por aluno por dia (unique abaixo + upsert em
+-- src/lib/studentEngagement/studentEngagementRepo.js). Não é secreto —
+-- mesmo grupo de RLS de workspaces/ui_preferences. Ambientes já
+-- inicializados antes desta tabela existir aplicam a mesma DDL via
+-- supabase/volumes/db/manual/12_engagement.sql.
+-- =====================================================================
+create table public.student_engagement_snapshots (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  course_id bigint not null,
+  student_id bigint not null,
+  snapshot_date date not null default current_date,
+  computed_at timestamptz not null default now(),
+  score numeric not null,
+  risk_level text not null check (risk_level in ('low', 'medium', 'high')),
+  coverage numeric not null,
+  dimensions jsonb not null,
+  weights_used jsonb not null,
+  quartiles jsonb not null,
+  source text not null default 'canvas',
+  unique (user_id, course_id, student_id, snapshot_date)
+);
+
+create index student_engagement_snapshots_lookup_idx
+  on public.student_engagement_snapshots (user_id, course_id, student_id, snapshot_date desc);

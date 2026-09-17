@@ -592,6 +592,23 @@ a {
   padding-top: 0.3rem;
   border-top: 1px solid var(--line);
 }
+/* Position-based numbering (Alt+1..9, see WorkspaceScopeProvider.jsx) —
+   same ceiling as Chrome's own numbered-tab shortcuts, so only the first 9
+   workspaces get a badge. */
+.workspace-switcher-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 0.2rem;
+  border-radius: 5px;
+  background: var(--paper);
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  font-weight: 700;
+  flex: none;
+}
 
 .workspace-multiselect-list {
   list-style: none;
@@ -863,6 +880,28 @@ a {
   margin: 0.5rem 0 1.5rem;
   padding-bottom: 1rem;
   border-bottom: 1px dashed var(--line);
+}
+
+/* CourseWorkspaceTabs — same .tab-folder as QuizImportPanel, plus a header
+   row so the "Tela cheia" link (only present when rendered inline in
+   CourseBrowser.jsx's expanded row) sits beside the tabs instead of forcing
+   its own line. */
+.course-workspace-tabs-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem;
+  /* "Tela cheia" (flex-shrink: 0 below) sits beside the tab strip, but on a
+     narrower row it was squeezing .tab-folder into its own overflow-x
+     scrollbar — the 4 tab buttons (flex-shrink: 0, nowrap) don't shrink, so
+     the strip scrolled sideways. Wrap instead: the button drops to its own
+     line and the tabs keep their full width. The tab strip still scrolls only
+     on a phone, where .tab-folder's overflow-x:auto remains the fallback. */
+  flex-wrap: wrap;
+}
+.course-workspace-tabs-header .btn {
+  flex-shrink: 0;
+  margin-bottom: 0.3rem;
 }
 
 /* Configurações (ProfileTabs.jsx) — icon sidebar instead of QuizImportPanel's
@@ -1727,6 +1766,132 @@ tr.is-expanded .course-name-btn {
 .pending-badge.has-pending {
   background: var(--brand-bg-strong);
   color: var(--brand-fg);
+}
+
+/* RiskLevelPill.jsx — "Nível de Risco" column on StudentReport.jsx's
+   students table. Soft-colored label reusing the --ok/--warn/--err token
+   pairs already backing .alert-success/.alert-warning/.alert-error, so the
+   palette stays consistent instead of inventing new risk-specific colors. */
+.risk-cell-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.risk-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.risk-pill-low {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+.risk-pill-medium {
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+.risk-pill-high {
+  background: var(--err-bg);
+  color: var(--err);
+}
+.risk-score {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+.risk-empty {
+  color: var(--ink-soft);
+}
+.risk-trend-up {
+  color: var(--ok);
+}
+.risk-trend-down {
+  color: var(--err);
+}
+.risk-trend-flat {
+  color: var(--ink-soft);
+}
+
+/* StudentEngagementDashboard.jsx's "Nível de Risco" summary block — same
+   card language as .engagement-panel, sitting above the existing gauges. */
+.risk-summary {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper-raised);
+  padding: 1rem;
+}
+.risk-summary-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.risk-summary-text {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+.risk-summary-reasons {
+  margin: 0.6rem 0 0;
+  padding-left: 1.2rem;
+  font-size: 0.85rem;
+}
+
+/* EngagementHistoryChart.jsx — small inline SVG line chart inside a
+   student's expanded row. Single series (the composite index), so no
+   legend box for it (per dataviz convention); the icon-legend below the
+   chart is for the per-point status-color dots instead. */
+.engagement-history {
+  margin-top: 1rem;
+}
+.engagement-history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.4rem;
+}
+.engagement-history-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.engagement-history-svg {
+  width: 100%;
+  max-width: 420px;
+  height: auto;
+  display: block;
+}
+.chart-gridline {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+.chart-axis-label {
+  fill: var(--ink-soft);
+  font-size: 9px;
+}
+.chart-line {
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.chart-end-label {
+  fill: var(--ink);
+  font-size: 11px;
+  font-weight: 600;
+}
+.chart-crosshair {
+  stroke: var(--ink-soft);
+  stroke-width: 1;
+}
+.engagement-history-readout {
+  margin: 0.4rem 0 0;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}
+.engagement-history-table {
+  max-width: 420px;
 }
 
 .status-icon {
@@ -3677,6 +3842,91 @@ tr.is-expanded .course-name-btn {
   min-height: 80px;
 }
 
+/* Desktop right-click menu for a single task (TaskContextMenu.jsx) — same
+   popover shape as .user-menu-popover/.workspace-switcher-popover, but
+   position: fixed at the cursor instead of anchored under a trigger button,
+   and a higher z-index since it can open over a Kanban board/table that
+   already stacks its own cards/sticky headers. */
+.task-context-menu {
+  position: fixed;
+  min-width: 220px;
+  max-width: 280px;
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 0.4rem;
+  z-index: 50;
+}
+.task-context-menu-title {
+  padding: 0.3rem 0.6rem 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 0.3rem;
+}
+.task-context-menu-section + .task-context-menu-section {
+  margin-top: 0.3rem;
+  padding-top: 0.3rem;
+  border-top: 1px solid var(--line);
+}
+.task-context-menu-label {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.6rem 0.3rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--ink-soft);
+}
+.task-context-menu-scroll {
+  max-height: 180px;
+  overflow-y: auto;
+}
+.task-context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.task-context-menu-item:hover {
+  background: var(--paper);
+}
+.task-context-menu-item.active {
+  font-weight: 700;
+}
+.task-context-menu-check {
+  margin-left: auto;
+  flex: none;
+  color: var(--accent);
+}
+.task-context-menu-danger {
+  margin-top: 0.3rem;
+  padding-top: calc(0.5rem + 0.3rem);
+  border-top: 1px solid var(--line);
+  color: var(--err);
+}
+.task-context-menu-danger:hover {
+  background: var(--err-bg);
+}
+
 .kanban-card {
   background: var(--paper-raised);
   border: 1px solid var(--line);
@@ -3739,7 +3989,8 @@ tr.is-expanded .course-name-btn {
 }
 .kanban-card-flag,
 .kanban-card-due,
-.kanban-card-urgent {
+.kanban-card-urgent,
+.kanban-card-course-link {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
@@ -3749,6 +4000,19 @@ tr.is-expanded .course-name-btn {
 }
 .kanban-card-urgent {
   color: var(--err);
+}
+/* "Ir para o curso" — the only meta segment that's an actual link (task
+   linked to a Canvas course/assignment, see TaskCard.jsx/TaskTable.jsx) —
+   so it needs its own color/underline/focus treatment instead of inheriting
+   plain text styling like its sibling segments. */
+.kanban-card-course-link {
+  color: var(--ink-soft);
+  text-decoration: none;
+}
+.kanban-card-course-link:hover,
+.kanban-card-course-link:focus-visible {
+  color: var(--ink);
+  text-decoration: underline;
 }
 .kanban-card-classification {
   display: inline-flex;
@@ -4160,4 +4424,290 @@ tr.is-expanded .course-name-btn {
 }
 .course-note-view:last-child > *:last-child {
   margin-bottom: 0;
+}
+
+/* Student engagement dashboard (StudentEngagementDashboard.jsx) — rendered
+   inline below a student's row in StudentReport.jsx, same .course-note-row
+   expansion pattern CourseBrowser.jsx uses for its own inline panel. No
+   charting library in this app — every shape below (gauge arc, donut,
+   comparison bar) is hand-built from plain SVG/CSS, using this app's
+   existing status tokens (--ok/--warn/--err) instead of a separate chart
+   palette. */
+.engagement-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+.engagement-dashboard-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+}
+.engagement-dashboard-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.engagement-gauges-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  justify-content: space-around;
+}
+.engagement-gauge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 130px;
+}
+.engagement-gauge svg {
+  display: block;
+}
+.engagement-gauge-value {
+  font-size: 1.4rem;
+  font-weight: 700;
+  font-family: var(--font-display), 'Segoe UI', serif;
+  margin-top: -0.3rem;
+}
+.engagement-gauge-label {
+  font-size: 0.85rem;
+  color: var(--ink);
+  font-weight: 600;
+  margin-top: 0.1rem;
+}
+.engagement-gauge-sublabel {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  text-align: center;
+  margin-top: 0.15rem;
+}
+
+.engagement-analytics-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+}
+.engagement-panel {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper-raised);
+  padding: 1rem;
+}
+.engagement-panel-title {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+}
+.engagement-ai-analysis-text {
+  white-space: pre-wrap;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--ink);
+  margin: 0;
+}
+.engagement-ai-analysis-link {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.engagement-donut-wrap {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+.engagement-donut {
+  position: relative;
+  flex-shrink: 0;
+}
+.engagement-donut-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.engagement-donut-center-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+.engagement-donut-center-label {
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+}
+.engagement-donut-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+.engagement-donut-legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.engagement-donut-legend strong {
+  color: var(--ink);
+  margin-left: auto;
+}
+.engagement-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.engagement-bar-row + .engagement-bar-row {
+  margin-top: 0.9rem;
+}
+.engagement-bar-row-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  margin-bottom: 0.3rem;
+}
+.engagement-bar-row-value {
+  color: var(--ink);
+  font-weight: 600;
+}
+.engagement-bar-track {
+  position: relative;
+  height: 10px;
+  border-radius: 5px;
+  background: var(--line);
+  overflow: visible;
+}
+.engagement-bar-fill {
+  height: 100%;
+  border-radius: 5px;
+  background: var(--brand);
+}
+.engagement-bar-avg-marker {
+  position: absolute;
+  top: -3px;
+  width: 2px;
+  height: 16px;
+  background: var(--ink-soft);
+  transform: translateX(-1px);
+}
+.engagement-bar-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  margin: 0.9rem 0 0;
+}
+.engagement-bar-avg-marker-legend {
+  display: inline-block;
+  width: 2px;
+  height: 12px;
+  background: var(--ink-soft);
+}
+
+.engagement-assignment-list {
+  max-height: 260px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.engagement-assignment-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 2fr) auto auto minmax(80px, 1fr);
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.85rem;
+}
+.engagement-status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.engagement-assignment-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+}
+.engagement-assignment-due,
+.engagement-assignment-score {
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+.engagement-assignment-bar-track {
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--line);
+}
+.engagement-assignment-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent);
+}
+.engagement-assignment-median-marker {
+  position: absolute;
+  top: -2px;
+  width: 2px;
+  height: 10px;
+  background: var(--ink-soft);
+  transform: translateX(-1px);
+}
+
+/* StudentReport.jsx's "Tempo de atividade"/"Nota atual" table cells — same
+   .engagement-bar-track/.engagement-bar-fill pieces the dashboard's
+   compare-bars use, just slimmer and narrower to fit a table cell instead of
+   a full-width panel row. Deliberately plain block stacking (NOT
+   display:flex on the <td> itself) — a <td> with display:flex stops
+   participating in the table's own column-sizing algorithm, which
+   collapsed/overlapped this and the neighboring column in testing. */
+.student-metric-cell {
+  min-width: 90px;
+}
+.student-metric-value {
+  display: block;
+  white-space: nowrap;
+  margin-bottom: 0.3rem;
+}
+.student-metric-bar {
+  width: 100%;
+  max-width: 100px;
+  height: 6px;
+}
+
+/* "Tempo de atividade" column's Q1/mediana/Q3 ticks (quartileColor's
+   companion) — three thin marks instead of the single average marker
+   .engagement-bar-avg-marker draws elsewhere, so the whole class
+   distribution's shape (not just its mean) is visible at a glance. The
+   median tick is drawn taller/darker to stand out from Q1/Q3. */
+.engagement-bar-quartile-marker {
+  position: absolute;
+  top: -3px;
+  width: 1.5px;
+  height: 12px;
+  background: var(--ink-soft);
+  opacity: 0.75;
+  transform: translateX(-0.75px);
+}
+.engagement-bar-quartile-marker--median {
+  top: -4px;
+  width: 2px;
+  height: 14px;
+  background: var(--ink);
+  opacity: 0.9;
 }

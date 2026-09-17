@@ -2,6 +2,7 @@ import axios from 'axios';
 import { SYSTEM_PROMPT, buildUserMessage, buildQuizOutputSchema } from './shared';
 import { REPLY_SYSTEM_PROMPT, buildReplyUserMessage } from './replyPrompt';
 import { IMPROVE_SYSTEM_PROMPT, buildImproveUserMessage } from './improvePrompt';
+import { STUDENT_ANALYSIS_SYSTEM_PROMPT } from './studentAnalysisPrompt';
 import { logAiRequest } from './debugLog';
 
 export const id = 'gemini';
@@ -155,4 +156,33 @@ export async function improveMessage({
   }
 
   return improved;
+}
+
+export async function analyzeStudent({
+  apiKey,
+  baseUrl,
+  model,
+  temperature,
+  maxTokens,
+  presencePenalty,
+  frequencyPenalty,
+  text,
+  systemPrompt = STUDENT_ANALYSIS_SYSTEM_PROMPT,
+}) {
+  const url = `${resolveBaseUrl(baseUrl)}/models/${model || defaultModel}:generateContent`;
+  const payload = {
+    system_instruction: { parts: [{ text: systemPrompt }] },
+    contents: [{ role: 'user', parts: [{ text }] }],
+    generationConfig: generationConfig({ temperature, maxTokens, presencePenalty, frequencyPenalty }),
+  };
+  logAiRequest('gemini', url, payload);
+
+  const response = await axios.post(url, payload, { params: { key: apiKey }, timeout: REQUEST_TIMEOUT_MS });
+
+  const analysis = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!analysis) {
+    throw new Error('A resposta do Gemini não contém conteúdo utilizável.');
+  }
+
+  return analysis;
 }

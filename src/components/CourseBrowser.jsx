@@ -3,14 +3,14 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
-  ListChecks,
   Mail,
   Star,
   Megaphone,
   ClipboardCheck,
-  Users,
   RefreshCw,
   ExternalLink,
+  ChevronRight,
+  Maximize2,
   CircleCheckBig,
   CircleDashed,
   List,
@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import StatusIcon from './StatusIcon';
 import SortIcon from './SortIcon';
-import CourseNoteEditor from './CourseNoteEditor';
+import CourseWorkspaceTabs from './CourseWorkspaceTabs';
 import ResourceWorkspacesModal from './ResourceWorkspacesModal';
 import { useWorkspaceScope } from './WorkspaceScopeProvider';
 import { BASE_WORKSPACE_ID } from '@/lib/workspaces/workspacesRepo';
@@ -63,9 +63,10 @@ export default function CourseBrowser() {
   const [courseList, setCourseList] = useState([]);
   const [workspacesModalCourse, setWorkspacesModalCourse] = useState(null);
   const [query, setQuery] = useState('');
-  // At most one course's notes editor open at a time — clicking the same
-  // course's name again collapses it, clicking a different course switches
-  // to that one instead of stacking multiple editors in the table.
+  // At most one course's workspace (anotações/atividades/mensagens/alunos
+  // tabs) open at a time — clicking the same course's name again collapses
+  // it, clicking a different course switches to that one instead of stacking
+  // multiple panels in the table.
   const [expandedCourseId, setExpandedCourseId] = useState(null);
   // Starts on "Favoritos" by default (per product decision), but falls back to
   // "Todos" when the account has no favorited/starred courses in Canvas, so
@@ -313,6 +314,9 @@ export default function CourseBrowser() {
         <table className="data-table">
           <thead>
             <tr>
+              <th className="expand-cell">
+                <span className="sr-only">Expandir</span>
+              </th>
               <th className="status-cell" aria-sort={sortAria('status')}>
                 <button
                   type="button"
@@ -370,6 +374,19 @@ export default function CourseBrowser() {
               return (
               <Fragment key={course.id}>
               <tr className={expanded ? 'is-expanded' : undefined}>
+                <td className="expand-cell">
+                  <button
+                    type="button"
+                    className="row-expand-btn"
+                    onClick={() => setExpandedCourseId(expanded ? null : course.id)}
+                    aria-expanded={expanded}
+                    aria-label={expanded ? 'Recolher curso' : 'Expandir curso'}
+                  >
+                    <span className={`group-chevron${expanded ? ' expanded' : ''}`} aria-hidden="true">
+                      <ChevronRight size={16} strokeWidth={2} />
+                    </span>
+                  </button>
+                </td>
                 <td className="status-cell">
                   <StatusIcon status={toStatus(course.workflow_state)} />
                 </td>
@@ -391,21 +408,19 @@ export default function CourseBrowser() {
                     type="button"
                     className="course-name-btn"
                     onClick={() => setExpandedCourseId(expanded ? null : course.id)}
-                    title="Anotações do curso"
+                    title="Ver curso (anotações, atividades, mensagens, alunos)"
                     aria-expanded={expanded}
                   >
                     {course.name}
                   </button>
-                  <a
-                    href={course.html_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <Link
+                    href={`/courses/${course.id}`}
                     className="external-link-icon"
-                    title="Abrir curso no Canvas"
-                    aria-label="Abrir curso no Canvas"
+                    title="Abrir página do curso"
+                    aria-label="Abrir página do curso"
                   >
-                    <ExternalLink size={14} strokeWidth={1.8} />
-                  </a>
+                    <Maximize2 size={14} strokeWidth={1.8} />
+                  </Link>
                 </td>
                 <td className="pending-cell">
                   {course.needs_grading_count ? (
@@ -426,30 +441,16 @@ export default function CourseBrowser() {
                   )}
                 </td>
                 <td className="actions-cell">
-                  <Link
-                    href={`/courses/${course.id}/atividades`}
+                  <a
+                    href={course.html_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="btn btn-primary btn-icon"
-                    title="Ver atividades"
-                    aria-label="Ver atividades"
+                    title="Abrir curso no Canvas"
+                    aria-label="Abrir curso no Canvas"
                   >
-                    <ListChecks size={18} strokeWidth={1.8} />
-                  </Link>
-                  <Link
-                    href={`/courses/${course.id}/mensagens`}
-                    className="btn btn-primary btn-icon"
-                    title="Ver mensagens"
-                    aria-label="Ver mensagens"
-                  >
-                    <Mail size={18} strokeWidth={1.8} />
-                  </Link>
-                  <Link
-                    href={`/courses/${course.id}/alunos`}
-                    className="btn btn-primary btn-icon"
-                    title="Ver alunos"
-                    aria-label="Ver alunos"
-                  >
-                    <Users size={18} strokeWidth={1.8} />
-                  </Link>
+                    <ExternalLink size={18} strokeWidth={1.8} />
+                  </a>
                   <button
                     type="button"
                     className="btn btn-secondary btn-icon"
@@ -463,8 +464,12 @@ export default function CourseBrowser() {
               </tr>
               {expanded && (
                 <tr className="course-note-row">
-                  <td colSpan={6}>
-                    <CourseNoteEditor courseId={course.id} courseCode={course.course_code} />
+                  <td colSpan={7}>
+                    <CourseWorkspaceTabs
+                      courseId={course.id}
+                      courseCode={course.course_code}
+                      expandHref={`/courses/${course.id}`}
+                    />
                   </td>
                 </tr>
               )}
@@ -487,6 +492,12 @@ export default function CourseBrowser() {
           </li>
           <li>
             <Mail size={14} strokeWidth={1.8} aria-hidden="true" /> Mensagens
+          </li>
+          <li>
+            <Maximize2 size={14} strokeWidth={1.8} aria-hidden="true" /> Abrir página do curso
+          </li>
+          <li>
+            <ExternalLink size={14} strokeWidth={1.8} aria-hidden="true" /> Abrir curso no Canvas
           </li>
         </ul>
         </>

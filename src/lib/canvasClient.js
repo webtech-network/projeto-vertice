@@ -303,3 +303,32 @@ export async function removeCourseFavorite(client, courseId) {
   const response = await client.delete(`/users/self/favorites/courses/${courseId}`);
   return response.data;
 }
+
+/**
+ * Canvas's (classic) per-course Analytics API — one summary row per student:
+ * page_views/participations counts (+ Canvas's own bucketed "level" 0-3, not
+ * used here) and a tardiness_breakdown ({missing, late, on_time, floating}
+ * submission counts). Backs StudentEngagementDashboard.jsx's donut chart and
+ * class-average comparison bars — fetched once for the whole course (not
+ * once per student row) since the response already covers every student and
+ * building "vs. class average" needs the full set anyway. Some Canvas
+ * accounts don't have the Analytics feature enabled at all, in which case
+ * this 404s/403s — callers must treat that as "unavailable", not a crash
+ * (see the /analytics/students API route).
+ */
+export async function getStudentSummaries(client, courseId) {
+  return fetchAllPages(client, `/courses/${courseId}/analytics/student_summaries`, { per_page: 100 });
+}
+
+/**
+ * Same Analytics API, per-assignment breakdown for a single student: status
+ * ('on_time'/'late'/'missing'/'floating'), their own submission score, and
+ * the assignment's min/max/median score across the whole course — enough to
+ * plot each assignment's delivery status and this student's score against
+ * the class distribution without a second round-trip per assignment. Fetched
+ * lazily, only for a student whose dashboard row is actually expanded.
+ */
+export async function getStudentAssignmentAnalytics(client, courseId, studentId) {
+  const response = await client.get(`/courses/${courseId}/analytics/users/${studentId}/assignments`);
+  return response.data;
+}

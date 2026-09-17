@@ -1,5 +1,5 @@
 import { createSupabaseAdminClient } from '@/lib/supabaseAdminClient';
-import { createSupabaseServerClient } from '@/lib/supabaseServerClient';
+import { getSupabaseUser } from '@/lib/supabaseServerClient';
 import { createClient as createCanvasClient } from '@/lib/canvasClient';
 import { refreshAccessToken } from '@/lib/canvasOAuth';
 
@@ -116,10 +116,7 @@ export async function getCanvasClientForUser(userId) {
  * API: 409), nunca deixar `canvas` nulo virar uma chamada de API quebrada.
  */
 export async function requireCanvasIntegration() {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await getSupabaseUser();
   if (!user) return { user: null, canvas: null };
   const canvas = await getCanvasClientForUser(user.id);
   return { user, canvas };

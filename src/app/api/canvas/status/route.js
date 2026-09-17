@@ -18,5 +18,6 @@ export async function GET() {
     baseUrl: canvas.baseUrl,
     displayName: canvas.displayName,
     avatarUrl: canvas.avatarUrl,
+    providerUserId: canvas.providerUserId ?? null,
   });
 }

@@ -1,6 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { createSupabaseServerClient } from '@/lib/supabaseServerClient';
+import { getSupabaseUser } from '@/lib/supabaseServerClient';
 import { getDisplayName, getAvatarUrl } from '@/lib/supabaseUserDisplay';
 import UserMenu from './UserMenu';
 import MobileNavToggle from './MobileNavToggle';
@@ -9,10 +9,12 @@ import logoFull from '@/assets/images/vertice_logo_p.png';
 import logoFullDark from '@/assets/images/vertice_logo_dark.png';
 
 export default async function Topbar() {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Memoizado por requisição (getSupabaseUser) — compartilha a mesma
+  // checagem que o layout/page desta rota já fizeram, em vez de arriscar
+  // sua própria chamada independente ao GoTrue (ver o comentário de
+  // getSupabaseUser em supabaseServerClient.js para o porquê disso importar
+  // aqui especificamente: era a causa do topbar-user sumir intermitentemente).
+  const { user } = await getSupabaseUser();
   const loggedIn = Boolean(user);
 
   return (

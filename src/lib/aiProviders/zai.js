@@ -2,6 +2,7 @@ import axios from 'axios';
 import { SYSTEM_PROMPT, buildUserMessage, buildQuizOutputSchema } from './shared';
 import { REPLY_SYSTEM_PROMPT, buildReplyUserMessage } from './replyPrompt';
 import { IMPROVE_SYSTEM_PROMPT, buildImproveUserMessage } from './improvePrompt';
+import { STUDENT_ANALYSIS_SYSTEM_PROMPT } from './studentAnalysisPrompt';
 import { logAiRequest } from './debugLog';
 
 // Requisições ao Z.ai não têm um timeout de framework como o Vercel tem por
@@ -160,6 +161,34 @@ export async function improveMessage({
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: buildImproveUserMessage(text) },
+    ],
+    ...samplingParams({ temperature, maxTokens }),
+  };
+  logAiRequest('zai', url, payload);
+
+  const response = await axios.post(url, payload, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+    timeout: REQUEST_TIMEOUT_MS,
+  });
+
+  return extractMessageText(response);
+}
+
+export async function analyzeStudent({
+  apiKey,
+  baseUrl,
+  model,
+  temperature,
+  maxTokens,
+  text,
+  systemPrompt = STUDENT_ANALYSIS_SYSTEM_PROMPT,
+}) {
+  const url = `${resolveBaseUrl(baseUrl)}/chat/completions`;
+  const payload = {
+    model: model || defaultModel,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: text },
     ],
     ...samplingParams({ temperature, maxTokens }),
   };

@@ -2,6 +2,7 @@ import axios from 'axios';
 import { SYSTEM_PROMPT, buildUserMessage, buildQuizOutputSchema } from './shared';
 import { REPLY_SYSTEM_PROMPT, buildReplyUserMessage } from './replyPrompt';
 import { IMPROVE_SYSTEM_PROMPT, buildImproveUserMessage } from './improvePrompt';
+import { STUDENT_ANALYSIS_SYSTEM_PROMPT } from './studentAnalysisPrompt';
 import { logAiRequest } from './debugLog';
 
 export const id = 'claude';
@@ -144,6 +145,33 @@ export async function improveMessage({
     max_tokens: maxTokens || 1024,
     system: systemPrompt,
     messages: [{ role: 'user', content: buildImproveUserMessage(text) }],
+  };
+  logAiRequest('claude', url, payload);
+
+  const response = await axios.post(url, payload, { headers: authHeaders(apiKey), timeout: REQUEST_TIMEOUT_MS });
+
+  const textBlock = (response.data?.content || []).find((block) => block.type === 'text');
+  if (!textBlock) {
+    throw new Error('A resposta da Anthropic não contém conteúdo utilizável.');
+  }
+
+  return textBlock.text;
+}
+
+export async function analyzeStudent({
+  apiKey,
+  baseUrl,
+  model,
+  maxTokens,
+  text,
+  systemPrompt = STUDENT_ANALYSIS_SYSTEM_PROMPT,
+}) {
+  const url = `${resolveBaseUrl(baseUrl)}/messages`;
+  const payload = {
+    model: model || defaultModel,
+    max_tokens: maxTokens || 1024,
+    system: systemPrompt,
+    messages: [{ role: 'user', content: text }],
   };
   logAiRequest('claude', url, payload);
 

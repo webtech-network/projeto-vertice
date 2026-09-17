@@ -1,14 +1,11 @@
 import { Suspense } from 'react';
-import { createSupabaseServerClient } from '@/lib/supabaseServerClient';
+import { getSupabaseUser } from '@/lib/supabaseServerClient';
 import { getDisplayName } from '@/lib/supabaseUserDisplay';
 import { listAiIntegrations, listDriverProviders } from '@/lib/aiIntegrations';
 import ProfileTabs from '@/components/ProfileTabs';
 
 export default async function PerfilPage() {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await getSupabaseUser();
   if (!user) {
     return null; // proxy already redirects unauthenticated requests to /login
   }

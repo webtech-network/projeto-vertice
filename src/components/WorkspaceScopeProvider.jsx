@@ -106,6 +106,37 @@ export function WorkspaceScopeProvider({ children }) {
     [],
   );
 
+  // Chrome-tab-style numbered switching — Alt+1..9 jumps straight to the
+  // workspace at that position in `workspaces` (Base is always #1, the rest
+  // follow listWorkspaces()'s created_at order; see the same numbering in
+  // WorkspaceSwitcher.jsx's list). Alt (not Ctrl/Cmd) on purpose: Ctrl/Cmd+digit
+  // is already reserved by the real browser for switching *its own* tabs and
+  // never reaches page JS. Skipped while typing in an editable element so it
+  // doesn't fight with entering a number into a form field.
+  //
+  // Reads e.code, not e.key — on macOS, holding Option (the physical Alt key)
+  // remaps e.key to a special character per the active keyboard layout
+  // (Option+1 on a US layout produces "¡", not "1"), so a Number(e.key) check
+  // never matched there (bug found live in Chrome/macOS). e.code reports the
+  // physical key ("Digit1".."Digit9") regardless of modifiers/layout.
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      const match = /^Digit([1-9])$/.exec(e.code);
+      if (!match) return;
+      const target = e.target;
+      const isEditable =
+        target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable;
+      if (isEditable) return;
+      const workspace = workspaces[Number(match[1]) - 1];
+      if (!workspace) return;
+      e.preventDefault();
+      setActiveWorkspaceId(workspace.id);
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [workspaces, setActiveWorkspaceId]);
+
   const addWorkspace = useCallback(async ({ name, color = null }) => {
     const workspace = await repoCreateWorkspace({ name, color });
     setWorkspaces((prev) => [...prev, workspace]);

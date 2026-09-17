@@ -1,8 +1,10 @@
 'use client';
 
 import { Fragment, useMemo, useState } from 'react';
-import { ChevronUp, ChevronDown, ChevronsUpDown, Flag, Zap } from 'lucide-react';
+import Link from 'next/link';
+import { ChevronUp, ChevronDown, ChevronsUpDown, Flag, Zap, GraduationCap } from 'lucide-react';
 import { useTasks } from './TasksProvider';
+import TaskContextMenu from './TaskContextMenu';
 import { useWorkspaceScope } from './WorkspaceScopeProvider';
 import { BASE_WORKSPACE_ID } from '@/lib/workspaces/workspacesRepo';
 import { applyFilters } from '@/lib/tasks/filters';
@@ -70,6 +72,10 @@ export default function TaskTable({ onSelect }) {
   const { activeWorkspaceId, getVisibleResourceIds } = useWorkspaceScope();
   const [sortKey, setSortKey] = useState('priorityRank');
   const [sortDir, setSortDir] = useState('asc');
+  // Desktop right-click affordance (see TaskContextMenu.jsx) — one shared
+  // slot for the whole table since only one row can be right-clicked at a
+  // time, same reasoning TasksView.jsx uses for its single selectedTaskId.
+  const [contextMenu, setContextMenu] = useState(null);
 
   const projectsById = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
 
@@ -103,8 +109,22 @@ export default function TaskTable({ onSelect }) {
     const project = task.projectId ? projectsById.get(task.projectId) : null;
     const dueDate = formatDueDate(task.dueDate);
     const overdue = isPastDue(task.dueDate, task.status);
+    // Same "task's own reference wins over its project's" resolution as
+    // TaskCard.jsx.
+    const canvasCourseId = task.canvasReferences?.courseId || project?.canvasReference?.courseId || null;
+    const courseHref = canvasCourseId
+      ? `/courses/${canvasCourseId}${task.canvasReferences?.assignmentId ? '?tab=atividades' : ''}`
+      : null;
     return (
-      <tr key={task.id} className="task-table-row" onClick={() => onSelect(task)}>
+      <tr
+        key={task.id}
+        className="task-table-row"
+        onClick={() => onSelect(task)}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          setContextMenu({ task, x: e.clientX, y: e.clientY });
+        }}
+      >
         <td className="task-table-cell-center">
           <span className="priority-rank-badge">P{task.priorityRank ?? 3}</span>
         </td>
@@ -115,6 +135,16 @@ export default function TaskTable({ onSelect }) {
               style={{ backgroundColor: project?.color || 'transparent' }}
             />
             {project ? project.name : 'Sem projeto'}
+            {courseHref && (
+              <Link
+                href={courseHref}
+                className="kanban-card-course-link"
+                title="Abrir a página do curso no Vértice"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <GraduationCap size={14} strokeWidth={1.8} />
+              </Link>
+            )}
           </span>
         </td>
         <td className="task-table-title">{task.title}</td>
@@ -212,6 +242,13 @@ export default function TaskTable({ onSelect }) {
             : sorted.map(renderRow)}
         </tbody>
       </table>
+      {contextMenu && (
+        <TaskContextMenu
+          task={contextMenu.task}
+          position={{ x: contextMenu.x, y: contextMenu.y }}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
   );
 }

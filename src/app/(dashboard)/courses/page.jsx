@@ -1,4 +1,4 @@
-import { Star, ClipboardCheck, Megaphone, Mail, ExternalLink, ListChecks, Users } from 'lucide-react';
+import { Star, ClipboardCheck, Megaphone, Mail, ExternalLink, Maximize2 } from 'lucide-react';
 import { requireCanvasIntegration } from '@/lib/canvasIntegration';
 import CanvasNotConnected from '@/components/CanvasNotConnected';
 import CourseBrowser from '@/components/CourseBrowser';
@@ -26,7 +26,9 @@ export default async function CoursesPage() {
           <p>
             Por padrão só os cursos marcados como favoritos no Canvas aparecem aqui — use o filtro "Todos" para ver o
             restante. Pesquise por nome/código, filtre por status de publicação, ordene qualquer coluna clicando no
-            cabeçalho e clique no nome do curso para abrir/editar suas próprias anotações sobre ele.
+            cabeçalho e clique na seta ou no nome do curso para abrir, sem sair da página, a visão integrada de
+            Anotações, Atividades, Mensagens e Alunos. O ícone ao lado do nome leva direto pra essa mesma visão numa
+            página própria do curso.
           </p>
           <h4>Ícones e botões</h4>
           <ul className="icon-legend">
@@ -44,13 +46,10 @@ export default async function CoursesPage() {
               <Mail size={14} strokeWidth={1.8} aria-hidden="true" /> Mensagens
             </li>
             <li>
+              <Maximize2 size={14} strokeWidth={1.8} aria-hidden="true" /> Abrir página do curso
+            </li>
+            <li>
               <ExternalLink size={14} strokeWidth={1.8} aria-hidden="true" /> Abrir curso no Canvas
-            </li>
-            <li>
-              <ListChecks size={14} strokeWidth={1.8} aria-hidden="true" /> Ver atividades
-            </li>
-            <li>
-              <Users size={14} strokeWidth={1.8} aria-hidden="true" /> Ver alunos
             </li>
           </ul>
         </InfoHint>

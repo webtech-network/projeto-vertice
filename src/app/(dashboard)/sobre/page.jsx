@@ -1,12 +1,9 @@
 import { GraduationCap, Sparkles, Mail, Settings, Landmark, ListChecks, LogIn } from 'lucide-react';
-import { createSupabaseServerClient } from '@/lib/supabaseServerClient';
+import { getSupabaseUser } from '@/lib/supabaseServerClient';
 import WebTechFooter from '@/components/WebTechFooter';
 
 export default async function SobrePage() {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await getSupabaseUser();
   if (!user) {
     return null; // proxy já redireciona requests não autenticados pra /login
   }

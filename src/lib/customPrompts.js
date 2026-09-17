@@ -2,11 +2,13 @@ import { createSupabaseBrowserClient } from '@/lib/supabaseBrowserClient';
 import { SYSTEM_PROMPT } from './aiProviders/shared';
 import { REPLY_SYSTEM_PROMPT } from './aiProviders/replyPrompt';
 import { IMPROVE_SYSTEM_PROMPT } from './aiProviders/improvePrompt';
+import { STUDENT_ANALYSIS_SYSTEM_PROMPT } from './aiProviders/studentAnalysisPrompt';
 
 // One entry per AI-backed capability in the app — `key` must match what the
-// three trigger components (QuestionGenerator, MessageList, ComposeMessage)
-// send as `customPromptText`/`customPromptMode` in their POST bodies, and
-// what the three AI routes read from the request body. `defaultPrompt` is
+// trigger components (QuestionGenerator, MessageList, ComposeMessage,
+// StudentEngagementDashboard) send as `customPromptText`/`customPromptMode`
+// in their POST bodies, and what the AI routes read from the request body.
+// `defaultPrompt` is
 // imported only for display/preview purposes here (PromptCustomizer shows
 // it read-only) — the actual default used at generation time still lives in
 // each route, resolved server-side.
@@ -14,6 +16,7 @@ export const CAPABILITIES = [
   { key: 'generateQuestions', label: 'Geração de questões', defaultPrompt: SYSTEM_PROMPT },
   { key: 'suggestReply', label: 'Sugestão de resposta', defaultPrompt: REPLY_SYSTEM_PROMPT },
   { key: 'improveMessage', label: 'Melhoria de mensagem', defaultPrompt: IMPROVE_SYSTEM_PROMPT },
+  { key: 'analyzeStudent', label: 'Análise da situação do aluno', defaultPrompt: STUDENT_ANALYSIS_SYSTEM_PROMPT },
 ];
 
 // Exportado — reaproveitado por PromptCustomizer.jsx pra mapear linhas cruas

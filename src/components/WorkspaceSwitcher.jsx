@@ -35,6 +35,11 @@ export default function WorkspaceSwitcher() {
 
   if (loading) return null;
 
+  // Same position-based numbering WorkspaceScopeProvider.jsx's Alt+1..9
+  // handler uses — only the first 9 workspaces get a shortcut/badge, same
+  // ceiling as Chrome's own numbered-tab shortcuts.
+  const activeIndex = workspaces.findIndex((w) => w.id === activeWorkspace.id);
+
   return (
     <div className="workspace-switcher" ref={containerRef}>
       <button
@@ -43,7 +48,7 @@ export default function WorkspaceSwitcher() {
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        title="Workspace ativo"
+        title={activeIndex >= 0 && activeIndex < 9 ? `Workspace ativo (Alt+${activeIndex + 1})` : 'Workspace ativo'}
       >
         <span
           className="tasks-projects-color-dot"
@@ -57,18 +62,20 @@ export default function WorkspaceSwitcher() {
       {open && (
         <div className="workspace-switcher-popover" role="menu">
           <ul className="workspace-switcher-list">
-            {workspaces.map((workspace) => (
+            {workspaces.map((workspace, index) => (
               <li key={workspace.id}>
                 <button
                   type="button"
                   className={`workspace-switcher-item${workspace.id === activeWorkspace.id ? ' active' : ''}`}
                   role="menuitemradio"
                   aria-checked={workspace.id === activeWorkspace.id}
+                  title={index < 9 ? `Alt+${index + 1}` : undefined}
                   onClick={() => {
                     setActiveWorkspaceId(workspace.id);
                     setOpen(false);
                   }}
                 >
+                  {index < 9 && <span className="workspace-switcher-number">{index + 1}</span>}
                   <span
                     className="tasks-projects-color-dot"
                     style={{ backgroundColor: workspace.color || 'var(--ink-soft)' }}
