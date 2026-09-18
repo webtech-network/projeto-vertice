@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(echo \"exit: $?\")",
+      "Bash(node -e \"const icons = require\\('/Users/rommelcarneiro/dev/WebTech/Vertice/node_modules/lucide-react'\\); ['TrendingUp','TrendingDown','Minus','Info'].forEach\\(n=>console.log\\(n, typeof icons[n]\\)\\)\")",
+      "Bash(node -e \"const icons = require\\('/Users/rommelcarneiro/dev/WebTech/Vertice/node_modules/lucide-react'\\); console.log\\('Circle', typeof icons.Circle\\)\")"
+    ]
+  }
+}

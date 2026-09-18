@@ -1,0 +1,154 @@
+{
+  "bundles": [
+    {
+      "id": "canvas-courses",
+      "keywords": ["curso", "cursos", "favorito", "favoritos", "pendência", "pendências", "needs_grading", "browser", "atividades", "course", "workspace do curso", "aba"],
+      "files": [
+        "platform/canvas-integration.md",
+        "contracts/canvas-api.md",
+        "capabilities/course-browser.md",
+        "capabilities/course-workspace.md",
+        "capabilities/atividades.md"
+      ],
+      "note": "Navegação de cursos, pendências e lista de atividades"
+    },
+    {
+      "id": "canvas-import",
+      "keywords": ["importar", "import", "questão", "questões", "quiz", "importação", "question", "arquivo json", "canvas import"],
+      "files": [
+        "platform/canvas-integration.md",
+        "platform/validation-model.md",
+        "contracts/canvas-api.md",
+        "contracts/quiz-schema.md",
+        "capabilities/quiz-import.md",
+        "capabilities/atividades.md"
+      ],
+      "note": "Importação de questões num quiz do Canvas"
+    },
+    {
+      "id": "canvas-grading",
+      "keywords": ["rubrica", "corrigir", "correção", "grade", "nota", "rubric", "submission", "grupo", "group_grading", "aluno"],
+      "files": [
+        "platform/canvas-integration.md",
+        "contracts/canvas-api.md",
+        "capabilities/rubric-grading.md",
+        "capabilities/student-engagement.md"
+      ],
+      "note": "Correção com rubrica, notas e situação dos alunos"
+    },
+    {
+      "id": "canvas-messages",
+      "keywords": ["mensagem", "mensagens", "conversa", "conversation", "inbox", "responder", "reply", "compor"],
+      "files": [
+        "platform/canvas-integration.md",
+        "contracts/canvas-api.md",
+        "contracts/ai-adapter-contract.md",
+        "capabilities/messages.md"
+      ],
+      "note": "Mensagens do Canvas + resposta com IA"
+    },
+    {
+      "id": "ai-integrations",
+      "keywords": ["integração", "integrações", "ia", "provedor", "provider", "openai", "gemini", "claude", "zai", "deepseek", "modelo", "api key", "chave", "base url"],
+      "files": [
+        "contracts/ai-adapter-contract.md",
+        "contracts/supabase-schema.md",
+        "capabilities/ai-integrations.md",
+        "capabilities/perfil.md",
+        "capabilities/prompt-customization.md"
+      ],
+      "note": "Integrações de IA, drivers e modelos selecionáveis"
+    },
+    {
+      "id": "ai-question-gen",
+      "keywords": ["gerar questão", "geração", "questões", "quiz json", "enade", "skill", "question generator", "tema", "nível", "tipo"],
+      "files": [
+        "contracts/ai-adapter-contract.md",
+        "contracts/quiz-schema.md",
+        "capabilities/questoes.md",
+        "capabilities/prompt-customization.md"
+      ],
+      "note": "Geração de questões com IA"
+    },
+    {
+      "id": "tasks",
+      "keywords": ["tarefa", "tarefas", "kanban", "eisenhower", "projeto", "projetos", "prioridade", "task", "export", "import", "filtro"],
+      "files": [
+        "platform/data-storage.md",
+        "contracts/supabase-schema.md",
+        "capabilities/tasks.md",
+        "capabilities/workspaces.md",
+        "capabilities/course-notes.md"
+      ],
+      "note": "Tarefas, projetos e seus dados"
+    },
+    {
+      "id": "auth-platform",
+      "keywords": ["login", "auth", "autenticação", "sessão", "session", "canvas oauth", "proxy", "passkey", "logout", "conectar", "desconectar"],
+      "files": [
+        "platform/routing-and-shell.md",
+        "platform/auth-and-session.md",
+        "platform/canvas-integration.md",
+        "platform/oauth-connections.md"
+      ],
+      "note": "Autenticação, sessão e gate de rotas"
+    },
+    {
+      "id": "data-model",
+      "keywords": ["banco", "tabela", "supabase", "postgres", "rls", "vault", "realtime", "schema", "indexeddb", "dados", "data", "migração"],
+      "files": [
+        "platform/data-storage.md",
+        "platform/validation-model.md",
+        "contracts/supabase-schema.md"
+      ],
+      "note": "Modelo de dados, RLS e persistência"
+    },
+    {
+      "id": "shell-ui",
+      "keywords": ["dashboard", "sidebar", "topbar", "tema", "home", "painel", "atalho", "perfil", "ui", "mobile", "pwa", "sobre", "tutorial", "preferências"],
+      "files": [
+        "platform/routing-and-shell.md",
+        "capabilities/dashboard-shell.md",
+        "capabilities/login-and-landing.md",
+        "capabilities/dashboard.md",
+        "capabilities/perfil.md"
+      ],
+      "note": "Shell do dashboard, home e perfil"
+    },
+    {
+      "id": "backend",
+      "keywords": ["rota", "api", "endpoint", "route handler", "servidor", "server", "cli", "service role", "proxy", "supabase server"],
+      "files": [
+        "platform/api-routes.md",
+        "platform/validation-model.md",
+        "contracts/canvas-api.md",
+        "contracts/ai-adapter-contract.md",
+        "capabilities/cli.md"
+      ],
+      "note": "Rotas de API, runtime de servidor e CLI"
+    },
+    {
+      "id": "ux-ui",
+      "keywords": ["css", "tema", "theme", "token", "dark mode", "acessibilidade", "responsivo", "mobile", "estilo", "design", "ui", "cor", "fonte", "componente"],
+      "files": [
+        "platform/design-system.md",
+        "platform/routing-and-shell.md",
+        "capabilities/dashboard-shell.md",
+        "capabilities/perfil.md",
+        "capabilities/tutorial-sobre.md"
+      ],
+      "note": "Sistema de design, tema, acessibilidade e responsivo"
+    },
+    {
+      "id": "devops",
+      "keywords": ["deploy", "docker", "supabase self-hosted", "infraestrutura", "infra", "env", "ci", "build", "produção", "healthcheck", "dokploy", "ambiente"],
+      "files": [
+        "platform/deployment-and-infra.md",
+        "platform/data-storage.md",
+        "contracts/supabase-schema.md",
+        "decisions/0008-postgres-realtime-migracao.md"
+      ],
+      "note": "Deploy, containers, Supabase self-hosted e variáveis de ambiente"
+    }
+  ]
+}
