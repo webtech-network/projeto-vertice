@@ -180,6 +180,56 @@ export async function gradeSubmissionWithRubric(client, courseId, assignmentId, 
   return response.data;
 }
 
+/**
+ * Lists a course's group sets ("group categories" in the API). Backs the
+ * peer-review distribution page's group-set picker — a course can have
+ * several (e.g. one per project), and the assignment itself usually isn't a
+ * group assignment, so the professor picks which set defines "same group".
+ */
+export async function listGroupCategories(client, courseId) {
+  return fetchAllPages(client, `/courses/${courseId}/group_categories`, { per_page: 100 });
+}
+
+/**
+ * Lists the groups of one group set. Group endpoints default to 10 per page,
+ * so always paginate — the old distribuir.php script didn't and silently
+ * truncated larger groups.
+ */
+export async function listGroupCategoryGroups(client, categoryId) {
+  return fetchAllPages(client, `/group_categories/${categoryId}/groups`, { per_page: 100 });
+}
+
+export async function listGroupUsers(client, groupId) {
+  return fetchAllPages(client, `/groups/${groupId}/users`, { per_page: 100 });
+}
+
+/**
+ * Lists an assignment's existing peer reviews. Each item's `assessor_id` is
+ * the reviewer, `user_id` the owner of the reviewed submission (`asset_id`),
+ * and `workflow_state` is 'assigned' or 'completed'.
+ */
+export async function listPeerReviews(client, courseId, assignmentId) {
+  return fetchAllPages(client, `/courses/${courseId}/assignments/${assignmentId}/peer_reviews`, { per_page: 100 });
+}
+
+// Peer-review paths take the *submission* id, not the student's; `user_id`
+// is the reviewer being assigned/unassigned.
+export async function createPeerReview(client, courseId, assignmentId, submissionId, userId) {
+  const response = await client.post(
+    `/courses/${courseId}/assignments/${assignmentId}/submissions/${submissionId}/peer_reviews`,
+    { user_id: userId }
+  );
+  return response.data;
+}
+
+export async function deletePeerReview(client, courseId, assignmentId, submissionId, userId) {
+  const response = await client.delete(
+    `/courses/${courseId}/assignments/${assignmentId}/submissions/${submissionId}/peer_reviews`,
+    { params: { user_id: userId } }
+  );
+  return response.data;
+}
+
 export async function getQuiz(client, courseId, quizId) {
   const response = await client.get(`/courses/${courseId}/quizzes/${quizId}`);
   return response.data;
@@ -267,11 +317,11 @@ export async function replyToConversation(client, conversationId, body) {
  * and 'deleted' are left out on purpose — those aren't students a professor
  * would ever expect to see in a roster.
  */
-export async function listCourseStudents(client, courseId, { include = [] } = {}) {
+export async function listCourseStudents(client, courseId, { include = [], states = ['active', 'invited', 'inactive', 'completed'] } = {}) {
   return fetchAllPages(client, `/courses/${courseId}/users`, {
     per_page: 100,
     'enrollment_type[]': 'student',
-    'enrollment_state[]': ['active', 'invited', 'inactive', 'completed'],
+    'enrollment_state[]': states,
     ...(include.length ? { 'include[]': include } : {}),
   });
 }

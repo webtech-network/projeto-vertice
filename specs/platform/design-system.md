@@ -54,6 +54,7 @@ updated: 2026-09-17
 ## Acessibilidade
 
 - `.sr-only` para texto de screen-reader; `aria-label`/`title` em botões só-ícone.
+- Dicas (`title`) aparecem **imediatamente** via `InstantTooltip` (montado no layout raiz): ele intercepta qualquer elemento com `title`, move o texto para `data-tip` e exibe um balão no hover/foco de teclado. Basta usar `title="..."` — não crie tooltips próprios nem dependa do tooltip nativo.
 - Foco visível via `:focus` (borda `--accent`); estados `hover`/`active`/`disabled`
   presentes em toda primitiva.
 

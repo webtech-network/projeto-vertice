@@ -1,7 +1,7 @@
 'use client';
 
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
-import { Download, Mail, Gauge } from 'lucide-react';
+import { Download, Mail, Gauge, Columns3, ChevronsDownUp, ChevronsUpDown, ChevronDown, ChevronRight, UserX, ShieldAlert } from 'lucide-react';
 import { ENROLLMENT_STATE_LABELS, quartiles, quartileColor, robustScaleMax, scoreColor } from '@/lib/studentReport';
 import { DEFAULT_WEIGHTS } from '@/lib/studentEngagement/scoring';
 import { computeClassRiskResults } from '@/lib/studentEngagement/computeClassRisk';
@@ -41,6 +41,10 @@ function csvEscape(value) {
   if (/[",\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
   return str;
 }
+
+// Status da matrícula como label suave (mesmos tokens do RiskLevelPill):
+// verde = ativa, vermelho = inativa/rejeitada, âmbar = demais estados.
+const STATUS_PILL = { active: 'risk-pill-low', inactive: 'risk-pill-high', rejected: 'risk-pill-high' };
 
 const RISK_LABEL = { low: 'Baixo', medium: 'Médio', high: 'Alto' };
 
@@ -131,6 +135,52 @@ export default function StudentReport({ rows, courseId, baseUrl, integrations = 
   // once would both be visually noisy and needlessly re-fetch analytics for
   // students the professor isn't looking at right now.
   const [expandedStudentId, setExpandedStudentId] = useState(null);
+
+  // Colunas de análise (Nível de Risco, Última atividade, Tempo de atividade,
+  // Nota atual, Nota final) — visíveis por padrão, ocultáveis em bloco.
+  const [showAnalysis, setShowAnalysis] = useState(true);
+
+  // Agrupamento por conjunto de grupos do Canvas. `categoryId` '' = sem
+  // agrupamento. Os grupos (com ids dos membros) são buscados sob demanda ao
+  // escolher o conjunto e cacheados por conjunto.
+  const [collapsed, setCollapsed] = useState(() => new Set());
+  const [categories, setCategories] = useState([]);
+  const [categoryId, setCategoryId] = useState('');
+  const [groupsByCategory, setGroupsByCategory] = useState({});
+  const [groupsState, setGroupsState] = useState({ loading: false, error: null });
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/canvas/courses/${courseId}/group-categories`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled && !data.error) setCategories(data.categories || []);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId]);
+
+  async function handleSelectCategory(value) {
+    setCategoryId(value);
+    setCollapsed(new Set());
+    setGroupsState({ loading: false, error: null });
+    if (!value || groupsByCategory[value]) return;
+    setGroupsState({ loading: true, error: null });
+    try {
+      const response = await fetch(`/api/canvas/courses/${courseId}/group-categories/${value}/groups`);
+      const data = await response.json();
+      if (data.error) {
+        setGroupsState({ loading: false, error: data.error });
+        return;
+      }
+      setGroupsByCategory((prev) => ({ ...prev, [value]: data.groups || [] }));
+      setGroupsState({ loading: false, error: null });
+    } catch {
+      setGroupsState({ loading: false, error: 'Falha ao carregar os grupos do Canvas.' });
+    }
+  }
 
   // Course-wide Analytics summaries (page views/participations/tardiness
   // per student) back both the donut chart and the "vs. média da turma"
@@ -247,6 +297,44 @@ export default function StudentReport({ rows, courseId, baseUrl, integrations = 
     });
   }, [filtered, sort, engagement.results]);
 
+  // Seções da tabela: uma por grupo do conjunto escolhido (na ordem do
+  // Canvas), mais "Sem grupo". Aluno em mais de um grupo do mesmo conjunto
+  // (não ocorre no Canvas) apareceria só no primeiro.
+  const sections = useMemo(() => {
+    const groups = categoryId ? groupsByCategory[categoryId] : null;
+    if (!groups) return [{ key: 'all', title: null, rows: sorted }];
+    const placed = new Set();
+    const result = [];
+    for (const group of groups) {
+      const members = new Set(group.memberIds);
+      const groupRows = sorted.filter((r) => members.has(r.id) && !placed.has(r.id));
+      groupRows.forEach((r) => placed.add(r.id));
+      if (groupRows.length) result.push({ key: `g${group.id}`, title: group.name, rows: groupRows });
+    }
+    const rest = sorted.filter((r) => !placed.has(r.id));
+    if (rest.length) result.push({ key: 'none', title: 'Sem grupo', rows: rest });
+    return result;
+  }, [sorted, categoryId, groupsByCategory]);
+
+  const grouped = sections.some((sec) => sec.title);
+  const groupKeys = sections.filter((sec) => sec.title).map((sec) => sec.key);
+  const allCollapsed = grouped && groupKeys.every((k) => collapsed.has(k));
+
+  function toggleAllGroups() {
+    setCollapsed(allCollapsed ? new Set() : new Set(groupKeys));
+  }
+
+  function toggleGroup(key) {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  const columnCount = showAnalysis ? 9 : 4;
+
   function toggleSort(key) {
     setSort((prev) => {
       if (prev.key !== key) return { key, direction: 'asc' };
@@ -269,7 +357,14 @@ export default function StudentReport({ rows, courseId, baseUrl, integrations = 
     <>
       <div className="page-title-row">
         <h2>Alunos</h2>
-        <InfoHint label="Como o Nível de Risco é calculado">
+        <InfoHint label="Como usar esta tela e como o Nível de Risco é calculado">
+          <p>
+            Os botões acima da tabela, em ordem: <strong>colapsar/expandir grupos</strong> (ativo ao agrupar por um
+            conjunto de grupos do curso; também dá para recolher cada grupo pelo cabeçalho),{' '}
+            <strong>ocultar alunos inativos</strong>, <strong>exibir colunas de análise</strong> (Nível de Risco,
+            última atividade, tempo de atividade e notas), <strong>analisar risco de evasão</strong> e{' '}
+            <strong>exportar dados (CSV)</strong>. Os botões de liga/desliga ficam preenchidos quando ativos.
+          </p>
           <p>
             O índice combina três dimensões, com peso igual entre elas (fixo por ora, sem tela de configuração):{' '}
             <strong>desempenho</strong> (nota atual), <strong>entrega</strong> (proporção de atividades no prazo,
@@ -298,23 +393,85 @@ export default function StudentReport({ rows, courseId, baseUrl, integrations = 
           onChange={(e) => setQuery(e.target.value)}
           aria-label="Pesquisar alunos"
         />
-        <label className="checkbox-filter">
-          <input type="checkbox" checked={hideInactive} onChange={(e) => setHideInactive(e.target.checked)} />
-          Ocultar alunos inativos
-        </label>
-        <button type="button" className="btn btn-secondary" onClick={() => downloadCsv(filtered, engagement.results)}>
-          <Download size={16} strokeWidth={1.8} aria-hidden="true" />
-          Exportar CSV
-        </button>
-        <button type="button" className="btn btn-primary" disabled={engagement.status === 'loading'} onClick={handleAnalyzeEngagement}>
-          {engagement.status === 'loading' ? 'Analisando…' : engagement.status === 'loaded' ? 'Reanalisar situação dos alunos' : 'Analisar situação dos alunos'}
-        </button>
+        {categories.length > 0 && (
+          <select
+            className="group-select"
+            aria-label="Agrupar por"
+            value={categoryId}
+            onChange={(e) => handleSelectCategory(e.target.value)}
+            disabled={groupsState.loading}
+          >
+            <option value="">Agrupar por…</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        )}
+        <div className="browser-controls-actions student-toolbar">
+          <button
+            type="button"
+            className="btn btn-primary btn-icon"
+            title={allCollapsed ? 'Expandir todos os grupos' : 'Colapsar todos os grupos'}
+            aria-label={allCollapsed ? 'Expandir todos os grupos' : 'Colapsar todos os grupos'}
+            disabled={!grouped}
+            onClick={toggleAllGroups}
+          >
+            {allCollapsed ? <ChevronsUpDown size={18} strokeWidth={1.8} /> : <ChevronsDownUp size={18} strokeWidth={1.8} />}
+          </button>
+          <button
+            type="button"
+            className={`btn btn-icon ${hideInactive ? 'btn-primary' : 'btn-secondary'}`}
+            title="Ocultar alunos inativos"
+            aria-label="Ocultar alunos inativos"
+            aria-pressed={hideInactive}
+            onClick={() => setHideInactive((v) => !v)}
+          >
+            <UserX size={18} strokeWidth={1.8} />
+          </button>
+          <button
+            type="button"
+            className={`btn btn-icon ${showAnalysis ? 'btn-primary' : 'btn-secondary'}`}
+            title="Exibir colunas de análise"
+            aria-label="Exibir colunas de análise"
+            aria-pressed={showAnalysis}
+            onClick={() => setShowAnalysis((v) => !v)}
+          >
+            <Columns3 size={18} strokeWidth={1.8} />
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary btn-icon"
+            title={engagement.status === 'loading' ? 'Analisando…' : 'Analisar risco de evasão'}
+            aria-label="Analisar risco de evasão"
+            disabled={engagement.status === 'loading'}
+            onClick={handleAnalyzeEngagement}
+          >
+            <ShieldAlert size={18} strokeWidth={1.8} />
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary btn-icon"
+            title="Exportar Dados (CSV)"
+            aria-label="Exportar Dados (CSV)"
+            onClick={() => downloadCsv(filtered, engagement.results)}
+          >
+            <Download size={18} strokeWidth={1.8} />
+          </button>
+        </div>
       </div>
 
       {gradesUnavailable && (
         <p className="alert alert-warning" role="alert">
           As notas não estão disponíveis para consulta via API nesta conta Canvas — as colunas de nota ficarão em
           branco para todos os alunos.
+        </p>
+      )}
+
+      {groupsState.error && (
+        <p className="alert alert-warning" role="alert">
+          {groupsState.error}
         </p>
       )}
 
@@ -328,7 +485,7 @@ export default function StudentReport({ rows, courseId, baseUrl, integrations = 
       {filtered.length === 0 ? (
         <p className="lede">
           {hideInactive && query.trim() === ''
-            ? 'Nenhum aluno ativo encontrado — desmarque "Ocultar alunos inativos" para ver todos.'
+            ? 'Nenhum aluno ativo encontrado — desative o botão "Ocultar alunos inativos" para ver todos.'
             : 'Nenhum aluno encontrado com essa pesquisa.'}
         </p>
       ) : (
@@ -354,6 +511,8 @@ export default function StudentReport({ rows, courseId, baseUrl, integrations = 
                   <SortIcon direction={sort.key === 'enrollmentState' ? sort.direction : null} />
                 </button>
               </th>
+              {showAnalysis && (
+                <>
               <th aria-sort={sortAria('riskScore')}>
                 <button type="button" className="th-sort-btn" onClick={() => toggleSort('riskScore')}>
                   Nível de Risco
@@ -384,21 +543,50 @@ export default function StudentReport({ rows, courseId, baseUrl, integrations = 
                   <SortIcon direction={sort.key === 'finalScore' ? sort.direction : null} />
                 </button>
               </th>
+                </>
+              )}
               <th>Ações</th>
             </tr>
           </thead>
           <tbody>
-            {sorted.map((row) => {
+            {sections.map((section) => (
+              <Fragment key={section.key}>
+                {section.title && (
+                  <tr className="group-header-row">
+                    <th colSpan={columnCount} scope="colgroup">
+                      <button
+                        type="button"
+                        className="group-toggle-btn"
+                        aria-expanded={!collapsed.has(section.key)}
+                        onClick={() => toggleGroup(section.key)}
+                      >
+                        {collapsed.has(section.key) ? <ChevronRight size={16} strokeWidth={2} /> : <ChevronDown size={16} strokeWidth={2} />}
+                        {section.title} <span className="muted">({section.rows.length})</span>
+                      </button>
+                    </th>
+                  </tr>
+                )}
+                {(collapsed.has(section.key) ? [] : section.rows).map((row) => {
               const expanded = expandedStudentId === row.id;
               const riskResult = engagement.results.get(row.id);
               return (
                 <Fragment key={row.id}>
                   <tr className={expanded ? 'is-expanded' : undefined}>
-                    <td className="course-name-cell">{row.name}</td>
+                    <td className={`course-name-cell${section.title ? ' student-name--grouped' : ''}`}>{row.name}</td>
                     <td title={row.contactIsLogin ? 'E-mail não disponível — exibindo login do Canvas' : undefined}>
                       {row.contact}
                     </td>
-                    <td>{ENROLLMENT_STATE_LABELS[row.enrollmentState] || '—'}</td>
+                    <td>
+                      {ENROLLMENT_STATE_LABELS[row.enrollmentState] ? (
+                        <span className={`risk-pill ${STATUS_PILL[row.enrollmentState] || 'risk-pill-medium'}`}>
+                          {ENROLLMENT_STATE_LABELS[row.enrollmentState]}
+                        </span>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                    {showAnalysis && (
+                      <>
                     <td>
                       <RiskLevelPill level={riskResult?.riskLevel} score={riskResult?.score} previousScore={riskResult?.previousScore} />
                     </td>
@@ -447,6 +635,8 @@ export default function StudentReport({ rows, courseId, baseUrl, integrations = 
                       )}
                     </td>
                     <td>{formatGrade(row.finalScore, row.finalGrade)}</td>
+                      </>
+                    )}
                     <td className="actions-cell">
                       <button
                         type="button"
@@ -471,7 +661,7 @@ export default function StudentReport({ rows, courseId, baseUrl, integrations = 
                   </tr>
                   {expanded && (
                     <tr className="course-note-row">
-                      <td colSpan={9}>
+                      <td colSpan={columnCount}>
                         <StudentEngagementDashboard
                           courseId={courseId}
                           baseUrl={baseUrl}
@@ -489,6 +679,8 @@ export default function StudentReport({ rows, courseId, baseUrl, integrations = 
                 </Fragment>
               );
             })}
+              </Fragment>
+            ))}
           </tbody>
         </table>
         </div>

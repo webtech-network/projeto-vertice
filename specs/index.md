@@ -43,6 +43,7 @@ Legenda: `canvas` · `ai` · `data` · `frontend` (domínios de produto) · `bac
 | [atividades.md](capabilities/atividades.md) | canvas | implemented | Lista de atividades do curso → importar questões / corrigir rubrica |
 | [quiz-import.md](capabilities/quiz-import.md) | canvas | implemented | Importação de questões num quiz via Canvas API |
 | [rubric-grading.md](capabilities/rubric-grading.md) | canvas | implemented | Correção com rubrica (envia `rubric_assessment` estruturado) |
+| [peer-review-distribution.md](capabilities/peer-review-distribution.md) | canvas | implemented | Distribui avaliação por pares só entre grupos diferentes, com carga equilibrada |
 | [student-engagement.md](capabilities/student-engagement.md) | canvas | implemented | Tabela de alunos, gauges de situação, nível de risco e histórico |
 | [ai-integrations.md](capabilities/ai-integrations.md) | ai | implemented | Integrações de IA multi-instância por driver + modelos selecionáveis |
 | [questoes.md](capabilities/questoes.md) | ai | implemented | Gerador de questões (specs + JSON + download da skill) |
@@ -59,7 +60,7 @@ Legenda: `canvas` · `ai` · `data` · `frontend` (domínios de produto) · `bac
 
 ## Decisions (ADRs)
 
-Veja [decisions/README.md](decisions/README.md) — 12 ADRs cobrindo as decisões "intencionais,
+Veja [decisions/README.md](decisions/README.md) — 13 ADRs cobrindo as decisões "intencionais,
 não é bug" que antes viviam no `CLAUDE.md`.
 
 ## Agents (orquestração)

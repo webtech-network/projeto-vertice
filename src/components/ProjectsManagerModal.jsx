@@ -85,6 +85,13 @@ export default function ProjectsManagerModal({ onClose }) {
   return (
     <>
       <Modal title="Projetos" onClose={onClose}>
+        <div className="compose-message-actions">
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => setCreating(true)}>
+            <Plus size={15} strokeWidth={1.8} />
+            Novo projeto
+          </button>
+        </div>
+
         {projects.length === 0 ? (
           <p className="lede">Nenhum projeto cadastrado ainda.</p>
         ) : (
@@ -93,13 +100,6 @@ export default function ProjectsManagerModal({ onClose }) {
             {renderGroup('Pessoais', personalProjects)}
           </>
         )}
-
-        <div className="compose-message-actions">
-          <button type="button" className="btn btn-primary btn-sm" onClick={() => setCreating(true)}>
-            <Plus size={15} strokeWidth={1.8} />
-            Novo projeto
-          </button>
-        </div>
       </Modal>
 
       {creating && <ProjectFormModal onClose={() => setCreating(false)} />}

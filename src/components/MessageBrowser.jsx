@@ -95,6 +95,12 @@ export default function MessageBrowser({ currentUserId, baseUrl, integrations })
   );
   const visibleGroups = courseFilter ? groups.filter((g) => groupKey(g) === courseFilter) : groups;
 
+  // Drops the archived conversation from the shared state so the group's
+  // counter badge (derived from `groups`) updates along with the list.
+  function handleArchived(conversationId) {
+    setConversations((prev) => prev.filter((c) => c.id !== conversationId));
+  }
+
   function toggleGroup(key) {
     setCollapsedKeys((prev) => {
       const next = new Set(prev);
@@ -225,6 +231,7 @@ export default function MessageBrowser({ currentUserId, baseUrl, integrations })
                     currentUserId={currentUserId}
                     baseUrl={baseUrl}
                     integrations={integrations}
+                    onArchived={handleArchived}
                   />
                 </div>
               )}

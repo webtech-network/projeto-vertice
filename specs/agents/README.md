@@ -21,7 +21,7 @@ O orquestrador lê só `specs/index.md` e roteia; cada agente carrega só o seu 
 
 | Agente | Domínio | Specs sempre em contexto | Bundles que puxa |
 | --- | --- | --- | --- |
-| `canvas` | Integração Canvas | `platform/canvas-integration.md`, `contracts/canvas-api.md` | `canvas-courses`, `canvas-import`, `canvas-grading`, `canvas-messages` |
+| `canvas` | Integração Canvas | `platform/canvas-integration.md`, `contracts/canvas-api.md` | `canvas-courses`, `canvas-import`, `canvas-grading`, `canvas-peer-review`, `canvas-messages` |
 | `ai` | IA e geração | `contracts/ai-adapter-contract.md` | `ai-integrations`, `ai-question-gen` |
 | `data` | Dados/RLS/Realtime | `platform/data-storage.md`, `contracts/supabase-schema.md` | `tasks`, `data-model` |
 | `frontend` | Shell/UI/perfil | `platform/routing-and-shell.md`, `platform/auth-and-session.md` | `shell-ui`, `auth-platform` |

@@ -6,6 +6,9 @@ node_modules
 .DS_Store
 
 /Questoes
+/metodologia
+# Script legado de referência (ver ADR-0013) — fora do versionamento
+/distribuir.php
 
 # Dados do Postgres self-hosted (Supabase) — bind mount externo, nunca versionado
 /supabase/volumes/db/data

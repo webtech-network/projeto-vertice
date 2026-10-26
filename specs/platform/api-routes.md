@@ -2,7 +2,7 @@
 title: Rotas de API e runtime de servidor
 status: implemented
 domain: backend
-updated: 2026-09-17
+updated: 2026-10-18
 ---
 
 # Rotas de API e runtime de servidor
@@ -15,7 +15,8 @@ updated: 2026-09-17
 
 - **`/api/canvas/**`** — proxy do Canvas LMS (integração opcional): cursos, atividades,
   import, mensagens/conversas, correção de rubrica, favorito, status, disconnect,
-  analytics/students, students/[userId]/message e assignment-analytics.
+  analytics/students, students/[userId]/message, assignment-analytics, peer-reviews
+  (POST/DELETE de uma revisão) e group-categories/[categoryId]/groups.
 - **`/api/ai/**`** — IA: `integrations` (CRUD), `integrations/[id]` (models,
   generate-questions, improve-message, suggest-reply), `configured`, `analyze-student`.
 - **`/api/auth/**`** — `login` (magic-link do Canvas → sessão Supabase) e `logout`.

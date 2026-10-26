@@ -14,6 +14,7 @@ A fonte legível por máquina é [`bundles.json`](bundles.json) (usada por
 | `canvas-courses` | navegar cursos, pendências, atividades | canvas-integration, canvas-api, course-browser, course-workspace, atividades |
 | `canvas-import` | importar questões num quiz | canvas-integration, validation-model, canvas-api, quiz-schema, quiz-import, atividades |
 | `canvas-grading` | corrigir rubrica, notas, situação dos alunos | canvas-integration, canvas-api, rubric-grading, student-engagement |
+| `canvas-peer-review` | distribuir avaliação por pares entre grupos | canvas-integration, canvas-api, atividades, peer-review-distribution, ADR-0013 |
 | `canvas-messages` | mensagens/resposta com IA | canvas-integration, canvas-api, ai-adapter-contract, messages |
 | `ai-integrations` | integrações de IA, drivers, modelos | ai-adapter-contract, supabase-schema, ai-integrations, perfil, prompt-customization |
 | `ai-question-gen` | gerar questões com IA | ai-adapter-contract, quiz-schema, questoes, prompt-customization |

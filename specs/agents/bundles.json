@@ -37,6 +37,18 @@
       "note": "Correção com rubrica, notas e situação dos alunos"
     },
     {
+      "id": "canvas-peer-review",
+      "keywords": ["avaliação por pares", "avaliacao por pares", "peer review", "peer_review", "pares", "revisão por pares", "revisao por pares", "distribuir", "distribuição", "conjunto de grupos", "group category"],
+      "files": [
+        "platform/canvas-integration.md",
+        "contracts/canvas-api.md",
+        "capabilities/atividades.md",
+        "capabilities/peer-review-distribution.md",
+        "decisions/0013-distribuicao-pares-por-grupos.md"
+      ],
+      "note": "Distribuição de avaliação por pares entre grupos"
+    },
+    {
       "id": "canvas-messages",
       "keywords": ["mensagem", "mensagens", "conversa", "conversation", "inbox", "responder", "reply", "compor"],
       "files": [

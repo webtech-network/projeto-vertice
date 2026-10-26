@@ -36,6 +36,12 @@ export async function GET(request, { params }) {
 // one.
 const RECIPIENTS_PER_BATCH = 100;
 
+// Logs only the Canvas status and response body — never the axios error
+// object itself, which can carry request headers.
+function logCanvasError(step, error) {
+  console.error(`[messages] ${step} falhou:`, error?.response?.status, JSON.stringify(error?.response?.data) ?? error?.message);
+}
+
 function chunk(array, size) {
   const chunks = [];
   for (let i = 0; i < array.length; i += size) {
@@ -66,8 +72,9 @@ export async function POST(request, { params }) {
 
   let students;
   try {
-    students = await listCourseStudents(client, courseId);
-  } catch {
+    students = await listCourseStudents(client, courseId, { states: ['active'] });
+  } catch (error) {
+    logCanvasError('listCourseStudents', error);
     return NextResponse.json({ error: 'Falha ao carregar os alunos do curso.' }, { status: 502 });
   }
 
@@ -76,7 +83,7 @@ export async function POST(request, { params }) {
   }
 
   const batches = chunk(
-    students.map((s) => s.id),
+    students.map((s) => String(s.id)),
     RECIPIENTS_PER_BATCH,
   );
 
@@ -91,7 +98,8 @@ export async function POST(request, { params }) {
         contextCode: `course_${courseId}`,
       });
       sentCount += recipients.length;
-    } catch {
+    } catch (error) {
+      logCanvasError('createConversation', error);
       failedBatches += 1;
     }
   }

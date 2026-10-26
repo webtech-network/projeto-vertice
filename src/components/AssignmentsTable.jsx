@@ -10,6 +10,7 @@ import {
   CircleCheckBig,
   CircleDashed,
   ExternalLink,
+  Shuffle,
 } from 'lucide-react';
 import StatusIcon from './StatusIcon';
 import SortIcon from './SortIcon';
@@ -262,6 +263,19 @@ export default function AssignmentsTable({ courseId, assignments }) {
                             aria-label="Importar questões"
                           >
                             <ListPlus size={18} strokeWidth={1.8} />
+                          </Link>
+                        )}
+                        {/* Only assignments with peer review enabled — distributes
+                            reviewers across the course's groups (see
+                            specs/capabilities/peer-review-distribution.md). */}
+                        {assignment.peer_reviews && (
+                          <Link
+                            href={`/courses/${courseId}/assignments/${assignment.id}/peer-reviews`}
+                            className="btn btn-primary btn-icon"
+                            title="Distribuir avaliação por pares"
+                            aria-label="Distribuir avaliação por pares"
+                          >
+                            <Shuffle size={18} strokeWidth={1.8} />
                           </Link>
                         )}
                       </td>

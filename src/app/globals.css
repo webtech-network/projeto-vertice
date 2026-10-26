@@ -4251,6 +4251,17 @@ tr.is-expanded .course-name-btn {
   padding: 0.75rem 0.85rem 1rem;
   border-bottom: 1px solid var(--line);
 }
+/* Abas do curso expandido: a linha do curso usa --paper-raised, então abas e
+   painel ficam um tom mais escuros (bem suave) para destacar o conteúdo do
+   fundo da linha. A aba ativa e o painel compartilham o mesmo tom; as
+   inativas ficam um pouco mais claras, ainda distintas da linha. */
+.course-note-row .tab-folder-btn {
+  background: color-mix(in srgb, var(--paper-raised) 94%, var(--ink));
+}
+.course-note-row .tab-folder-btn.active,
+.course-note-row .tab-folder-panel {
+  background: color-mix(in srgb, var(--paper) 92%, var(--ink));
+}
 .course-note-editor {
   background: var(--paper);
   border: 1px solid var(--line);
@@ -4710,4 +4721,104 @@ tr.is-expanded .course-name-btn {
   height: 14px;
   background: var(--ink);
   opacity: 0.9;
+}
+
+/* PeerReviewDistributor.jsx — label-above-control fields in the toolbar
+   (group-set select + "Revisões por aluno"), same input look as the
+   compose-message select. */
+.peer-review-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.peer-review-field select,
+.peer-review-field input {
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 400;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+}
+.peer-review-field input {
+  width: 6rem;
+}
+.peer-review-toolbar {
+  align-items: flex-end;
+}
+.peer-review-stats {
+  margin-bottom: 1.25rem;
+}
+.peer-review-distributor .alert .checkbox-filter {
+  margin-top: 0.5rem;
+}
+
+/* Tooltip instantâneo (InstantTooltip.jsx) — substitui o `title` nativo, que
+   demora ~1s para aparecer. Fica acima de modais e popovers. */
+.instant-tooltip {
+  position: fixed;
+  z-index: 10000;
+  max-width: 280px;
+  padding: 5px 9px;
+  border-radius: 6px;
+  background: var(--ink);
+  color: var(--paper-raised);
+  font-size: 12.5px;
+  line-height: 1.35;
+  pointer-events: none;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+.instant-tooltip[hidden] {
+  display: none;
+}
+
+/* StudentReport.jsx — cabeçalho de seção ao agrupar alunos por conjunto de grupos. */
+.data-table .group-header-row th {
+  background: var(--paper);
+  text-align: left;
+  font-weight: 600;
+}
+.group-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.75rem 0.85rem;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: normal;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Botões só-ícone da barra de Alunos ficam à direita, como .browser-controls-actions. */
+.student-toolbar {
+  gap: 0.4rem;
+}
+
+.group-select {
+  font: inherit;
+  font-size: 0.88rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+/* Aluno dentro de um grupo: recuo para ficar endentado sob o nome do grupo
+   (0.85rem de padding + seta de 1rem + gap de 0.5rem do .group-toggle-btn). */
+.data-table td.student-name--grouped {
+  padding-left: 2.35rem;
 }

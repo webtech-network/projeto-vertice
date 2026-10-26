@@ -18,9 +18,20 @@ updated: 2026-09-17
   atual, atividades entregues, último acesso — espectro verde→vermelho contínuo), donut de
   atrasos e barras page_views/participations vs média da turma.
 - **Nível de Risco** (coluna entre Status e Última atividade): só roda quando o professor clica
-  "Analisar situação dos alunos". `computeClassRiskResults` → dimensões normalizadas
+  "Analisar risco de evasão". `computeClassRiskResults` → dimensões normalizadas
   (`desempenho`, `entrega`, `acesso` em 0-100) → índice composto (pesos iguais fixos,
   renormalizado só pelas dimensões disponíveis) → quartis → rótulo (`high`/`medium`/`low`).
+- **Tabela de alunos** (`StudentReport.jsx`): barra de controles com busca, o seletor "Agrupar
+  por" (conjuntos de grupos do curso via `GET .../group-categories`; membros sob demanda em
+  `.../group-categories/[categoryId]/groups`) e botões só-ícone com hint (`title`), nesta ordem:
+  1. **Colapsar/expandir grupos** — recolhe/expande todas as seções; cada cabeçalho de grupo
+     também alterna a própria seção (`aria-expanded`). Desabilitado sem agrupamento.
+  2. **Ocultar alunos inativos** — toggle (`aria-pressed`), ligado por padrão.
+  3. **Exibir colunas de análise** — toggle (`aria-pressed`, ligado por padrão): Nível de Risco,
+     Última atividade, Tempo de atividade, Nota atual e Nota final.
+  4. **Analisar risco de evasão** — roda o cálculo do Nível de Risco (abaixo).
+  5. **Exportar Dados (CSV)** — sempre todas as colunas.
+  Seções: uma por grupo (+ "Sem grupo"); ordenação/filtros valem dentro de cada seção.
 - **Bandas relativas à turma**, não cortes absolutos: o rótulo pode mudar entre duas análises
   sem o score próprio mexer muito, se a turma mexeu mais — comportamento intencional.
 - **Histórico**: `student_engagement_snapshots` (1 por aluno por dia, upsert). `weights_used`

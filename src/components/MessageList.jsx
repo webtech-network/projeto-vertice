@@ -2,7 +2,7 @@
 
 import { Fragment, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ChevronRight, Paperclip, ExternalLink, Archive, Sparkles, Wand2, Send, Copy } from 'lucide-react';
+import { ChevronRight, Paperclip, ExternalLink, Archive, Reply, Wand2, Send, Copy } from 'lucide-react';
 import SortIcon from './SortIcon';
 import Modal from './Modal';
 import { getCustomPrompt } from '@/lib/customPrompts';
@@ -93,9 +93,9 @@ const SORTERS = {
 // (/mensagens) — course context doesn't need its own column here since both
 // callers already scope the list to a single course before rendering it.
 // `integrations` (from src/lib/aiIntegrations, filtered to active ones with
-// a key configured) powers the "Responder com IA" action on each expanded
+// a key configured) powers the "Responder" popup's "Melhorar com IA" action on each expanded
 // row.
-export default function MessageList({ conversations, currentUserId, baseUrl, integrations = [] }) {
+export default function MessageList({ conversations, currentUserId, baseUrl, integrations = [], onArchived }) {
   const [sort, setSort] = useState({ key: 'date', direction: 'desc' });
   const [expandedIds, setExpandedIds] = useState(() => new Set());
   // conversation id -> { status: 'loading'|'loaded'|'error', messages, error }
@@ -251,6 +251,7 @@ export default function MessageList({ conversations, currentUserId, baseUrl, int
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Falha ao arquivar a mensagem.');
       setArchivedIds((prev) => new Set(prev).add(conversation.id));
+      onArchived?.(conversation.id);
     } catch (err) {
       setArchiveError(err.message);
     } finally {
@@ -367,32 +368,15 @@ export default function MessageList({ conversations, currentUserId, baseUrl, int
                             Abrir no Canvas
                           </Link>
 
-                          {integrations.length > 0 && (
-                            <>
-                              {integrations.length > 1 && (
-                                <select
-                                  aria-label="Integração de IA"
-                                  value={integrationId}
-                                  onChange={(e) => setIntegrationId(e.target.value)}
-                                >
-                                  {integrations.map((i) => (
-                                    <option key={i.id} value={i.id}>
-                                      {i.name} — {i.providerLabel} ({i.model})
-                                    </option>
-                                  ))}
-                                </select>
-                              )}
-                              <button type="button" className="btn btn-primary btn-sm" onClick={() => openAssist(conversation)}>
-                                <Sparkles size={15} strokeWidth={1.8} />
-                                Responder com IA
-                              </button>
-                            </>
-                          )}
+                          <button type="button" className="btn btn-primary btn-sm" onClick={() => openAssist(conversation)}>
+                            <Reply size={15} strokeWidth={1.8} />
+                            Responder
+                          </button>
                         </div>
                         {integrations.length === 0 && (
                           <p className="lede">
-                            Configure uma integração de IA em <Link href="/perfil">seu perfil</Link> para responder
-                            com IA.
+                            Configure uma integração de IA em <Link href="/perfil">seu perfil</Link> para melhorar
+                            respostas com IA.
                           </p>
                         )}
 
@@ -447,14 +431,13 @@ export default function MessageList({ conversations, currentUserId, baseUrl, int
 
       {assist && (
         <Modal
-          title="Resposta assistida por IA"
+          title="Responder"
           onClose={() => setAssist(null)}
           preventBackdropClose={Boolean(assist.text.trim())}
         >
           <p className="lede">
-            Digite a resposta completa, um rascunho parcial, ou deixe em branco — a IA pode gerar a resposta do zero
-            a partir da mensagem recebida, ou continuar a partir do que você já escreveu aqui. O texto na caixa pode
-            ser enviado a qualquer momento, com ou sem ajuda da IA.
+            Escreva sua resposta e envie pelo Canvas. Se quiser, use &quot;Melhorar com IA&quot; para gerar uma resposta
+            do zero a partir da mensagem recebida ou para aprimorar e continuar o que você já escreveu.
           </p>
           <label className="compose-message-field">
             <span>Sua resposta</span>
@@ -473,6 +456,8 @@ export default function MessageList({ conversations, currentUserId, baseUrl, int
           )}
 
           <div className="compose-message-actions">
+            {integrations.length > 0 && (
+              <>
             {integrations.length > 1 && (
               <select
                 aria-label="Integração de IA"
@@ -493,8 +478,10 @@ export default function MessageList({ conversations, currentUserId, baseUrl, int
               onClick={handleGenerateSuggestion}
             >
               <Wand2 size={15} strokeWidth={1.8} />
-              {assist.generating ? 'Gerando…' : assist.text.trim() ? 'Continuar com IA' : 'Gerar com IA'}
+              {assist.generating ? 'Melhorando…' : 'Melhorar com IA'}
             </button>
+              </>
+            )}
             {assist.text.trim() && (
               <button
                 type="button"

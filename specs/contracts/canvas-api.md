@@ -2,7 +2,7 @@
 title: Cliente da API do Canvas
 status: implemented
 domain: canvas
-updated: 2026-09-17
+updated: 2026-10-18
 ---
 
 # Cliente da API do Canvas
@@ -43,6 +43,14 @@ enrollmentState='active' })` — sempre `include[]=favorites,needs_grading_count
 (`include[]=user,rubric_assessment`), `gradeSubmissionWithRubric(courseId, assignmentId,
 userId, payload)` (PUT; payload já no shape `{ rubric_assessment, submission, comment }`).
 
+**Grupos e avaliação por pares**: `listGroupCategories(courseId)`
+(`GET /courses/:id/group_categories`), `listGroupCategoryGroups(categoryId)`
+(`GET /group_categories/:id/groups`), `listGroupUsers(groupId)` (`GET /groups/:id/users`),
+`listPeerReviews(courseId, assignmentId)` (`GET .../assignments/:aid/peer_reviews`),
+`createPeerReview(courseId, assignmentId, submissionId, userId)` (POST
+`.../submissions/:submission_id/peer_reviews`, `user_id` = revisor) e
+`deletePeerReview(...)` (DELETE no mesmo caminho, `user_id` como parâmetro).
+
 **Mensagens (Inbox)**: `listConversations({ filter, scope })` (exclui arquivadas por padrão),
 `getConversation(id)` (thread completa, sob demanda), `archiveConversation(id)`,
 `replyToConversation(id, body)` (omite `recipients` = responde à thread),
@@ -65,6 +73,11 @@ inteiro; 404/403 = conta sem Analytics), `getStudentAssignmentAnalytics(courseId
   `is_quiz_assignment` sinaliza New Quizzes (não importáveis por esta API) — não confundir.
 - `listCourseStudents` pede `enrollment_state` amplo de propósito: o filtro `active` do Canvas
   é não-confiável (alunos desativados já voltaram como `active`), então filtra client-side.
+- Endpoints de grupo (`/groups/:id/users`, `/memberships`, `/group_categories/:id/groups`)
+  paginam com **10 por padrão** — sempre `fetchAllPages` + `per_page: 100`.
+- `peer_reviews`, `peer_review_count`, `automatic_peer_reviews` e `intra_group_peer_reviews`
+  vêm no próprio objeto Assignment. O path de peer review usa o **id da submissão**, não o
+  do aluno; no item retornado, `assessor_id` = revisor e `user_id` = dono da submissão.
 - Nunca `Promise.all` em chamadas Canvas multi-step nas páginas (race em refresh concorrente);
   páginas encadeiam sequencialmente.
 
@@ -72,4 +85,5 @@ inteiro; 404/403 = conta sem Analytics), `getStudentAssignmentAnalytics(courseId
 
 - [canvas-integration.md](../platform/canvas-integration.md) ·
   [rubric-grading.md](../capabilities/rubric-grading.md) ·
-  [messages.md](../capabilities/messages.md) · [student-engagement.md](../capabilities/student-engagement.md)
+  [messages.md](../capabilities/messages.md) · [student-engagement.md](../capabilities/student-engagement.md) ·
+  [peer-review-distribution.md](../capabilities/peer-review-distribution.md)

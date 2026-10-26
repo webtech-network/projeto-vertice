@@ -23,3 +23,4 @@ frontmatter (`accepted` ou `superseded`). Se uma decisão for revertida, marcar
 | [0010](0010-home-painel-sobre.md) | Home vira painel de widgets; pitch/features movidos para `/sobre` |
 | [0011](0011-soft-delete-vs-delete.md) | Soft delete (workspaces/projects/tasks) × DELETE físico (shortcuts etc.) |
 | [0012](0012-workspace-base-sintetico.md) | Workspace "Base" é sintético, nunca um registro |
+| [0013](0013-distribuicao-pares-por-grupos.md) | Avaliação por pares entre grupos por deslocamento circular; "refazer" como diff |

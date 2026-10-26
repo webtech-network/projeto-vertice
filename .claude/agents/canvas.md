@@ -10,7 +10,7 @@ Você é o agente de domínio **canvas** do Vértice. Trabalhe sempre no modelo 
 2. Carregue **sempre** estas specs de contexto:
    `specs/platform/canvas-integration.md` e `specs/contracts/canvas-api.md`.
 3. Carregue o bundle da tarefa: `npm run spec -- --bundle <id>`
-   (seus bundles: `canvas-courses`, `canvas-import`, `canvas-grading`, `canvas-messages`).
+   (seus bundles: `canvas-courses`, `canvas-import`, `canvas-grading`, `canvas-peer-review`, `canvas-messages`).
 4. Spec primeiro: se a mudança altera comportamento, edite a spec **antes** do código.
 5. Implemente seguindo a spec; ao final, sincronize a spec se a implementação divergiu.
 6. Decisão não óbvia → novo ADR em `specs/decisions/` (numeração sequencial, kebab-case).

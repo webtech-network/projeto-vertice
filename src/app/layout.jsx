@@ -3,6 +3,7 @@ import Script from 'next/script';
 import bannerOg from '@/assets/images/banner_og.jpeg';
 import { THEME_INIT_SCRIPT } from '@/lib/theme';
 import { INSTALL_PROMPT_CAPTURE_SCRIPT } from '@/lib/pwaInstall';
+import InstantTooltip from '@/components/InstantTooltip';
 import './globals.css';
 
 const GA_MEASUREMENT_ID = 'G-P5YTWPHMFR';
@@ -85,6 +86,8 @@ export default function RootLayout({ children }) {
           `}
         </Script>
         {children}
+        {/* Tooltips imediatos para todo elemento com `title` — ver InstantTooltip.jsx. */}
+        <InstantTooltip />
       </body>
     </html>
   );

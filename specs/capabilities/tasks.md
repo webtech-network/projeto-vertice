@@ -4,7 +4,6 @@ status: implemented
 domain: data
 updated: 2026-09-17
 ---
-
 # Tarefas
 
 > Painel de tarefas pessoais em três visões (Kanban por status, matriz de Eisenhower por
