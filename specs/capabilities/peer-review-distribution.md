@@ -2,7 +2,7 @@
 title: Distribuição de avaliação por pares entre grupos
 status: implemented
 domain: canvas
-updated: 2026-10-18
+updated: 2026-10-27
 ---
 
 # Distribuição de avaliação por pares entre grupos
@@ -52,6 +52,12 @@ capacidade substitui o script avulso `distribuir.php`
   - Falhas vão para uma lista que pode ser reexecutada.
   - Ao final, a página recarrega o estado. Uma segunda execução sem mudanças resulta em
     diff vazio.
+
+- **Remover distribuição**: botão na barra de ferramentas, desabilitado sem revisões
+  existentes. Pede `confirm` (com a contagem de revisões já concluídas, cujo trabalho é
+  perdido) e apaga **todas** as revisões da atividade com os mesmos DELETEs sequenciais,
+  barra de progresso e lista de falhas reexecutável. Serve para corrigir uma aplicação
+  errada e recomeçar.
 
 ## Arquivos-chave
 

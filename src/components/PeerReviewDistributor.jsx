@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { LoaderCircle, RotateCcw, Send, Shuffle } from 'lucide-react';
+import { LoaderCircle, RotateCcw, Send, Shuffle, Trash2 } from 'lucide-react';
 import { planPeerReviews, diffPeerReviews } from '@/lib/peerReviewDistribution';
 
 function randomSeed() {
@@ -155,6 +155,27 @@ export default function PeerReviewDistributor({
     ]);
   }
 
+  function removeAll() {
+    if (peerReviews.length === 0) return;
+    const completed = peerReviews.filter((r) => r.workflow_state === 'completed').length;
+    const warning = completed > 0 ? ` ${completed} já concluída(s): o trabalho desses alunos será perdido.` : '';
+    if (
+      !window.confirm(
+        `Remover TODA a distribuição no Canvas? Serão removidas ${peerReviews.length} avaliações por pares.${warning}`,
+      )
+    ) {
+      return;
+    }
+    runOps(
+      peerReviews.map((r) => ({
+        method: 'DELETE',
+        reviewerId: r.assessor_id,
+        revieweeId: r.user_id,
+        submissionId: r.asset_id,
+      })),
+    );
+  }
+
   const pendingChanges = diff ? diff.toDelete.length + diff.toCreate.length : 0;
   const canApply =
     !applying && !loadingGroups && pendingChanges > 0 && (completedToDelete.length === 0 || confirmCompleted);
@@ -210,6 +231,16 @@ export default function PeerReviewDistributor({
         <button type="button" className="btn btn-primary" onClick={apply} disabled={!canApply}>
           {applying ? <LoaderCircle size={16} strokeWidth={1.8} className="sync-spin" /> : <Send size={16} strokeWidth={1.8} />}
           {applying ? `Aplicando… ${progress?.done ?? 0}/${progress?.total ?? 0}` : 'Aplicar no Canvas'}
+        </button>
+        <button
+          type="button"
+          className="btn btn-secondary"
+          onClick={removeAll}
+          disabled={applying || peerReviews.length === 0}
+          title="Apagar todas as avaliações por pares desta atividade no Canvas"
+        >
+          <Trash2 size={16} strokeWidth={1.8} />
+          Remover distribuição
         </button>
       </div>
 
