@@ -25,6 +25,7 @@ import { useWorkspaceScope } from './WorkspaceScopeProvider';
 import { BASE_WORKSPACE_ID } from '@/lib/workspaces/workspacesRepo';
 import { isPublished } from '@/lib/dashboard';
 import { canvasKeys, cacheStatus, useCoursesQuery } from '@/lib/query/canvasQueries';
+import { readCourseBrowserState, writeCourseBrowserState } from '@/lib/courseBrowserState';
 
 function formatDateTime(timestamp) {
   if (!timestamp) return null;
@@ -77,6 +78,10 @@ export default function CourseBrowser() {
   // professor is looking for on first load; "Todos" is still one click away.
   const [statusFilter, setStatusFilter] = useState('published');
   const [sort, setSort] = useState({ key: null, direction: 'asc' });
+  // Tab open in the expanded course's CourseWorkspaceTabs — tracked here
+  // (not only inside the tabs) so it survives a round trip to a drill-down
+  // page; see courseBrowserState.js.
+  const [expandedTab, setExpandedTab] = useState(null);
   const [pendingFavoriteId, setPendingFavoriteId] = useState(null);
   const [favoriteError, setFavoriteError] = useState(null);
 
@@ -95,6 +100,51 @@ export default function CourseBrowser() {
 
   const appliedDefaultFilterRef = useRef(false);
   const userToggledFavoritesRef = useRef(false);
+
+  // Restore the list as it was this session (BackButton / back gesture from
+  // correção, pares, importação). Runs before the default-favorites effect
+  // below, and flags the favorites choice as the user's so that effect
+  // doesn't override it. Effect (not useState initializer) because the
+  // server render can't read sessionStorage.
+  const restoredRef = useRef(false);
+  const scrollToExpandedRef = useRef(false);
+  useEffect(() => {
+    const saved = readCourseBrowserState();
+    if (saved) {
+      if (typeof saved.query === 'string') setQuery(saved.query);
+      if (typeof saved.onlyFavorites === 'boolean') {
+        userToggledFavoritesRef.current = true;
+        setOnlyFavorites(saved.onlyFavorites);
+      }
+      if (saved.statusFilter) setStatusFilter(saved.statusFilter);
+      if (saved.sort) setSort(saved.sort);
+      if (saved.expandedCourseId != null) {
+        setExpandedCourseId(saved.expandedCourseId);
+        setExpandedTab(saved.expandedTab || null);
+        scrollToExpandedRef.current = true;
+      }
+    }
+    restoredRef.current = true;
+  }, []);
+
+  useEffect(() => {
+    if (!restoredRef.current) return;
+    writeCourseBrowserState({ query, onlyFavorites, statusFilter, sort, expandedCourseId, expandedTab });
+  }, [query, onlyFavorites, statusFilter, sort, expandedCourseId, expandedTab]);
+
+  // Bring the restored expanded row back into view once it's rendered.
+  useEffect(() => {
+    if (!scrollToExpandedRef.current || expandedCourseId == null) return;
+    const row = document.querySelector(`[data-course-row="${expandedCourseId}"]`);
+    if (!row) return;
+    scrollToExpandedRef.current = false;
+    row.scrollIntoView({ block: 'start' });
+  });
+
+  function toggleExpanded(courseId) {
+    setExpandedTab(null);
+    setExpandedCourseId((current) => (current === courseId ? null : courseId));
+  }
 
   // Resolvido uma única vez, quando o primeiro dado chega (cache ou rede).
   useEffect(() => {
@@ -334,12 +384,12 @@ export default function CourseBrowser() {
               const expanded = expandedCourseId === course.id;
               return (
               <Fragment key={course.id}>
-              <tr className={expanded ? 'is-expanded' : undefined}>
+              <tr className={expanded ? 'is-expanded' : undefined} data-course-row={course.id}>
                 <td className="expand-cell">
                   <button
                     type="button"
                     className="row-expand-btn"
-                    onClick={() => setExpandedCourseId(expanded ? null : course.id)}
+                    onClick={() => toggleExpanded(course.id)}
                     aria-expanded={expanded}
                     aria-label={expanded ? 'Recolher curso' : 'Expandir curso'}
                   >
@@ -368,7 +418,7 @@ export default function CourseBrowser() {
                   <button
                     type="button"
                     className="course-name-btn"
-                    onClick={() => setExpandedCourseId(expanded ? null : course.id)}
+                    onClick={() => toggleExpanded(course.id)}
                     title="Ver curso (anotações, atividades, mensagens, alunos)"
                     aria-expanded={expanded}
                   >
@@ -430,6 +480,8 @@ export default function CourseBrowser() {
                       courseId={course.id}
                       courseCode={course.course_code}
                       expandHref={`/courses/${course.id}`}
+                      initialTab={expandedTab}
+                      onTabChange={setExpandedTab}
                     />
                   </td>
                 </tr>

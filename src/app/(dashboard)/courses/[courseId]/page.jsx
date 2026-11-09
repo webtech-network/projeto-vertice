@@ -25,7 +25,7 @@ export default async function CoursePage({ params, searchParams }) {
   // never waits on a Canvas round-trip.
   return (
     <main className="page">
-      <BackButton fallbackHref={'/courses'} />
+      <BackButton fallbackHref="/courses" backTo={['/courses']} />
       <CoursePageContent courseId={courseId} baseUrl={canvas.baseUrl} initialTab={tab} />
     </main>
   );

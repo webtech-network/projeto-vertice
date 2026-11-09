@@ -11,23 +11,25 @@ import QuestionGenerator from './QuestionGenerator';
 // tabs (rather than a compact segmented toggle) with a one-line description
 // per option, so the two sources read as genuinely different paths rather
 // than just two button states.
+// AI generation comes first and is the default — it's the path most
+// professors take; uploading a ready .json is the secondary route.
 const TABS = [
+  {
+    key: 'ai',
+    label: 'Gerar questões com IA',
+    description: 'Crie novas questões com inteligência artificial, já vinculadas a esta atividade.',
+    Icon: Sparkles,
+  },
   {
     key: 'file',
     label: 'Enviar arquivo',
     description: 'Importe um arquivo .json já pronto, gerado anteriormente.',
     Icon: Upload,
   },
-  {
-    key: 'ai',
-    label: 'Gerar com IA',
-    description: 'Crie novas questões com inteligência artificial, já vinculadas a esta atividade.',
-    Icon: Sparkles,
-  },
 ];
 
 export default function QuizImportPanel({ courseId, quizId, integrations }) {
-  const [mode, setMode] = useState('file');
+  const [mode, setMode] = useState('ai');
   const active = TABS.find((tab) => tab.key === mode);
 
   return (

@@ -7,7 +7,6 @@ import {
   LayoutDashboard,
   GraduationCap,
   KanbanSquare,
-  Sparkles,
   Mail,
   BookOpen,
   PanelLeftClose,
@@ -23,7 +22,6 @@ const NAV_ITEMS = [
   { href: '/courses', label: 'Cursos', Icon: GraduationCap },
   { href: '/tarefas', label: 'Tarefas', Icon: KanbanSquare },
   { href: '/mensagens', label: 'Mensagens', Icon: Mail },
-  { href: '/questoes', label: 'Questões', Icon: Sparkles },
   { href: '/tutorial', label: 'Tutorial', Icon: BookOpen },
 ];
 

@@ -237,23 +237,23 @@ const FEATURES = [
   },
   {
     id: 'importar-arquivo',
-    label: 'Importar questões — Arquivo',
+    label: 'Questões da atividade — Arquivo',
     group: 'cursos',
     Icon: Upload,
     screenshots: [{ image: imgImportarArquivo, file: 'tela_importar_arquivo.png' }],
     howTo:
-      'Aba "Enviar arquivo" dentro de Importar questões (que se chega pelo botão "Importar questões" numa atividade do tipo quiz clássico).',
+      'Aba "Enviar arquivo" dentro de Questões da atividade (que se chega pelo botão "Importar questões" numa atividade do tipo quiz clássico).',
     about:
       'Envie um arquivo .json de questões já pronto. O Vértice valida a estrutura mínima obrigatória e, de forma não bloqueante, confere também contra o schema oficial, mostrando avisos sem impedir a importação de arquivos "quase certos". Depois da validação, você revisa e escolhe quais questões importar antes de enviar ao Canvas.',
     elements: [{ Icon: Upload, label: 'Selecionar arquivo .json', text: 'abre o seletor de arquivos do sistema operacional.' }],
   },
   {
     id: 'importar-ia',
-    label: 'Importar questões — Gerar com IA',
+    label: 'Questões da atividade — Gerar questões com IA',
     group: 'cursos',
     Icon: Sparkles,
     screenshots: [{ image: imgImportarIa, file: 'tela_importar_ia.png' }],
-    howTo: 'Aba "Gerar com IA" dentro de Importar questões.',
+    howTo: 'Aba "Gerar questões com IA" (a primeira) dentro de Questões da atividade.',
     about:
       'A mesma tela de geração de questões por IA (ver "Questões" abaixo), mas já vinculada a este curso e a este quiz — ao terminar a revisão, o botão de confirmação envia as questões direto para o Canvas, em vez de apenas salvar um arquivo. Também mostra o atalho para gerar via skill no Claude Desktop, sem precisar de chave de API.',
     elements: [{ Icon: Sparkles, label: 'Motor de IA', text: 'escolhe qual provedor configurado (OpenAI, Gemini, Claude) vai gerar as questões.' }],
@@ -301,7 +301,7 @@ const FEATURES = [
     Icon: Sparkles,
     screenshots: [{ image: imgQuestoes, file: 'tela_questoes.png' }],
     howTo:
-      'Item "Questões" na barra lateral (ou pelo botão "Gerar questões com IA" na tela de Atividades de um curso, ou pela aba "Gerar com IA" dentro de Importar questões).',
+      'Aba "Gerar questões com IA" dentro de Questões da atividade (botão "Importar questões" numa atividade do tipo quiz clássico, na aba Atividades de um curso).',
     about:
       'Gera questões no padrão ENADE — RU (Resposta Única), CM (Complementação Múltipla) ou AR (Asserção-Razão) — a partir de blocos de especificação (tema, complexidade e quantidade), usando o provedor de IA configurado em Perfil. Depois de gerar, você revisa o resultado e pode salvá-lo como arquivo .json para importar depois. A tela também mostra um atalho para baixar a skill de geração de questões e usá-la direto no Claude Desktop, sem precisar cadastrar uma chave de API aqui.',
     elements: [

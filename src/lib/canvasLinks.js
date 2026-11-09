@@ -15,6 +15,12 @@ export function courseAssignmentsUrl(baseUrl, courseId) {
   return `${baseUrl}/courses/${courseId}/assignments`;
 }
 
+// A classic quiz's own page in Canvas — used by "Questões da atividade"
+// (quizzes/[quizId]/import) to jump to the quiz being filled.
+export function quizUrl(baseUrl, courseId, quizId) {
+  return `${baseUrl}/courses/${courseId}/quizzes/${quizId}`;
+}
+
 // Canvas's "People" page for the course — used by the Alunos screen's
 // ContextBanner icon, same reasoning as courseAssignmentsUrl above.
 export function coursePeopleUrl(baseUrl, courseId) {

@@ -2,7 +2,7 @@
 title: Importação de questões (JSON → quiz)
 status: implemented
 domain: canvas
-updated: 2026-09-17
+updated: 2026-11-09
 ---
 
 # Importação de questões (JSON → quiz)
@@ -19,7 +19,12 @@ updated: 2026-09-17
 - O import **ignora** `course_id`/`quiz_id` do próprio arquivo (valem os `courseId`/`quizId`
   da rota). Mapeamento `toCanvasPayload` (is_correct→answer_weight, answer_comment→
   answer_comment_html).
-- `QuizImportPanel.jsx` tem abas folder-style, incluindo a aba "Enviar arquivo".
+- Página intitulada **"Questões da atividade"**. Ações no título: **"Curso no Canvas"** e
+  **"Atividade no Canvas"** (links externos, nova aba — `courseUrl`/`quizUrl` de
+  `canvasLinks.js`), mais o `BackButton` (volta ao curso de origem, aba Atividades — ver
+  [routing-and-shell.md](../platform/routing-and-shell.md)).
+- `QuizImportPanel.jsx` tem abas folder-style, nesta ordem: **"Gerar questões com IA"**
+  (padrão ao abrir) e **"Enviar arquivo"**.
 
 ## Arquivos-chave
 

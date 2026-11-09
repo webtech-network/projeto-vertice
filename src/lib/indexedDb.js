@@ -81,7 +81,12 @@ function getDb() {
         }
       },
     }).then(async (db) => {
-      await migrateLegacyDb(db);
+      // Capped: opening `canvastools` waits indefinitely while a previous
+      // deleteDB of it is still pending (another tab keeps it open) — and
+      // since every IndexedDB read here goes through getDb(), that froze the
+      // whole app (e.g. Painel de Cursos stuck on "Carregando cursos…").
+      // Best-effort migration: give up and retry on the next load.
+      await Promise.race([migrateLegacyDb(db), new Promise((resolve) => setTimeout(resolve, 2000))]);
       return db;
     });
   }
@@ -102,7 +107,8 @@ async function migrateLegacyDb(db) {
     const existing = await indexedDB.databases();
     if (!existing.some((info) => info.name === LEGACY_DB_NAME)) return;
 
-    const legacy = await openDB(LEGACY_DB_NAME);
+    // `blocking`: if a newer tab wants to delete/upgrade it, let go at once.
+    const legacy = await openDB(LEGACY_DB_NAME, undefined, { blocking: (_c, _v, e) => e.target.close() });
     try {
       for (const storeName of Array.from(legacy.objectStoreNames)) {
         if (storeName === STORE_CACHE || !db.objectStoreNames.contains(storeName)) continue;

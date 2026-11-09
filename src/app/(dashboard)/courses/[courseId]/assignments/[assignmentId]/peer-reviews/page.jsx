@@ -100,7 +100,10 @@ export default async function PeerReviewsPage({ params }) {
 
   return (
     <main className="page">
-      <BackButton fallbackHref={`/courses/${courseId}?tab=atividades`} />
+      <BackButton
+        fallbackHref={`/courses/${courseId}?tab=atividades`}
+        backTo={['/courses', `/courses/${courseId}`]}
+      />
       <div className="page-title-row">
         <h1>Avaliação por pares</h1>
         <div className="page-title-actions">

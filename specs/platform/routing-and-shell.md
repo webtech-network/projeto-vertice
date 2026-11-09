@@ -49,20 +49,30 @@ updated: 2026-11-09
 - Instalado (`display: standalone`), o app não tem botão voltar do navegador. Páginas
   **derivadas** (alcançadas por drill-down, não pela Sidebar) exibem `BackButton.jsx` acima do
   `<h1>`: "Voltar" com `ArrowLeft`, visível em qualquer modo (browser ou PWA).
-- Comportamento: se a página foi alcançada por navegação **dentro do app** → `router.back()`
-  (preserva o ponto de origem real, ex.: correção aberta do Dashboard volta ao Dashboard).
-  Sem histórico interno (PWA aberto direto, link externo, aba nova) → `router.push(fallbackHref)`,
-  o "pai" lógico da página.
-- "Veio de dentro do app" = `window.navigation.canGoBack` (Navigation API: só conta entradas
-  same-origin). Sem a API → sempre `fallbackHref` (determinístico). **Não** usar
-  `history.length` (inclui entradas de outros sites e faria o botão sair do app).
+- Comportamento (prop `backTo`, lista de pathnames): o botão percorre o histórico da sessão
+  para trás (Navigation API — `navigation.entries()`, só entradas same-origin) até a entrada
+  mais próxima cujo pathname está em `backTo` e volta até ela (`history.go(-n)`). A busca
+  para na primeira entrada fora de `/courses` (o usuário veio de outra área, ex.: Dashboard).
+  Sem `backTo` → `router.back()` simples. Sem API ou sem correspondência →
+  `router.push(fallbackHref)`. **Não** usar `history.length` (inclui outros sites).
+- **Retorno ao curso "tal como estava"**: correção, avaliação por pares (distribuição e
+  consolidação) e importação de questões voltam para a tela de curso de origem com o mesmo
+  estado:
+  - Painel de Cursos (`/courses`): `CourseBrowser` guarda em `sessionStorage`
+    (`vertice:courseBrowser`, `src/lib/courseBrowserState.js`) busca, filtros, ordenação, curso
+    expandido e aba aberta; restaura ao montar e rola até a linha expandida.
+  - Página do curso (`/courses/[id]`): a aba aberta fica em `?tab=` (escrita por
+    `history.replaceState` em `CourseWorkspaceTabs`, sem round-trip nem entrada nova).
 - Onde aparece / fallback:
   - `/courses/[courseId]` → `/courses`.
   - `/courses/[courseId]/assignments/[id]/{grade,peer-grading,peer-reviews}` e
     `/courses/[courseId]/quizzes/[id]/import` → `/courses/[courseId]?tab=atividades`.
   - `/sobre` → `/`.
-- Páginas de primeiro nível da Sidebar (Dashboard, Cursos, Tarefas, Mensagens, Questões,
-  Tutorial) e `/perfil` **não** têm botão voltar.
+- Páginas de primeiro nível da Sidebar (Dashboard, Cursos, Tarefas, Mensagens, Tutorial) e
+  `/perfil` **não** têm botão voltar.
+- **Questões** saiu da Sidebar: a geração com IA é feita na aba "Gerar questões com IA" de
+  Questões da atividade (`quizzes/[id]/import`). A rota `/questoes` continua existindo, mas
+  sem entrada na navegação.
 
 ## Invariantes e gotchas
 

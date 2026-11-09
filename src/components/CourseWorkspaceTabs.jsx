@@ -43,8 +43,23 @@ const TAB_KEYS = TABS.map((t) => t.key);
 // Query cache (ADR-0015, same keys TaskDetailModal's pickers read through
 // canvasResolution.js): they paint at once from cache and revalidate in the
 // background past the `volatile` tier, since both show live counters/grades.
-export default function CourseWorkspaceTabs({ courseId, courseCode, initialTab, expandHref }) {
-  const [tab, setTab] = useState(TAB_KEYS.includes(initialTab) ? initialTab : 'notas');
+export default function CourseWorkspaceTabs({ courseId, courseCode, initialTab, expandHref, onTabChange }) {
+  const [tab, setTabState] = useState(TAB_KEYS.includes(initialTab) ? initialTab : 'notas');
+
+  // The open tab must survive a trip to a drill-down page and back (see
+  // BackButton.jsx): inline (CourseBrowser) the parent keeps it via
+  // onTabChange; on the full page it lives in `?tab=`, written with a
+  // history.replaceState (no server round trip, no new history entry) so
+  // "Voltar" returns to /courses/[id]?tab=<this tab>.
+  function setTab(key) {
+    setTabState(key);
+    onTabChange?.(key);
+    if (!expandHref) {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', key);
+      window.history.replaceState(window.history.state, '', url);
+    }
+  }
 
   const assignmentsQuery = useCourseAssignmentsQuery(courseId, { enabled: tab === 'atividades' });
   const assignments = {

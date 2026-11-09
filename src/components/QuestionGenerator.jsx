@@ -138,8 +138,8 @@ export default function QuestionGenerator({ integrations, courseId, quizId }) {
                 (baixo/intermediário/alto) e tipo (RU, CM ou AR) desejados para cada questão.
               </li>
               <li>
-                Salve o JSON retornado pelo Claude e importe-o em &quot;Enviar arquivo&quot;, na tela de importação
-                da atividade de destino.
+                Salve o JSON retornado pelo Claude e importe-o em &quot;Enviar arquivo&quot;, na tela Questões da
+                atividade de destino.
               </li>
             </ol>
             <a

@@ -788,6 +788,9 @@ a {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+  /* Title actions with labels (e.g. "Curso no Canvas"/"Atividade no
+     Canvas") drop below the <h1> on a phone instead of overflowing. */
+  flex-wrap: wrap;
 }
 /* Atividades (courses/[courseId]/atividades/page.jsx) nests .page-title-row
    inside .page-header-row's title column instead of directly under .page —
@@ -865,6 +868,12 @@ a {
      within their own row instead of forcing the whole page wide — same
      reasoning as .data-table-wrap. */
   overflow-x: auto;
+  /* overflow-x:auto turns overflow-y into auto as well, and the inactive
+     tabs' translateY(1px) below makes the content 1px taller than the strip
+     — that alone produced a pointless vertical scrollbar beside the tabs.
+     The overflow box already clipped that 1px, so hiding it changes nothing
+     visually. */
+  overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
 }
 .tab-folder-btn {
@@ -4347,6 +4356,12 @@ tr.is-expanded .course-name-btn {
    course list past the viewport and pushed the Alunos toolbar buttons out
    of view. width:0 removes its intrinsic contribution; min-width:100% then
    fills the cell. Wide content scrolls inside its own .data-table-wrap. */
+/* CourseBrowser scrolls a restored expanded row into view (back from a
+   drill-down page) — keep the course's own row clear of the sticky topbar
+   and show a bit of context above it. */
+.course-browser [data-course-row] {
+  scroll-margin-top: 6rem;
+}
 .course-note-row > td > .course-workspace-tabs {
   width: 0;
   min-width: 100%;
@@ -4862,6 +4877,7 @@ tr.is-expanded .course-name-btn {
    keeps them together on the right instead of space-between spreading them. */
 .page-title-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
 }

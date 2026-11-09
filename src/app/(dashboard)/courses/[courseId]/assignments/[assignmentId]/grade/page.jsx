@@ -51,7 +51,10 @@ export default async function GradeAssignmentPage({ params }) {
 
   return (
     <main className="page">
-      <BackButton fallbackHref={`/courses/${courseId}?tab=atividades`} />
+      <BackButton
+        fallbackHref={`/courses/${courseId}?tab=atividades`}
+        backTo={['/courses', `/courses/${courseId}`]}
+      />
       <div className="page-title-row">
         <h1>Correção de Atividade</h1>
         <InfoHint label="Sobre a tela de Correção de Atividade">
