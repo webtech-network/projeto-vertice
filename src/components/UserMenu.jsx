@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { CircleUserRound, Download } from 'lucide-react';
 import { subscribeInstall, getInstallSnapshot, getServerInstallSnapshot, triggerInstall } from '@/lib/pwaInstall';
+import { clearLocalCache } from '@/lib/query/idbPersister';
 
 // Replaces the old "username link to /perfil" + standalone "Sair" button
 // pair in Topbar.jsx with a single avatar-triggered dropdown, mirroring
@@ -79,7 +80,18 @@ export default function UserMenu({ userName, avatarUrl }) {
               <Download size={15} strokeWidth={1.8} aria-hidden="true" /> Instalar app
             </button>
           )}
-          <form action="/api/auth/logout" method="POST">
+          {/* Limpa o cache local de dados do Canvas (memória + IndexedDB) antes
+              de sair — ADR-0015. form.submit() não redispara onSubmit. */}
+          <form
+            action="/api/auth/logout"
+            method="POST"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const form = e.currentTarget;
+              await clearLocalCache();
+              form.submit();
+            }}
+          >
             <button type="submit" className="user-menu-item" role="menuitem">
               Sair
             </button>

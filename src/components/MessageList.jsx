@@ -7,6 +7,7 @@ import SortIcon from './SortIcon';
 import Modal from './Modal';
 import { getCustomPrompt } from '@/lib/customPrompts';
 import { courseMessagesUrl } from '@/lib/canvasLinks';
+import { invalidateAfterMessaging } from '@/lib/query/invalidation';
 
 function formatDate(iso) {
   if (!iso) return '—';
@@ -237,6 +238,7 @@ export default function MessageList({ conversations, currentUserId, baseUrl, int
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Falha ao enviar a resposta pelo Canvas.');
       setAssist((prev) => (prev ? { ...prev, sending: false, sent: true } : prev));
+      invalidateAfterMessaging();
       loadThread(conversation.id);
     } catch (err) {
       setAssist((prev) => (prev ? { ...prev, sending: false, sendError: err.message } : prev));
@@ -252,6 +254,7 @@ export default function MessageList({ conversations, currentUserId, baseUrl, int
       if (!response.ok) throw new Error(data.error || 'Falha ao arquivar a mensagem.');
       setArchivedIds((prev) => new Set(prev).add(conversation.id));
       onArchived?.(conversation.id);
+      invalidateAfterMessaging();
     } catch (err) {
       setArchiveError(err.message);
     } finally {

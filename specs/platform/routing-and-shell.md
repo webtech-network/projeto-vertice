@@ -2,7 +2,7 @@
 title: Roteamento e shell
 status: implemented
 domain: frontend
-updated: 2026-09-17
+updated: 2026-11-09
 ---
 
 # Roteamento e shell
@@ -35,10 +35,34 @@ updated: 2026-09-17
 
 - `public/sw.js` faz **app-shell cache apenas** (`canvastools-shell-v1`): pré-cache
   `/`, `/tarefas`, `/perfil` (só se `ok` e não-redirect); `fetch` GET same-origin
-  network-first com fallback de cache; passthrough para `/api/*` e callbacks OAuth.
+  network-first com fallback de cache (também só grava `ok` e não-redirect); passthrough
+  para `/api/*` e callbacks OAuth.
+- As páginas guardadas são HTML com dados do usuário: o Cache Storage é apagado no logout e
+  quando o `QueryProvider` encontra cache de outro usuário no IndexedDB
+  ([ADR-0015](../decisions/0015-cache-local-tanstack-query.md)).
 - Instalabilidade: `src/lib/pwaInstall.js` captura `beforeinstallprompt` (script inlinado
   `beforeInteractive` no `layout.jsx`); `ServiceWorkerRegistration.jsx` registra `/sw.js`
   e alimenta o store; "Instalar app" aparece no `UserMenu` (só Chrome/Edge/Android).
+
+## Navegação de retorno (PWA)
+
+- Instalado (`display: standalone`), o app não tem botão voltar do navegador. Páginas
+  **derivadas** (alcançadas por drill-down, não pela Sidebar) exibem `BackButton.jsx` acima do
+  `<h1>`: "Voltar" com `ArrowLeft`, visível em qualquer modo (browser ou PWA).
+- Comportamento: se a página foi alcançada por navegação **dentro do app** → `router.back()`
+  (preserva o ponto de origem real, ex.: correção aberta do Dashboard volta ao Dashboard).
+  Sem histórico interno (PWA aberto direto, link externo, aba nova) → `router.push(fallbackHref)`,
+  o "pai" lógico da página.
+- "Veio de dentro do app" = `window.navigation.canGoBack` (Navigation API: só conta entradas
+  same-origin). Sem a API → sempre `fallbackHref` (determinístico). **Não** usar
+  `history.length` (inclui entradas de outros sites e faria o botão sair do app).
+- Onde aparece / fallback:
+  - `/courses/[courseId]` → `/courses`.
+  - `/courses/[courseId]/assignments/[id]/{grade,peer-grading,peer-reviews}` e
+    `/courses/[courseId]/quizzes/[id]/import` → `/courses/[courseId]?tab=atividades`.
+  - `/sobre` → `/`.
+- Páginas de primeiro nível da Sidebar (Dashboard, Cursos, Tarefas, Mensagens, Questões,
+  Tutorial) e `/perfil` **não** têm botão voltar.
 
 ## Invariantes e gotchas
 

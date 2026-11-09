@@ -48,6 +48,55 @@ export async function getCanvasIntegration(userId) {
  * dade de curso indisponível", nunca deixar propagar pra uma chamada real
  * à API do Canvas com `baseUrl`/`token` undefined.
  */
+// Refresh single-flight por usuário (ADR-0016). Antes, 401s simultâneos
+// (várias chamadas em paralelo com o token recém-vencido) disparavam uma
+// renovação + upsert no Vault cada, e a corrida quebrava a página — por isso
+// as specs proibiam Promise.all. Agora toda renovação de um usuário passa por
+// aqui: quem chega com uma em voo espera a mesma promessa, e um token
+// renovado há menos de RECENT_REFRESH_MS é reaproveitado (o 401 de uma
+// chamada que saiu com o token antigo logo antes da renovação terminar).
+// Estado por processo: com várias réplicas, cada uma deduplica a sua.
+const RECENT_REFRESH_MS = 30 * 1000;
+const refreshInFlight = new Map(); // userId -> Promise<string>
+const recentRefresh = new Map(); // userId -> { token, at }
+
+async function refreshAndPersist(userId, integration) {
+  const refreshed = await refreshAccessToken(integration.refreshToken);
+  const admin = createSupabaseAdminClient();
+  const { error } = await admin.rpc('upsert_integration_tokens', {
+    p_user_id: userId,
+    p_provider: 'canvas',
+    p_access_token: refreshed.access_token,
+    p_refresh_token: integration.refreshToken, // Canvas nunca devolve um novo — reusa o mesmo
+    p_provider_user_id: integration.providerUserId,
+    p_display_name: integration.displayName,
+    p_avatar_url: integration.avatarUrl,
+    p_access_token_expires_at: new Date(Date.now() + refreshed.expires_in * 1000).toISOString(),
+    p_metadata: { base_url: integration.baseUrl },
+  });
+  // Falha ao persistir não invalida o token novo — ele vale para esta
+  // requisição; a próxima leitura do Vault só renovará de novo.
+  if (error) console.error('Falha ao gravar o token renovado do Canvas:', error.message);
+  return refreshed.access_token;
+}
+
+function refreshTokenOnce(userId, integration) {
+  const recent = recentRefresh.get(userId);
+  if (recent && Date.now() - recent.at < RECENT_REFRESH_MS) return Promise.resolve(recent.token);
+
+  let pending = refreshInFlight.get(userId);
+  if (!pending) {
+    pending = refreshAndPersist(userId, integration)
+      .then((token) => {
+        recentRefresh.set(userId, { token, at: Date.now() });
+        return token;
+      })
+      .finally(() => refreshInFlight.delete(userId));
+    refreshInFlight.set(userId, pending);
+  }
+  return pending;
+}
+
 export async function getCanvasClientForUser(userId) {
   let integration = await getCanvasIntegration(userId);
   if (!integration) return null;
@@ -55,20 +104,7 @@ export async function getCanvasClientForUser(userId) {
   const expiringSoon = !integration.expiresAt || integration.expiresAt - Date.now() < REFRESH_SAFETY_MARGIN_MS;
   if (expiringSoon && integration.refreshToken) {
     try {
-      const refreshed = await refreshAccessToken(integration.refreshToken);
-      const admin = createSupabaseAdminClient();
-      await admin.rpc('upsert_integration_tokens', {
-        p_user_id: userId,
-        p_provider: 'canvas',
-        p_access_token: refreshed.access_token,
-        p_refresh_token: integration.refreshToken, // Canvas nunca devolve um novo — reusa o mesmo
-        p_provider_user_id: integration.providerUserId,
-        p_display_name: integration.displayName,
-        p_avatar_url: integration.avatarUrl,
-        p_access_token_expires_at: new Date(Date.now() + refreshed.expires_in * 1000).toISOString(),
-        p_metadata: { base_url: integration.baseUrl },
-      });
-      integration = { ...integration, accessToken: refreshed.access_token };
+      integration = { ...integration, accessToken: await refreshTokenOnce(userId, integration) };
     } catch (err) {
       console.error('Falha ao renovar o token do Canvas:', err.message);
       // Segue com o token antigo — se estiver mesmo vencido, a própria
@@ -79,21 +115,9 @@ export async function getCanvasClientForUser(userId) {
   const client = createCanvasClient({
     baseUrl: integration.baseUrl,
     token: integration.accessToken,
-    onUnauthorized: async () => {
-      const refreshed = await refreshAccessToken(integration.refreshToken);
-      const admin = createSupabaseAdminClient();
-      await admin.rpc('upsert_integration_tokens', {
-        p_user_id: userId,
-        p_provider: 'canvas',
-        p_access_token: refreshed.access_token,
-        p_refresh_token: integration.refreshToken,
-        p_provider_user_id: integration.providerUserId,
-        p_display_name: integration.displayName,
-        p_avatar_url: integration.avatarUrl,
-        p_access_token_expires_at: new Date(Date.now() + refreshed.expires_in * 1000).toISOString(),
-        p_metadata: { base_url: integration.baseUrl },
-      });
-      return refreshed.access_token;
+    onUnauthorized: () => {
+      if (!integration.refreshToken) return null;
+      return refreshTokenOnce(userId, integration);
     },
   });
 

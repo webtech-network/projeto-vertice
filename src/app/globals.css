@@ -739,6 +739,32 @@ a {
   overflow-y: auto;
 }
 
+/* BackButton.jsx — sits above the <h1> of drill-down pages (course,
+   grading, peer review, quiz import, sobre). Quiet text-style link so it
+   doesn't compete with the title, but with a 36px hit area for touch. */
+.page-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 36px;
+  margin: -0.6rem 0 0.35rem -0.5rem;
+  padding: 0 0.5rem;
+  border-radius: 8px;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.page-back:hover {
+  color: var(--ink);
+  background: var(--paper);
+}
+.page-back:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .page p.lede {
   color: var(--ink-soft);
   margin-top: -0.3em;
@@ -3468,13 +3494,68 @@ tr.is-expanded .course-name-btn {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  flex: 1 1 240px;
-  min-width: 200px;
+  flex: 1 1 400px;
+  min-width: 220px;
 }
 .tasks-toolbar-primary .quick-add-task {
-  flex: 1;
+  flex: 3 1 0;
   min-width: 0;
   margin: 0;
+}
+
+/* TaskSearch.jsx — shares line 1 with the quick-add (3:2 split), so on a
+   phone both stay usable without pushing the toolbar to a third line. */
+.task-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 2 1 0;
+  min-width: 110px;
+}
+.task-search input {
+  width: 100%;
+  font: inherit;
+  font-size: 0.94rem;
+  padding: 0.6rem 2rem 0.6rem 2.1rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper-raised);
+  color: var(--ink);
+}
+.task-search input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+.task-search input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.task-search.has-value input {
+  border-color: var(--accent);
+}
+.task-search-icon {
+  position: absolute;
+  left: 0.65rem;
+  color: var(--ink-soft);
+  pointer-events: none;
+}
+.task-search-clear {
+  position: absolute;
+  right: 0.3rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.task-search-clear:hover {
+  color: var(--ink);
+  background: var(--paper);
 }
 .tasks-toolbar-primary > .btn-icon {
   flex-shrink: 0;
@@ -3505,6 +3586,15 @@ tr.is-expanded .course-name-btn {
      room line 1 has left over (flex:1, min-width:0 from the base rule) once
      it's sharing that line with just the "+" and filter buttons, so it needs
      no extra override here. */
+  /* Phone: the search drops to its own full-width line under nova tarefa
+     + filtrar (a 3-way split left the quick-add input ~50px wide). */
+  .tasks-toolbar-primary {
+    flex-wrap: wrap;
+  }
+  .task-search {
+    order: 3;
+    flex-basis: 100%;
+  }
   .tasks-toolbar-secondary {
     flex-wrap: nowrap;
     overflow-x: auto;
@@ -4250,6 +4340,16 @@ tr.is-expanded .course-name-btn {
      against the table's own edges. */
   padding: 0.75rem 0.85rem 1rem;
   border-bottom: 1px solid var(--line);
+}
+/* The inline workspace (e.g. the Alunos tab's own wide table) must not set
+   the course table's width: in auto table layout a cell grows to its
+   content's min-content, so the nested student table widened the whole
+   course list past the viewport and pushed the Alunos toolbar buttons out
+   of view. width:0 removes its intrinsic contribution; min-width:100% then
+   fills the cell. Wide content scrolls inside its own .data-table-wrap. */
+.course-note-row > td > .course-workspace-tabs {
+  width: 0;
+  min-width: 100%;
 }
 /* Abas do curso expandido: a linha do curso usa --paper-raised, então abas e
    painel ficam um tom mais escuros (bem suave) para destacar o conteúdo do

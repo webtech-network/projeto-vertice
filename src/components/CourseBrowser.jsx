@@ -1,6 +1,7 @@
 'use client';
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import {
   Mail,
@@ -23,9 +24,7 @@ import ResourceWorkspacesModal from './ResourceWorkspacesModal';
 import { useWorkspaceScope } from './WorkspaceScopeProvider';
 import { BASE_WORKSPACE_ID } from '@/lib/workspaces/workspacesRepo';
 import { isPublished } from '@/lib/dashboard';
-import { readCache, writeCache } from '@/lib/dashboardCache';
-
-const CACHE_KEY = 'courses:list';
+import { canvasKeys, cacheStatus, useCoursesQuery } from '@/lib/query/canvasQueries';
 
 function formatDateTime(timestamp) {
   if (!timestamp) return null;
@@ -60,7 +59,6 @@ const STATUS_FILTERS = [
 
 export default function CourseBrowser() {
   const { activeWorkspaceId, getVisibleResourceIds } = useWorkspaceScope();
-  const [courseList, setCourseList] = useState([]);
   const [workspacesModalCourse, setWorkspacesModalCourse] = useState(null);
   const [query, setQuery] = useState('');
   // At most one course's workspace (anotações/atividades/mensagens/alunos
@@ -72,7 +70,7 @@ export default function CourseBrowser() {
   // "Todos" when the account has no favorited/starred courses in Canvas, so
   // the first screen is never an empty dead end. Data now arrives
   // asynchronously (cache first, then a fresh fetch), so this default is
-  // resolved once — via applyDefaultFavoriteFilter below — the first time
+  // resolved once — via the effect below — the first time
   // either one lands, instead of synchronously from a prop like before.
   const [onlyFavorites, setOnlyFavorites] = useState(true);
   // Defaults to "Publicados" — unpublished courses aren't usually what a
@@ -82,66 +80,28 @@ export default function CourseBrowser() {
   const [pendingFavoriteId, setPendingFavoriteId] = useState(null);
   const [favoriteError, setFavoriteError] = useState(null);
 
-  // Stale-while-revalidate: paints instantly from IndexedDB (marked `stale`),
-  // then always fires a fresh fetch and updates the UI + cache when it
-  // resolves. First-ever visit (no cache at all) shows a loading state
-  // instead of an empty table.
-  const [loading, setLoading] = useState(true);
-  const [hasCache, setHasCache] = useState(false);
-  const [stale, setStale] = useState(false);
-  const [fetchedAt, setFetchedAt] = useState(null);
-  const [loadError, setLoadError] = useState(null);
+  // Stale-while-revalidate via TanStack Query (ADR-0015): pinta na hora com
+  // o cache do IndexedDB (marcado `stale`) e revalida em segundo plano quando
+  // passou da faixa `volatile` (a lista traz contadores de pendências e
+  // mensagens). "Recarregar" força a busca. Primeira visita (sem cache algum)
+  // mostra o carregamento em vez de uma tabela vazia.
+  const queryClient = useQueryClient();
+  const coursesQuery = useCoursesQuery();
+  const courseList = useMemo(() => coursesQuery.data ?? [], [coursesQuery.data]);
+  const { hasData: hasCache, fetchedAt, stale } = cacheStatus(coursesQuery);
+  const loading = coursesQuery.isFetching || (coursesQuery.isPending && !hasCache);
+  const loadError = coursesQuery.error?.message ?? null;
+  const fetchFresh = () => coursesQuery.refetch();
 
   const appliedDefaultFilterRef = useRef(false);
   const userToggledFavoritesRef = useRef(false);
 
-  function applyDefaultFavoriteFilter(list) {
-    if (appliedDefaultFilterRef.current || userToggledFavoritesRef.current) return;
-    appliedDefaultFilterRef.current = true;
-    if (!list.some((c) => c.is_favorite)) setOnlyFavorites(false);
-  }
-
-  const fetchFresh = useCallback(async () => {
-    setLoading(true);
-    try {
-      const response = await fetch('/api/canvas/courses');
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Falha ao carregar os cursos.');
-      setCourseList(data.courses);
-      setFetchedAt(Date.now());
-      setHasCache(true);
-      setStale(false);
-      setLoadError(null);
-      applyDefaultFavoriteFilter(data.courses);
-      await writeCache(CACHE_KEY, data.courses);
-    } catch (err) {
-      setLoadError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
+  // Resolvido uma única vez, quando o primeiro dado chega (cache ou rede).
   useEffect(() => {
-    let cancelled = false;
-
-    async function loadFromCache() {
-      const cached = await readCache(CACHE_KEY);
-      if (cancelled || !cached) return;
-      setCourseList(cached.data);
-      setFetchedAt(cached.fetchedAt);
-      setHasCache(true);
-      setStale(true);
-      setLoading(false);
-      applyDefaultFavoriteFilter(cached.data);
-    }
-
-    loadFromCache();
-    fetchFresh();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [fetchFresh]);
+    if (!coursesQuery.data || appliedDefaultFilterRef.current || userToggledFavoritesRef.current) return;
+    appliedDefaultFilterRef.current = true;
+    if (!coursesQuery.data.some((c) => c.is_favorite)) setOnlyFavorites(false);
+  }, [coursesQuery.data]);
 
   const favoritesCount = useMemo(() => courseList.filter((c) => c.is_favorite).length, [courseList]);
   const publishedCount = useMemo(() => courseList.filter(isPublished).length, [courseList]);
@@ -162,28 +122,29 @@ export default function CourseBrowser() {
     });
   }, [courseList, query, onlyFavorites, statusFilter, activeWorkspaceId, getVisibleResourceIds]);
 
+  function setFavoriteInCache(courseId, isFavorite) {
+    queryClient.setQueryData(canvasKeys.courses, (prev) =>
+      prev?.map((c) => (c.id === courseId ? { ...c, is_favorite: isFavorite } : c)),
+    );
+  }
+
+  // Otimista direto no cache da consulta (que também é o persistido): a
+  // próxima pintura a partir do IndexedDB já vem com o favorito novo.
   async function toggleFavorite(course) {
     const nextFavorite = !course.is_favorite;
     setPendingFavoriteId(course.id);
     setFavoriteError(null);
-    setCourseList((prev) => prev.map((c) => (c.id === course.id ? { ...c, is_favorite: nextFavorite } : c)));
+    // Uma revalidação em voo não pode sobrescrever o otimista com o valor antigo.
+    await queryClient.cancelQueries({ queryKey: canvasKeys.courses, exact: true });
+    setFavoriteInCache(course.id, nextFavorite);
 
     try {
       const response = await fetch(`/api/canvas/courses/${course.id}/favorite`, {
         method: nextFavorite ? 'POST' : 'DELETE',
       });
       if (!response.ok) throw new Error();
-      // Keep the cache in sync with the optimistic update so the next
-      // stale-while-revalidate paint (e.g. after a fresh page load) doesn't
-      // briefly flash the pre-toggle favorite state before the fresh fetch
-      // overwrites it.
-      setCourseList((prev) => {
-        const updated = prev.map((c) => (c.id === course.id ? { ...c, is_favorite: nextFavorite } : c));
-        writeCache(CACHE_KEY, updated);
-        return updated;
-      });
     } catch {
-      setCourseList((prev) => prev.map((c) => (c.id === course.id ? { ...c, is_favorite: course.is_favorite } : c)));
+      setFavoriteInCache(course.id, course.is_favorite);
       setFavoriteError(`Não foi possível ${nextFavorite ? 'favoritar' : 'desfavoritar'} "${course.name}". Tente novamente.`);
     } finally {
       setPendingFavoriteId(null);

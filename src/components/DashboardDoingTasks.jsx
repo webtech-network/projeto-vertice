@@ -1,34 +1,22 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useQuery } from '@tanstack/react-query';
 import { Flag, Zap, ArrowRight } from 'lucide-react';
-import { listTasks } from '@/lib/tasks/tasksRepo';
-import { listProjects } from '@/lib/tasks/projectsRepo';
+import { fetchActiveProjects, fetchActiveTasks, localDataKeys } from '@/lib/query/localData';
 
-// Same "pure IndexedDB read, never gated on DashboardPanel's Canvas fetch"
-// pattern as DashboardShortcuts.jsx's useShortcuts() — tasks/projects live
-// entirely client-side (see TasksProvider.jsx), so there's nothing to
-// stale-while-revalidate against a network cache for.
+const EMPTY = [];
+
+// Never gated on DashboardPanel's Canvas fetch. Reads the same cache keys
+// TasksProvider mirrors its state into (ADR-0017): paints at once from what
+// was saved (IndexedDB) and always revalidates against Postgres on mount
+// (staleTime 0 — a personal-scale query, cheap).
 export default function DashboardDoingTasks() {
-  const [tasks, setTasks] = useState([]);
-  const [projects, setProjects] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      const [allTasks, allProjects] = await Promise.all([listTasks(), listProjects()]);
-      if (cancelled) return;
-      setTasks(allTasks.filter((t) => !t.deletedAt && t.status === 'DOING'));
-      setProjects(allProjects.filter((p) => !p.deletedAt));
-      setLoading(false);
-    }
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const tasksQuery = useQuery({ queryKey: localDataKeys.tasks, queryFn: fetchActiveTasks, staleTime: 0 });
+  const projectsQuery = useQuery({ queryKey: localDataKeys.projects, queryFn: fetchActiveProjects, staleTime: 0 });
+  const tasks = (tasksQuery.data ?? EMPTY).filter((t) => t.status === 'DOING');
+  const projects = projectsQuery.data ?? EMPTY;
+  const loading = tasksQuery.data === undefined && tasksQuery.isPending;
 
   return (
     <section className="dashboard-card">

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireCanvasIntegration } from '@/lib/canvasIntegration';
 import { listAssignments } from '@/lib/canvasClient';
 import { isRealGroupAssignment, correctedGroupNeedsGradingCount } from '@/lib/groupGrading';
+import { mapWithConcurrency } from '@/lib/concurrency';
 
 // Backs TaskDetailModal.jsx's assignment picker (tasks feature) and, since
 // the "Atividades" tab of CourseWorkspaceTabs.jsx moved here too, the same
@@ -22,19 +23,16 @@ export async function GET(request, { params }) {
   try {
     const rawAssignments = await listAssignments(client, courseId);
 
-    const assignments = [];
-    for (const assignment of rawAssignments) {
-      if (!isRealGroupAssignment(assignment) || !assignment.needs_grading_count) {
-        assignments.push(assignment);
-        continue;
-      }
+    // Bounded concurrency, not one-by-one (ADR-0016).
+    const assignments = await mapWithConcurrency(rawAssignments, 4, async (assignment) => {
+      if (!isRealGroupAssignment(assignment) || !assignment.needs_grading_count) return assignment;
       try {
         const needs_grading_count = await correctedGroupNeedsGradingCount(client, courseId, assignment);
-        assignments.push({ ...assignment, needs_grading_count });
+        return { ...assignment, needs_grading_count };
       } catch {
-        assignments.push(assignment);
+        return assignment;
       }
-    }
+    });
 
     return NextResponse.json({ assignments });
   } catch {

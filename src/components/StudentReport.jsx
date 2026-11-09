@@ -11,6 +11,15 @@ import StudentEngagementDashboard from './StudentEngagementDashboard';
 import SortIcon from './SortIcon';
 import InfoHint from './InfoHint';
 import RiskLevelPill from './RiskLevelPill';
+import {
+  canvasKeys,
+  fetchAnalyticsSummaries,
+  fetchCategoryGroups,
+  readFresh,
+  readThrough,
+  useGroupCategoriesQuery,
+} from '@/lib/query/canvasQueries';
+import { STALE } from '@/lib/query/queryClient';
 
 function formatDate(iso) {
   if (!iso) return '—';
@@ -164,25 +173,22 @@ export default function StudentReport({ rows, courseId, baseUrl, integrations = 
 
   // Agrupamento por conjunto de grupos do Canvas. `categoryId` '' = sem
   // agrupamento. Os grupos (com ids dos membros) são buscados sob demanda ao
-  // escolher o conjunto e cacheados por conjunto.
+  // escolher o conjunto, pelo cache de consultas (ADR-0015): voltar ao mesmo
+  // curso/conjunto não volta ao Canvas.
   const [collapsed, setCollapsed] = useState(() => new Set());
-  const [categories, setCategories] = useState([]);
+  const categoriesQuery = useGroupCategoriesQuery(courseId);
+  const categories = useMemo(() => categoriesQuery.data ?? [], [categoriesQuery.data]);
   const [categoryId, setCategoryId] = useState('');
   const [groupsByCategory, setGroupsByCategory] = useState({});
   const [groupsState, setGroupsState] = useState({ loading: false, error: null });
 
-  useEffect(() => {
-    let cancelled = false;
-    fetch(`/api/canvas/courses/${courseId}/group-categories`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (!cancelled && !data.error) setCategories(data.categories || []);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [courseId]);
+  function loadCategoryGroups(categoryId) {
+    return readThrough(
+      canvasKeys.categoryGroups(courseId, categoryId),
+      () => fetchCategoryGroups(courseId, categoryId),
+      STALE.volatile,
+    );
+  }
 
   async function handleSelectCategory(value) {
     setCategoryId(value);
@@ -191,16 +197,11 @@ export default function StudentReport({ rows, courseId, baseUrl, integrations = 
     if (!value || groupsByCategory[value]) return;
     setGroupsState({ loading: true, error: null });
     try {
-      const response = await fetch(`/api/canvas/courses/${courseId}/group-categories/${value}/groups`);
-      const data = await response.json();
-      if (data.error) {
-        setGroupsState({ loading: false, error: data.error });
-        return;
-      }
-      setGroupsByCategory((prev) => ({ ...prev, [value]: data.groups || [] }));
+      const groups = await loadCategoryGroups(value);
+      setGroupsByCategory((prev) => ({ ...prev, [value]: groups }));
       setGroupsState({ loading: false, error: null });
-    } catch {
-      setGroupsState({ loading: false, error: 'Falha ao carregar os grupos do Canvas.' });
+    } catch (err) {
+      setGroupsState({ loading: false, error: err.message || 'Falha ao carregar os grupos do Canvas.' });
     }
   }
 
@@ -216,9 +217,7 @@ export default function StudentReport({ rows, courseId, baseUrl, integrations = 
       const loaded = await Promise.all(
         missing.map(async (c) => {
           try {
-            const response = await fetch(`/api/canvas/courses/${courseId}/group-categories/${c.id}/groups`);
-            const data = await response.json();
-            return data.error ? null : [c.id, data.groups || []];
+            return [c.id, await loadCategoryGroups(c.id)];
           } catch {
             return null;
           }
@@ -250,15 +249,20 @@ export default function StudentReport({ rows, courseId, baseUrl, integrations = 
     summariesStarted.current = true;
     setSummaries((s) => ({ ...s, loading: true }));
     try {
-      const response = await fetch(`/api/canvas/courses/${courseId}/analytics/students`);
-      const data = await response.json();
-      const next = data.error
-        ? { data: null, loading: false, error: data.error }
-        : { data: data.summaries || [], loading: false, error: null };
+      // `force` ("Analisar situação dos alunos") sempre vai ao Canvas; a
+      // expansão passiva de uma linha aceita o cache (faixa `volatile`).
+      const queryKey = canvasKeys.analyticsSummaries(courseId);
+      const queryFn = () => fetchAnalyticsSummaries(courseId);
+      const data = force ? await readFresh(queryKey, queryFn) : await readThrough(queryKey, queryFn, STALE.volatile);
+      const next = { data, loading: false, error: null };
       setSummaries(next);
       return next;
-    } catch {
-      const next = { data: null, loading: false, error: 'Falha ao carregar os dados da situação dos alunos.' };
+    } catch (err) {
+      const next = {
+        data: null,
+        loading: false,
+        error: err.message || 'Falha ao carregar os dados da situação dos alunos.',
+      };
       setSummaries(next);
       return next;
     }

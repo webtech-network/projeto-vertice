@@ -1,10 +1,7 @@
 import { requireCanvasIntegration } from '@/lib/canvasIntegration';
-import { getCourse } from '@/lib/canvasClient';
-import { courseUrl } from '@/lib/canvasLinks';
 import CanvasNotConnected from '@/components/CanvasNotConnected';
-import ContextBanner from '@/components/ContextBanner';
-import ActiveWorkspaceCourseBanner from '@/components/ActiveWorkspaceCourseBanner';
-import CourseWorkspaceTabs from '@/components/CourseWorkspaceTabs';
+import BackButton from '@/components/BackButton';
+import CoursePageContent from '@/components/CoursePageContent';
 
 // The "tela cheia" destination for CourseBrowser.jsx's inline
 // CourseWorkspaceTabs — same Anotações/Atividades/Mensagens/Alunos tabs, just
@@ -23,24 +20,13 @@ export default async function CoursePage({ params, searchParams }) {
   if (!user) return null;
   if (!canvas) return <CanvasNotConnected />;
 
-  const course = await getCourse(canvas.client, courseId);
-
+  // No Canvas call here (ADR-0016): the course name/code come from the
+  // client-side query cache in CoursePageContent, so navigating to this page
+  // never waits on a Canvas round-trip.
   return (
     <main className="page">
-      <h1>{course.name}</h1>
-      <ContextBanner
-        items={[
-          {
-            label: 'Curso',
-            value: course.course_code || course.name,
-            link: { href: courseUrl(canvas.baseUrl, courseId), title: 'Abrir curso no Canvas' },
-          },
-        ]}
-      />
-
-      <ActiveWorkspaceCourseBanner courseId={courseId} />
-
-      <CourseWorkspaceTabs courseId={courseId} courseCode={course.course_code} initialTab={tab} />
+      <BackButton fallbackHref={'/courses'} />
+      <CoursePageContent courseId={courseId} baseUrl={canvas.baseUrl} initialTab={tab} />
     </main>
   );
 }

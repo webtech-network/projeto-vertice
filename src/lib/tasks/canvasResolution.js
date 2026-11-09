@@ -1,122 +1,56 @@
-import { readCache, writeCache } from '../dashboardCache';
+import { getQueryClient, STALE, waitForCacheRestore } from '../query/queryClient';
+import { canvasKeys, fetchCourses, fetchCourseAssignments, fetchCourseStudents } from '../query/canvasQueries';
 
 // Resolves a Task/Project's Canvas id references (courseId/assignmentId/
 // studentId) into display names, without ever storing that data in the
-// tasks module's own IndexedDB records (see CLAUDE.md — Canvas stays the
-// source of truth). Stale-while-revalidate through the same `cache` store
-// dashboardCache.js already backs CourseBrowser.jsx with.
+// tasks' own records (Canvas stays the source of truth).
+//
+// Backed by the same TanStack Query cache as the rest of the app (ADR-0015):
+// same keys as CourseBrowser/CourseWorkspaceTabs, so a course list or roster
+// already loaded anywhere is reused here. Names barely change during a
+// semester, so these helpers accept anything within the `stable` tier
+// (12 h) — screens that show volatile counters revalidate on their own.
+// On a network failure they fall back to whatever is cached, even if stale.
 
-const COURSE_LIST_CACHE_KEY = 'courses:list';
-const STALE_AFTER_MS = 5 * 60 * 1000;
+async function cachedFetch(queryKey, queryFn, fallback) {
+  await waitForCacheRestore();
+  const client = getQueryClient();
+  try {
+    return await client.fetchQuery({ queryKey, queryFn, staleTime: STALE.stable });
+  } catch {
+    return client.getQueryData(queryKey) ?? fallback;
+  }
+}
 
-function isStale(fetchedAt) {
-  return !fetchedAt || Date.now() - fetchedAt > STALE_AFTER_MS;
+export function listCoursesCached() {
+  return cachedFetch(canvasKeys.courses, fetchCourses, []);
+}
+
+export function listCourseAssignments(courseId) {
+  if (!courseId) return Promise.resolve([]);
+  return cachedFetch(canvasKeys.assignments(courseId), () => fetchCourseAssignments(courseId), []);
+}
+
+export function listCourseStudentsCached(courseId) {
+  if (!courseId) return Promise.resolve([]);
+  return cachedFetch(canvasKeys.students(courseId), () => fetchCourseStudents(courseId), []);
+}
+
+function findName(list, id) {
+  return list?.find((item) => String(item.id) === String(id))?.name || null;
 }
 
 export async function resolveCourseName(courseId) {
   if (!courseId) return null;
-  const cached = await readCache(COURSE_LIST_CACHE_KEY);
-  const fromCache = cached?.data?.find((c) => String(c.id) === String(courseId));
-  if (fromCache && !isStale(cached.fetchedAt)) return fromCache.name;
-
-  try {
-    const response = await fetch('/api/canvas/courses');
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error);
-    await writeCache(COURSE_LIST_CACHE_KEY, data.courses);
-    return data.courses.find((c) => String(c.id) === String(courseId))?.name || fromCache?.name || null;
-  } catch {
-    return fromCache?.name || null;
-  }
+  return findName(await listCoursesCached(), courseId);
 }
 
 export async function resolveAssignmentName(courseId, assignmentId) {
   if (!courseId || !assignmentId) return null;
-  const cacheKey = `tasks:assignments:${courseId}`;
-  const cached = await readCache(cacheKey);
-  let assignments = cached?.data;
-
-  if (!assignments || isStale(cached?.fetchedAt)) {
-    try {
-      const response = await fetch(`/api/canvas/courses/${courseId}/assignments`);
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
-      assignments = data.assignments;
-      await writeCache(cacheKey, assignments);
-    } catch {
-      // fall through to whatever was cached, even if stale
-    }
-  }
-
-  return assignments?.find((a) => String(a.id) === String(assignmentId))?.name || null;
+  return findName(await listCourseAssignments(courseId), assignmentId);
 }
 
 export async function resolveStudentName(courseId, studentId) {
   if (!courseId || !studentId) return null;
-  const cacheKey = `tasks:students:${courseId}`;
-  const cached = await readCache(cacheKey);
-  let students = cached?.data;
-
-  if (!students || isStale(cached?.fetchedAt)) {
-    try {
-      const response = await fetch(`/api/canvas/courses/${courseId}/students`);
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
-      students = data.students;
-      await writeCache(cacheKey, students);
-    } catch {
-      // fall through to whatever was cached, even if stale
-    }
-  }
-
-  return students?.find((s) => String(s.id) === String(studentId))?.name || null;
-}
-
-export async function listCourseAssignments(courseId) {
-  if (!courseId) return [];
-  const cacheKey = `tasks:assignments:${courseId}`;
-  const cached = await readCache(cacheKey);
-  if (cached && !isStale(cached.fetchedAt)) return cached.data;
-
-  try {
-    const response = await fetch(`/api/canvas/courses/${courseId}/assignments`);
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error);
-    await writeCache(cacheKey, data.assignments);
-    return data.assignments;
-  } catch {
-    return cached?.data || [];
-  }
-}
-
-export async function listCourseStudentsCached(courseId) {
-  if (!courseId) return [];
-  const cacheKey = `tasks:students:${courseId}`;
-  const cached = await readCache(cacheKey);
-  if (cached && !isStale(cached.fetchedAt)) return cached.data;
-
-  try {
-    const response = await fetch(`/api/canvas/courses/${courseId}/students`);
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error);
-    await writeCache(cacheKey, data.students);
-    return data.students;
-  } catch {
-    return cached?.data || [];
-  }
-}
-
-export async function listCoursesCached() {
-  const cached = await readCache(COURSE_LIST_CACHE_KEY);
-  if (cached && !isStale(cached.fetchedAt)) return cached.data;
-
-  try {
-    const response = await fetch('/api/canvas/courses');
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error);
-    await writeCache(COURSE_LIST_CACHE_KEY, data.courses);
-    return data.courses;
-  } catch {
-    return cached?.data || [];
-  }
+  return findName(await listCourseStudentsCached(courseId), studentId);
 }

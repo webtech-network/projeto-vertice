@@ -2,6 +2,7 @@ import { requireCanvasIntegration } from '@/lib/canvasIntegration';
 import { getCourse, getQuiz } from '@/lib/canvasClient';
 import { getConfiguredIntegrations } from '@/lib/aiIntegrations';
 import CanvasNotConnected from '@/components/CanvasNotConnected';
+import BackButton from '@/components/BackButton';
 import QuizImportPanel from '@/components/QuizImportPanel';
 import ContextBanner from '@/components/ContextBanner';
 
@@ -13,16 +14,17 @@ export default async function ImportPage({ params }) {
 
   const client = canvas.client;
 
-  // Sequential, not Promise.all: firing both requests concurrently on a stale
-  // access token means both 401 at once and each independently races to
-  // refresh via onUnauthorized — two simultaneous refresh-token exchanges
-  // against Canvas, which isn't safe (observed causing a hard failure here).
-  const course = await getCourse(client, courseId);
-  const quiz = await getQuiz(client, courseId, quizId);
-  const configuredIntegrations = await getConfiguredIntegrations(user.id);
+  // Independent reads, in parallel — the token refresh is single-flight now,
+  // so two simultaneous 401s share one refresh instead of racing (ADR-0016).
+  const [course, quiz, configuredIntegrations] = await Promise.all([
+    getCourse(client, courseId),
+    getQuiz(client, courseId, quizId),
+    getConfiguredIntegrations(user.id),
+  ]);
 
   return (
     <main className="page">
+      <BackButton fallbackHref={`/courses/${courseId}?tab=atividades`} />
       <h1>Importar questões</h1>
       <ContextBanner
         items={[

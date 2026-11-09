@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { studentGradesUrl } from '@/lib/canvasLinks';
 import { mean, quartiles, robustScaleMax, scoreColor } from '@/lib/studentReport';
@@ -10,6 +10,7 @@ import { getCustomPrompt } from '@/lib/customPrompts';
 import RiskLevelPill from './RiskLevelPill';
 import EngagementHistoryChart from './EngagementHistoryChart';
 import Modal from './Modal';
+import { cacheStatus, useStudentAssignmentAnalyticsQuery } from '@/lib/query/canvasQueries';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -282,7 +283,14 @@ export default function StudentEngagementDashboard({
   riskResult,
   riskQuartiles,
 }) {
-  const [assignments, setAssignments] = useState({ data: null, loading: true, error: null });
+  // Atividades do aluno pelo cache de consultas (ADR-0015, faixa `volatile`):
+  // reabrir o mesmo aluno pinta na hora e revalida em segundo plano.
+  const assignmentsQuery = useStudentAssignmentAnalyticsQuery(courseId, student.id);
+  const assignments = {
+    data: assignmentsQuery.data ?? null,
+    loading: cacheStatus(assignmentsQuery).initialLoading,
+    error: assignmentsQuery.data ? null : (assignmentsQuery.error?.message ?? null),
+  };
   const [analysis, setAnalysis] = useState({ open: false, loading: false, text: null, error: null, notConfigured: false });
 
   // Risco do aluno calculado aqui, na abertura do painel, em vez de depender
@@ -345,23 +353,6 @@ export default function StudentEngagementDashboard({
     }
   }
 
-  useEffect(() => {
-    let cancelled = false;
-    setAssignments({ data: null, loading: true, error: null });
-    fetch(`/api/canvas/courses/${courseId}/students/${student.id}/assignment-analytics`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (cancelled) return;
-        if (data.error) setAssignments({ data: null, loading: false, error: data.error });
-        else setAssignments({ data: data.assignments || [], loading: false, error: null });
-      })
-      .catch(() => {
-        if (!cancelled) setAssignments({ data: null, loading: false, error: 'Falha ao carregar as atividades deste aluno.' });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [courseId, student.id]);
 
   const times = allRows.map((r) => r.totalActivityTime).filter((t) => t != null);
   // Robust scale (Tukey fence) + median, not raw max + mean: one student with

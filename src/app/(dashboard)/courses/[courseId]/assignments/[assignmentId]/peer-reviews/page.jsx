@@ -10,6 +10,7 @@ import {
 } from '@/lib/canvasClient';
 import { loadGroupsWithMembers } from '@/lib/peerReviewGroups';
 import CanvasNotConnected from '@/components/CanvasNotConnected';
+import BackButton from '@/components/BackButton';
 import ContextBanner from '@/components/ContextBanner';
 import InfoHint from '@/components/InfoHint';
 import PeerReviewDistributor from '@/components/PeerReviewDistributor';
@@ -29,10 +30,15 @@ export default async function PeerReviewsPage({ params }) {
 
   const client = canvas.client;
 
-  // Sequenced, not Promise.all — same concurrent-refresh race every other
-  // multi-call Canvas page here avoids.
-  const course = await getCourse(client, courseId);
-  const assignment = await getAssignment(client, courseId, assignmentId);
+  // Reads in two parallel rounds (ADR-0016 — the token refresh is
+  // single-flight, so concurrent 401s no longer race it). The group sets are
+  // fetched up front even though only a peer-review assignment needs them:
+  // one cheap call in parallel beats one more round-trip in sequence.
+  const [course, assignment, categories] = await Promise.all([
+    getCourse(client, courseId),
+    getAssignment(client, courseId, assignmentId),
+    listGroupCategories(client, courseId),
+  ]);
 
   const peerReviewsUrl = `${canvas.baseUrl}/courses/${courseId}/assignments/${assignmentId}/peer_reviews`;
 
@@ -44,7 +50,6 @@ export default async function PeerReviewsPage({ params }) {
       </p>
     );
   } else {
-    const categories = await listGroupCategories(client, courseId);
     if (categories.length === 0) {
       content = (
         <p className="alert alert-warning" role="alert">
@@ -58,9 +63,11 @@ export default async function PeerReviewsPage({ params }) {
       const assignmentCategory = categories.find((c) => c.id === assignment.group_category_id);
       const defaultCategoryId = assignmentCategory?.id ?? (categories.length === 1 ? categories[0].id : null);
 
-      const submissions = await listSubmissions(client, courseId, assignmentId, { include: ['user'] });
-      const peerReviews = await listPeerReviews(client, courseId, assignmentId);
-      const initialGroups = defaultCategoryId ? await loadGroupsWithMembers(client, defaultCategoryId) : null;
+      const [submissions, peerReviews, initialGroups] = await Promise.all([
+        listSubmissions(client, courseId, assignmentId, { include: ['user'] }),
+        listPeerReviews(client, courseId, assignmentId),
+        defaultCategoryId ? loadGroupsWithMembers(client, defaultCategoryId) : null,
+      ]);
 
       const studentNames = Object.fromEntries(
         submissions.map((s) => [s.user_id, s.user?.sortable_name || s.user?.name || `Aluno ${s.user_id}`]),
@@ -93,6 +100,7 @@ export default async function PeerReviewsPage({ params }) {
 
   return (
     <main className="page">
+      <BackButton fallbackHref={`/courses/${courseId}?tab=atividades`} />
       <div className="page-title-row">
         <h1>Avaliação por pares</h1>
         <div className="page-title-actions">

@@ -92,6 +92,11 @@ export async function dbGetAll(storeName) {
   return db ? db.getAll(storeName) : [];
 }
 
+export async function dbGetAllKeys(storeName) {
+  const db = await getDb();
+  return db ? db.getAllKeys(storeName) : [];
+}
+
 export async function dbPut(storeName, value) {
   const db = await getDb();
   if (!db) return;

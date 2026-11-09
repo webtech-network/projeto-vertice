@@ -113,8 +113,8 @@ export default function PeerReviewDistributor({
     setFailures([]);
     setProgress({ done: 0, total: ops.length });
     const failed = [];
-    // Sequential, not Promise.all — same concurrent-Canvas-call race this
-    // app avoids on every other multi-request flow.
+    // Sequential on purpose (ADR-0016: writes stay one-by-one) — per-row
+    // progress and failures, and no write bursts against the rate limit.
     for (let i = 0; i < ops.length; i += 1) {
       const op = ops[i];
       try {

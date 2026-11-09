@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Wand2, Send } from 'lucide-react';
 import { getCustomPrompt } from '@/lib/customPrompts';
 import Modal from './Modal';
+import { invalidateAfterMessaging } from '@/lib/query/invalidation';
 
 // Single-student sibling of ComposeMessage.jsx (which sends to every active
 // student in the course) — opened from StudentReport.jsx's "Enviar mensagem
@@ -64,6 +65,7 @@ export default function StudentMessageModal({ student, courseId, integrations = 
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Falha ao enviar a mensagem.');
       setSent(true);
+      invalidateAfterMessaging(courseId);
     } catch (err) {
       setSendError(err.message);
     } finally {

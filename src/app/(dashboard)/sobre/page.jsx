@@ -1,6 +1,7 @@
 import { GraduationCap, Sparkles, Mail, Settings, Landmark, ListChecks, LogIn } from 'lucide-react';
 import { getSupabaseUser } from '@/lib/supabaseServerClient';
 import WebTechFooter from '@/components/WebTechFooter';
+import BackButton from '@/components/BackButton';
 
 export default async function SobrePage() {
   const { user } = await getSupabaseUser();
@@ -10,6 +11,7 @@ export default async function SobrePage() {
 
   return (
     <main className="page">
+      <BackButton fallbackHref="/" />
       <h1>Sobre o Vértice</h1>
       <p className="lede cover-tagline">
         Um painel único de organização pessoal e acadêmica — tarefas, projetos e ambientes são seus, sempre; cursos,

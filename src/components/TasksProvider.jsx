@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useEffect, useReducer, useCallback } from 'react';
 import {
-  listTasks,
   getTask as repoGetTask,
   createTask as repoCreateTask,
   updateTask as repoUpdateTask,
@@ -13,7 +12,6 @@ import {
   toApp as taskToApp,
 } from '@/lib/tasks/tasksRepo';
 import {
-  listProjects,
   createProject as repoCreateProject,
   updateProject as repoUpdateProject,
   deleteProject as repoDeleteProject,
@@ -23,6 +21,14 @@ import { EMPTY_FILTERS } from '@/lib/tasks/filters';
 import { resolveTasksPreferences, patchDefaultPreferences } from '@/lib/tasks/tasksViewPreferences';
 import { useRealtimeTable } from '@/lib/realtime/useRealtimeTable';
 import { ensureUiPreferencesSynced } from './UiPreferencesSync';
+import {
+  fetchActiveProjects,
+  fetchActiveTasks,
+  localDataKeys,
+  mirrorLocalCache,
+  readLocalCache,
+  useRevalidateOnReturn,
+} from '@/lib/query/localData';
 
 const TasksContext = createContext(null);
 
@@ -89,9 +95,17 @@ function reducer(state, action) {
   }
 }
 
+// Só itens não deletados — a invariante do estado (ver o Realtime abaixo).
+function loadActiveTasksAndProjects() {
+  return Promise.all([fetchActiveTasks(), fetchActiveProjects()]);
+}
+
 // Wraps /tarefas' content only (mounted in tarefas/page.jsx, not the
 // dashboard layout) — this feature's state has no reason to survive
 // navigation to other routes, so o Postgres é lido uma vez por visita.
+// Cache local (ADR-0017): a visita pinta na hora com o que ficou salvo da
+// última (IndexedDB) e o Postgres revalida em seguida; o estado é espelhado
+// de volta no cache a cada mudança.
 //
 // Fase 1: tasksRepo.js/projectsRepo.js agora leem/escrevem direto no
 // Postgres (RLS-scoped) em vez de IndexedDB — a sincronização via Google
@@ -105,21 +119,35 @@ export function TasksProvider({ children }) {
 
   useEffect(() => {
     let cancelled = false;
-    async function hydrate() {
-      const [tasks, projects] = await Promise.all([listTasks(), listProjects()]);
-      if (!cancelled) {
-        dispatch({
-          type: 'HYDRATE',
-          tasks: tasks.filter((t) => !t.deletedAt),
-          projects: projects.filter((p) => !p.deletedAt),
-        });
-      }
-    }
-    hydrate();
+    let freshArrived = false;
+
+    // O cache nunca sobrescreve a resposta fresca, se ela chegar antes.
+    Promise.all([readLocalCache(localDataKeys.tasks), readLocalCache(localDataKeys.projects)]).then(
+      ([tasks, projects]) => {
+        if (cancelled || freshArrived || !tasks || !projects) return;
+        dispatch({ type: 'HYDRATE', tasks, projects });
+      },
+    );
+
+    loadActiveTasksAndProjects().then(([tasks, projects]) => {
+      freshArrived = true;
+      if (!cancelled) dispatch({ type: 'HYDRATE', tasks, projects });
+    });
+
     return () => {
       cancelled = true;
     };
   }, []);
+
+  // Espelho do estado no cache (persistido no IndexedDB) — cobre de uma vez
+  // mutações locais, otimistas e eventos do Realtime. Só depois da primeira
+  // hidratação, para nunca gravar a lista vazia inicial por cima do cache.
+  useEffect(() => {
+    if (!state.loading) mirrorLocalCache(localDataKeys.tasks, state.tasks);
+  }, [state.loading, state.tasks]);
+  useEffect(() => {
+    if (!state.loading) mirrorLocalCache(localDataKeys.projects, state.projects);
+  }, [state.loading, state.projects]);
 
   // Realtime — sincronização multi-dispositivo ao vivo (Fase 2). `deleted_at`
   // preenchido na linha nova vira TASK_REMOVE/PROJECT_REMOVE (mesma reducer
@@ -307,13 +335,12 @@ export function TasksProvider({ children }) {
   // importLegacyIndexedDbData, ver efeito abaixo) — re-lê e re-hidrata o
   // estado, callable sob demanda em vez de esperar uma transição de sync.
   const refreshFromLocal = useCallback(async () => {
-    const [tasks, projects] = await Promise.all([listTasks(), listProjects()]);
-    dispatch({
-      type: 'HYDRATE',
-      tasks: tasks.filter((t) => !t.deletedAt),
-      projects: projects.filter((p) => !p.deletedAt),
-    });
+    const [tasks, projects] = await loadActiveTasksAndProjects();
+    dispatch({ type: 'HYDRATE', tasks, projects });
   }, []);
+
+  // Lacuna do Realtime (canal desconectado enquanto a aba dormia/sem rede).
+  useRevalidateOnReturn(refreshFromLocal);
 
   // TEMPORÁRIO — Fase 1 (ver src/lib/migration/importLegacyIndexedDb.js):
   // ponte pra importar, uma única vez, tasks/projects que ficaram presos no

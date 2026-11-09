@@ -63,8 +63,7 @@ export async function GET() {
 
   // Canvas's own needs_grading_count over-counts real group assignments (one
   // per student instead of one per group) — see groupGrading.js. Corrected
-  // concurrently, same Promise.all style already used above for this route
-  // (unlike the sequential-only pattern used in page Server Components),
+  // concurrently, same Promise.all style already used above for this route,
   // and only for the (typically small) subset of assignments where it
   // actually matters, so this stays cheap even at up to ~17 favorite courses.
   const assignments = await Promise.all(

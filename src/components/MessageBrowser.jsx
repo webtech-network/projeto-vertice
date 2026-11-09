@@ -1,13 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { ChevronRight, ChevronsDown, ChevronsUp, ExternalLink, RefreshCw } from 'lucide-react';
 import MessageList from './MessageList';
 import { groupConversationsByCourse } from '@/lib/messageGrouping';
-import { readCache, writeCache } from '@/lib/dashboardCache';
+import { canvasKeys, cacheStatus, useMessagesInboxQuery } from '@/lib/query/canvasQueries';
 import { courseMessagesUrl } from '@/lib/canvasLinks';
-
-const CACHE_KEY = 'messages:inbox';
 
 function formatDateTime(timestamp) {
   if (!timestamp) return null;
@@ -23,68 +22,27 @@ function groupKey(group) {
 }
 
 // Courses + conversations are fetched client-side (see /api/canvas/messages)
-// with an IndexedDB stale-while-revalidate cache — grouping and the course
+// with a TanStack Query stale-while-revalidate cache persisted in IndexedDB
+// (ADR-0015, faixa `live`) — grouping and the course
 // filter both happen client-side too, so switching courses/expanding groups
 // never re-hits the Canvas API.
 export default function MessageBrowser({ currentUserId, baseUrl, integrations }) {
-  const [courses, setCourses] = useState([]);
-  const [conversations, setConversations] = useState([]);
   // Defaults to "Mensagens diretas" (courseFilter='other', see groupKey())
   // rather than the "Todos os favoritos" empty string — direct messages are
   // the context a professor most often opens this screen to check.
   const [courseFilter, setCourseFilter] = useState('other');
   const [collapsedKeys, setCollapsedKeys] = useState(() => new Set());
 
-  const [loading, setLoading] = useState(true);
-  const [hasCache, setHasCache] = useState(false);
-  const [stale, setStale] = useState(false);
-  const [fetchedAt, setFetchedAt] = useState(null);
-  const [loadError, setLoadError] = useState(null);
-
-  const fetchFresh = useCallback(async () => {
-    setLoading(true);
-    try {
-      const response = await fetch('/api/canvas/messages');
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Falha ao carregar as mensagens.');
-      setCourses(data.courses);
-      setConversations(data.conversations);
-      setFetchedAt(Date.now());
-      setHasCache(true);
-      setStale(false);
-      // A partial failure (courses loaded, conversations didn't — see the
-      // route's own comment) still responds 200, so this comes from the
-      // payload itself rather than a thrown error.
-      setLoadError(data.loadError || null);
-      await writeCache(CACHE_KEY, { courses: data.courses, conversations: data.conversations });
-    } catch (err) {
-      setLoadError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadFromCache() {
-      const cached = await readCache(CACHE_KEY);
-      if (cancelled || !cached) return;
-      setCourses(cached.data.courses);
-      setConversations(cached.data.conversations);
-      setFetchedAt(cached.fetchedAt);
-      setHasCache(true);
-      setStale(true);
-      setLoading(false);
-    }
-
-    loadFromCache();
-    fetchFresh();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [fetchFresh]);
+  const queryClient = useQueryClient();
+  const inboxQuery = useMessagesInboxQuery();
+  const courses = useMemo(() => inboxQuery.data?.courses ?? [], [inboxQuery.data]);
+  const conversations = useMemo(() => inboxQuery.data?.conversations ?? [], [inboxQuery.data]);
+  const { hasData: hasCache, fetchedAt, stale } = cacheStatus(inboxQuery);
+  const loading = inboxQuery.isFetching || (inboxQuery.isPending && !hasCache);
+  // Falha parcial (cursos vieram, conversas não — ver a rota) chega com 200,
+  // então vem do próprio payload, não de um erro lançado.
+  const loadError = inboxQuery.error?.message ?? inboxQuery.data?.loadError ?? null;
+  const fetchFresh = () => inboxQuery.refetch();
 
   // Favorite courses with zero messages don't get a section at all — the
   // select still lists every favorite course, so picking one of those just
@@ -98,7 +56,9 @@ export default function MessageBrowser({ currentUserId, baseUrl, integrations })
   // Drops the archived conversation from the shared state so the group's
   // counter badge (derived from `groups`) updates along with the list.
   function handleArchived(conversationId) {
-    setConversations((prev) => prev.filter((c) => c.id !== conversationId));
+    queryClient.setQueryData(canvasKeys.messagesInbox, (prev) =>
+      prev ? { ...prev, conversations: prev.conversations.filter((c) => c.id !== conversationId) } : prev,
+    );
   }
 
   function toggleGroup(key) {

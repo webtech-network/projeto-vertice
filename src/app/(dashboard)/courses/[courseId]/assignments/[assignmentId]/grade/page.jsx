@@ -12,6 +12,7 @@ import {
 import { requireCanvasIntegration } from '@/lib/canvasIntegration';
 import { getCourse, getAssignment, listSubmissions } from '@/lib/canvasClient';
 import CanvasNotConnected from '@/components/CanvasNotConnected';
+import BackButton from '@/components/BackButton';
 import ContextBanner from '@/components/ContextBanner';
 import RubricGrader from '@/components/RubricGrader';
 import InfoHint from '@/components/InfoHint';
@@ -24,19 +25,16 @@ export default async function GradeAssignmentPage({ params }) {
 
   const client = canvas.client;
 
-  // Sequenced, not Promise.all — this app has a known bug where firing
-  // multiple Canvas calls concurrently on a near-expired access token causes
-  // simultaneous 401s and a concurrent-refresh race that crashes the page
-  // (already fixed the same way on the quiz-import and atividades pages).
-  const course = await getCourse(client, courseId);
-  const assignment = await getAssignment(client, courseId, assignmentId);
-
+  // Independent reads, fetched in parallel — the token refresh is
+  // single-flight now, so simultaneous 401s no longer race it (ADR-0016).
   // Grading no longer requires a rubric — RubricGrader falls back to a
   // plain "Nota" column (see its own comment) when assignment.rubric is
   // absent, so submissions are always fetched, not just when there's one.
-  const submissions = await listSubmissions(client, courseId, assignmentId, {
-    include: ['user', 'rubric_assessment', 'group'],
-  });
+  const [course, assignment, submissions] = await Promise.all([
+    getCourse(client, courseId),
+    getAssignment(client, courseId, assignmentId),
+    listSubmissions(client, courseId, assignmentId, { include: ['user', 'rubric_assessment', 'group'] }),
+  ]);
 
   // Canvas returns one submission per *student* either way — for a group
   // assignment it also returns each submission's `group` (requested above),
@@ -53,6 +51,7 @@ export default async function GradeAssignmentPage({ params }) {
 
   return (
     <main className="page">
+      <BackButton fallbackHref={`/courses/${courseId}?tab=atividades`} />
       <div className="page-title-row">
         <h1>Correção de Atividade</h1>
         <InfoHint label="Sobre a tela de Correção de Atividade">

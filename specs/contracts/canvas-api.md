@@ -85,8 +85,9 @@ inteiro; 404/403 = conta sem Analytics), `getStudentAssignmentAnalytics(courseId
   a rubrica: filtre por `artifact_id` ∈ submissões da atividade. O id da rubrica vem de
   `assignment.rubric_settings.id`.
 - `posted_grade` vazio num PUT de submissão **remove** a nota: nunca envie nota vazia.
-- Nunca `Promise.all` em chamadas Canvas multi-step nas páginas (race em refresh concorrente);
-  páginas encadeiam sequencialmente.
+- Leituras independentes podem ser paralelas (`Promise.all`); listas de tamanho variável usam
+  `mapWithConcurrency` (limite 4). Escritas em lote seguem **sequenciais**. O refresh do token
+  é single-flight por usuário — ver [ADR-0016](../decisions/0016-refresh-single-flight-leituras-paralelas.md).
 
 ## Dependências
 

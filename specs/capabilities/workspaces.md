@@ -2,7 +2,7 @@
 title: Ambientes (workspaces)
 status: implemented
 domain: data
-updated: 2026-09-17
+updated: 2026-11-09
 ---
 
 # Ambientes (workspaces)
@@ -16,7 +16,10 @@ updated: 2026-09-17
 - `WorkspaceScopeProvider` montado em `(dashboard)/layout.jsx` (não numa página) — o filtro
   alcança toda rota sem remontar. `WorkspaceSwitcher` vive na Topbar.
 - Estado começa em **Base** (SSR-safe), hidrata do Postgres (`listWorkspaces` + `listAllLinks`),
-  e lê o id ativo do localStorage/`ui_preferences` após mount.
+  e lê o id ativo do localStorage/`ui_preferences` após mount. Ambientes e vínculos são
+  espelhados no cache local ([ADR-0017](../decisions/0017-cache-local-tarefas-e-ambientes.md)):
+  depois da primeira visita, o filtro de ambiente vale já na primeira pintura e o Postgres só
+  revalida (também ao voltar à aba após > 60 s e no evento `online`).
 - **Escopo**: `getVisibleResourceIds(resourceType)` → `null` quando Base ativa (sem filtro);
   senão o `Set` de `resourceId`s ligados ao workspace ativo. Filtra Tarefas, Cursos/Atividades
   e Notas de curso.

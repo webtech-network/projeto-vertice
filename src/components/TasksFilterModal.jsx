@@ -33,7 +33,8 @@ export default function TasksFilterModal({ onClose }) {
   }
 
   function clear() {
-    setFilters(EMPTY_FILTERS);
+    // The toolbar search (TaskSearch.jsx) isn't part of this modal — keep it.
+    setFilters({ ...EMPTY_FILTERS, search: filters.search });
     onClose();
   }
 

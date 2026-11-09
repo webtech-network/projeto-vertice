@@ -3,8 +3,8 @@ import { requireCanvasIntegration } from '@/lib/canvasIntegration';
 import { createPeerReview, deletePeerReview } from '@/lib/canvasClient';
 
 // One peer review per request — PeerReviewDistributor.jsx applies its plan
-// item by item, sequentially (never Promise.all, same anti-race rule as the
-// grading flow), so each failure is reported per pair and can be retried.
+// item by item, sequentially (writes stay one-by-one — ADR-0016), so each
+// failure is reported per pair and can be retried.
 // Body: `{ submissionId, userId }` — the reviewed submission's id and the
 // reviewer's user id (Canvas's peer-review paths take the submission id).
 async function handle(request, params, action) {

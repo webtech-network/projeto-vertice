@@ -1,5 +1,6 @@
 'use client';
 
+import { invalidateAfterGrading } from '@/lib/query/invalidation';
 import { Fragment, useMemo, useState } from 'react';
 import {
   ChevronRight,
@@ -290,6 +291,7 @@ export default function RubricGrader({ courseId, assignmentId, rubric, pointsPos
       if (!response.ok) throw new Error(data.error || 'Falha ao enviar a nota.');
       setRowState((prev) => ({ ...prev, [userId]: { saving: false, error: null, saved: true } }));
       setRows((prev) => prev.map((r) => (r.userId === userId ? { ...r, status: 'Avaliada' } : r)));
+      invalidateAfterGrading(courseId);
       markClean(userId);
     } catch (err) {
       setRowState((prev) => ({ ...prev, [userId]: { saving: false, error: err.message, saved: false } }));
@@ -308,8 +310,8 @@ export default function RubricGrader({ courseId, assignmentId, rubric, pointsPos
     }
     setBulkSending(true);
     setBulkError(null);
-    // Sequential, not Promise.all — same concurrent-Canvas-call race this
-    // app avoids on every other multi-request flow.
+    // Sequential on purpose (ADR-0016: writes stay one-by-one) — per-row
+    // progress and failures, and no write bursts against the rate limit.
     for (const row of rowsToSend) {
       await sendGrade(row.userId);
     }

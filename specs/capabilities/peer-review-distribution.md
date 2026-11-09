@@ -2,7 +2,7 @@
 title: Distribuição de avaliação por pares entre grupos
 status: implemented
 domain: canvas
-updated: 2026-10-27
+updated: 2026-11-08
 ---
 
 # Distribuição de avaliação por pares entre grupos
@@ -69,7 +69,7 @@ capacidade substitui o script avulso `distribuir.php`
 | `src/components/PeerReviewDistributor.jsx` | UI: seletor, pré-visualização, aplicação sequencial |
 | `src/app/api/canvas/courses/[courseId]/assignments/[assignmentId]/peer-reviews/route.js` | POST/DELETE de uma revisão |
 | `src/app/api/canvas/courses/[courseId]/group-categories/[categoryId]/groups/route.js` | GET grupos + membros de um conjunto |
-| `src/lib/peerReviewGroups.js` | `loadGroupsWithMembers` (sequencial), usado pela página e pela rota |
+| `src/lib/peerReviewGroups.js` | `loadGroupsWithMembers` (concorrência 4), usado pela página e pela rota |
 
 ## Dados e persistência
 
@@ -96,7 +96,8 @@ plano existe só em memória até ser aplicado.
   configurada, ignorando os grupos. A tela avisa para desligar.
 - `intra_group_peer_reviews` do Canvas só vale para atividades em grupo e não equilibra a
   carga, por isso não substitui esta capacidade.
-- Chamadas ao Canvas são sempre sequenciais, sem `Promise.all`.
+- Leituras ao Canvas em paralelo (membros de grupos com limite de 4); criação e remoção de
+  revisões seguem sequenciais ([ADR-0016](../decisions/0016-refresh-single-flight-leituras-paralelas.md)).
 
 ## Dependências
 

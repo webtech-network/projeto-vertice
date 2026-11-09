@@ -2,7 +2,7 @@
 title: Rotas de API e runtime de servidor
 status: implemented
 domain: backend
-updated: 2026-10-18
+updated: 2026-11-08
 ---
 
 # Rotas de API e runtime de servidor
@@ -37,8 +37,9 @@ a rota revalida a sessão via `getSupabaseUser()` quando precisa do usuário.
 - Dois clients de dados: `supabaseBrowserClient` (anon, RLS) e `supabaseAdminClient`
   (service_role) só para RPCs de secrets — ver [data-storage.md](data-storage.md).
   **Nunca** expor service_role ao browser.
-- Chamadas ao Canvas são **sequenciais**, nunca `Promise.all` (multi-step); erros passam
-  por `sanitizeAxiosError` (sem vazar token/base URL) — ver
+- Leituras do Canvas independentes podem ser paralelas (concorrência limitada); escritas em
+  lote são **sequenciais** ([ADR-0016](../decisions/0016-refresh-single-flight-leituras-paralelas.md)).
+  Erros passam por `sanitizeAxiosError` (sem vazar token/base URL) — ver
   [canvas-api.md](../contracts/canvas-api.md).
 
 ## CLI (processo separado)

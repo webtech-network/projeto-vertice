@@ -2,7 +2,7 @@
 title: Integração Canvas (login + token de API)
 status: implemented
 domain: canvas
-updated: 2026-09-17
+updated: 2026-11-08
 ---
 
 # Integração Canvas
@@ -40,6 +40,8 @@ O GoTrue self-hosted não tem "canvas" na lista de provedores OAuth embutidos, e
 - `getCanvasClientForUser(userId)` monta o client Canvas com **refresh proativo** (mesma
   margem de 5 min) e **`onUnauthorized`** (retry de 401), persistindo o token renovado de
   volta na integração. Canvas não devolve refresh_token novo — reusa o mesmo.
+- O refresh é **single-flight por usuário**: 401s simultâneos esperam a mesma renovação, e um
+  token renovado há < 30 s é reaproveitado ([ADR-0016](../decisions/0016-refresh-single-flight-leituras-paralelas.md)).
 - `requireCanvasIntegration()` é o gate compartilhado: `{ user, canvas }`, onde `canvas`
   é `null` quando logado mas sem integração ativa. Todo chamador decide o fallback
   (página: `CanvasNotConnected`; rota: 409) — nunca deixa `canvas` nulo virar chamada quebrada.

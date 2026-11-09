@@ -149,7 +149,8 @@ página desfaz as desconsiderações (o Canvas não é alterado por elas).
 - `posted_grade` vazio remove a nota no Canvas. Por isso o envio pula linhas sem nota.
 - Reenviar uma linha com comentário cria **outro** comentário no Canvas, já que comentários
   não são substituídos.
-- Chamadas ao Canvas são sempre sequenciais, sem `Promise.all`.
+- Leituras ao Canvas em paralelo (membros de grupos com limite de 4); envios seguem
+  sequenciais, um aluno por vez ([ADR-0016](../decisions/0016-refresh-single-flight-leituras-paralelas.md)).
 
 ## Dependências
 

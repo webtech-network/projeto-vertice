@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { NotebookText, ListChecks, Mail, Users, Maximize2 } from 'lucide-react';
 import CourseNoteEditor from './CourseNoteEditor';
@@ -9,7 +10,15 @@ import ComposeMessage from './ComposeMessage';
 import MessageList from './MessageList';
 import StudentReport from './StudentReport';
 import { buildStudentRows } from '@/lib/studentReport';
-import { listCourseAssignments, listCourseStudentsCached } from '@/lib/tasks/canvasResolution';
+import {
+  canvasKeys,
+  cacheStatus,
+  useCanvasStatusQuery,
+  useConfiguredAiIntegrationsQuery,
+  useCourseAssignmentsQuery,
+  useCourseMessagesQuery,
+  useCourseStudentsQuery,
+} from '@/lib/query/canvasQueries';
 
 const TABS = [
   { key: 'notas', label: 'Anotações', Icon: NotebookText },
@@ -30,71 +39,54 @@ const TAB_KEYS = TABS.map((t) => t.key);
 // Each tab's data is fetched client-side, lazily, the first time that tab is
 // opened (same "fetch on demand" pattern as IntegrationManager.jsx's model
 // picker) — never all four at once, since a course row might get expanded
-// just to jot down a quick note. Atividades/Alunos reuse
-// canvasResolution.js's stale-while-revalidate cached fetchers (the same
-// ones TaskDetailModal's course/assignment/student pickers already use), so
-// switching between two courses' expanded rows doesn't re-hit Canvas if
-// either was already resolved recently elsewhere in the app.
+// just to jot down a quick note. Atividades/Alunos use the shared TanStack
+// Query cache (ADR-0015, same keys TaskDetailModal's pickers read through
+// canvasResolution.js): they paint at once from cache and revalidate in the
+// background past the `volatile` tier, since both show live counters/grades.
 export default function CourseWorkspaceTabs({ courseId, courseCode, initialTab, expandHref }) {
   const [tab, setTab] = useState(TAB_KEYS.includes(initialTab) ? initialTab : 'notas');
 
-  const [assignments, setAssignments] = useState({ data: [], loading: false });
-  const assignmentsStarted = useRef(false);
-  useEffect(() => {
-    if (tab !== 'atividades' || assignmentsStarted.current) return;
-    assignmentsStarted.current = true;
-    setAssignments((s) => ({ ...s, loading: true }));
-    listCourseAssignments(courseId).then((data) => setAssignments({ data: data || [], loading: false }));
-  }, [tab, courseId]);
+  const assignmentsQuery = useCourseAssignmentsQuery(courseId, { enabled: tab === 'atividades' });
+  const assignments = {
+    data: assignmentsQuery.data ?? [],
+    loading: cacheStatus(assignmentsQuery).initialLoading,
+  };
 
-  const [students, setStudents] = useState({ data: [], loading: false });
-  const studentsStarted = useRef(false);
-  useEffect(() => {
-    if (tab !== 'alunos' || studentsStarted.current) return;
-    studentsStarted.current = true;
-    setStudents((s) => ({ ...s, loading: true }));
-    listCourseStudentsCached(courseId).then((data) => setStudents({ data: data || [], loading: false }));
-  }, [tab, courseId]);
-  const studentRows = useMemo(() => buildStudentRows(students.data), [students.data]);
+  const studentsQuery = useCourseStudentsQuery(courseId, { enabled: tab === 'alunos' });
+  const students = { data: studentsQuery.data ?? [], loading: cacheStatus(studentsQuery).initialLoading };
+  const studentRows = useMemo(() => buildStudentRows(studentsQuery.data ?? []), [studentsQuery.data]);
 
-  const [conversations, setConversations] = useState({ data: [], loading: false, error: null });
-  const conversationsStarted = useRef(false);
-  useEffect(() => {
-    if (tab !== 'mensagens' || conversationsStarted.current) return;
-    conversationsStarted.current = true;
-    setConversations((s) => ({ ...s, loading: true }));
-    fetch(`/api/canvas/courses/${courseId}/messages`)
-      .then((r) => r.json())
-      .then((data) => setConversations({ data: data.conversations || [], loading: false, error: data.loadError || null }))
-      .catch(() => setConversations({ data: [], loading: false, error: 'Falha ao carregar as mensagens deste curso.' }));
-  }, [tab, courseId]);
+  const queryClient = useQueryClient();
+  const messagesQuery = useCourseMessagesQuery(courseId, { enabled: tab === 'mensagens' });
+  const conversations = {
+    data: messagesQuery.data?.conversations ?? [],
+    loading: cacheStatus(messagesQuery).initialLoading,
+    // Falha parcial vem no payload (200); falha total, como erro da consulta.
+    error: messagesQuery.data?.loadError ?? (messagesQuery.data ? null : (messagesQuery.error?.message ?? null)),
+  };
+
+  // Arquivada no Canvas: some da lista já (cache). MessageList invalida a
+  // caixa de entrada e os contadores.
+  function handleArchived(conversationId) {
+    queryClient.setQueryData(canvasKeys.courseMessages(courseId), (prev) =>
+      prev ? { ...prev, conversations: prev.conversations.filter((c) => c.id !== conversationId) } : prev,
+    );
+  }
 
   // Mensagens and Alunos both need the professor's configured AI
   // integrations (reply/message suggestions) plus the Canvas session's
-  // baseUrl/currentUserId — fetched together, once, whichever of those two
-  // tabs is opened first. Failures degrade gracefully to empty defaults: the
-  // AI picker just doesn't show up (same "integrations.length === 0" branch
-  // ComposeMessage/MessageList/StudentReport already handle).
-  const [session, setSession] = useState({ baseUrl: '', currentUserId: null, integrations: [], loading: false });
-  const sessionStarted = useRef(false);
-  useEffect(() => {
-    if ((tab !== 'mensagens' && tab !== 'alunos') || sessionStarted.current) return;
-    sessionStarted.current = true;
-    setSession((s) => ({ ...s, loading: true }));
-    Promise.all([
-      fetch('/api/canvas/status').then((r) => r.json()),
-      fetch('/api/ai/integrations/configured').then((r) => r.json()),
-    ])
-      .then(([status, integrationsRes]) => {
-        setSession({
-          baseUrl: status.baseUrl || '',
-          currentUserId: status.providerUserId ? Number(status.providerUserId) : null,
-          integrations: integrationsRes.integrations || [],
-          loading: false,
-        });
-      })
-      .catch(() => setSession({ baseUrl: '', currentUserId: null, integrations: [], loading: false }));
-  }, [tab]);
+  // baseUrl/currentUserId — separate cached queries, enabled once either of
+  // those two tabs is open. Failures degrade gracefully to empty defaults:
+  // the AI picker just doesn't show up (same "integrations.length === 0"
+  // branch ComposeMessage/MessageList/StudentReport already handle).
+  const needsSession = tab === 'mensagens' || tab === 'alunos';
+  const statusQuery = useCanvasStatusQuery({ enabled: needsSession });
+  const integrationsQuery = useConfiguredAiIntegrationsQuery({ enabled: needsSession });
+  const session = {
+    baseUrl: statusQuery.data?.baseUrl || '',
+    currentUserId: statusQuery.data?.providerUserId ? Number(statusQuery.data.providerUserId) : null,
+    integrations: integrationsQuery.data ?? [],
+  };
 
   return (
     <div className="course-workspace-tabs">
@@ -147,6 +139,7 @@ export default function CourseWorkspaceTabs({ courseId, courseCode, initialTab, 
                 currentUserId={session.currentUserId}
                 baseUrl={session.baseUrl}
                 integrations={session.integrations}
+                onArchived={handleArchived}
               />
             )}
           </>

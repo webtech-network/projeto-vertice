@@ -4,7 +4,6 @@ import { createContext, useContext, useCallback, useEffect, useRef, useState } f
 import {
   BASE_WORKSPACE_ID,
   BASE_WORKSPACE,
-  listWorkspaces,
   listAllLinks,
   createWorkspace as repoCreateWorkspace,
   updateWorkspace as repoUpdateWorkspace,
@@ -16,6 +15,14 @@ import {
 import { getActiveWorkspaceId, setActiveWorkspaceId as persistActiveWorkspaceId } from '@/lib/workspaces/activeWorkspacePreference';
 import { useRealtimeTable } from '@/lib/realtime/useRealtimeTable';
 import { ensureUiPreferencesSynced } from './UiPreferencesSync';
+import {
+  fetchActiveLinks,
+  fetchWorkspaces,
+  localDataKeys,
+  mirrorLocalCache,
+  readLocalCache,
+  useRevalidateOnReturn,
+} from '@/lib/query/localData';
 
 const WorkspaceScopeContext = createContext(null);
 
@@ -37,17 +44,53 @@ export function WorkspaceScopeProvider({ children }) {
   const [activeWorkspaceId, setActiveWorkspaceIdState] = useState(BASE_WORKSPACE_ID);
   const [loading, setLoading] = useState(true);
 
-  const hydrate = useCallback(async () => {
-    const [ws, ls] = await Promise.all([listWorkspaces(), listAllLinks()]);
+  const applyFresh = useCallback((ws, ls) => {
     setWorkspaces(ws);
-    setLinks(ls.filter((l) => !l.deletedAt));
+    setLinks(ls);
     setLoading(false);
   }, []);
 
+  const hydrate = useCallback(async () => {
+    const [ws, ls] = await Promise.all([fetchWorkspaces(), fetchActiveLinks()]);
+    applyFresh(ws, ls);
+  }, [applyFresh]);
+
+  // Cache local (ADR-0017): pinta com os ambientes/vínculos da última visita
+  // — o filtro de ambiente já vale na primeira pintura — e o Postgres
+  // revalida em seguida. O cache nunca sobrescreve a resposta fresca.
   useEffect(() => {
-    hydrate();
+    let cancelled = false;
+    let freshArrived = false;
+    Promise.all([readLocalCache(localDataKeys.workspaces), readLocalCache(localDataKeys.workspaceLinks)]).then(
+      ([ws, ls]) => {
+        if (cancelled || freshArrived || !ws || !ls) return;
+        setWorkspaces(ws);
+        setLinks(ls);
+        setLoading(false);
+      },
+    );
+    // Flag e estado no mesmo callback: a leitura do cache não pode cair entre
+    // os dois e sobrescrever o dado fresco.
+    Promise.all([fetchWorkspaces(), fetchActiveLinks()]).then(([ws, ls]) => {
+      freshArrived = true;
+      if (!cancelled) applyFresh(ws, ls);
+    });
     setActiveWorkspaceIdState(getActiveWorkspaceId());
-  }, [hydrate]);
+    return () => {
+      cancelled = true;
+    };
+  }, [applyFresh]);
+
+  // Espelho no cache, só depois da primeira hidratação (cache ou Postgres).
+  useEffect(() => {
+    if (!loading) mirrorLocalCache(localDataKeys.workspaces, workspaces);
+  }, [loading, workspaces]);
+  useEffect(() => {
+    if (!loading) mirrorLocalCache(localDataKeys.workspaceLinks, links);
+  }, [loading, links]);
+
+  // Lacuna do Realtime (canal desconectado enquanto a aba dormia/sem rede).
+  useRevalidateOnReturn(hydrate);
 
   // Fase 2 (sincronização entre dispositivos) — ver o mesmo padrão/racional
   // em TasksProvider.jsx (promise memoizada em vez de evento, pra não

@@ -1,5 +1,6 @@
 'use client';
 
+import { invalidateAfterGrading } from '@/lib/query/invalidation';
 import { Fragment, useMemo, useState } from 'react';
 import {
   ChevronRight,
@@ -320,6 +321,7 @@ export default function PeerReviewGrader({
       if (!response.ok) throw new Error(data.error || `Falha (${response.status}).`);
       setSendState((prev) => ({ ...prev, [userId]: { saving: false, error: null, saved: true } }));
       setRows((prev) => ({ ...prev, [userId]: { ...prev[userId], dirty: false } }));
+      invalidateAfterGrading(courseId);
       return true;
     } catch (err) {
       setSendState((prev) => ({ ...prev, [userId]: { saving: false, error: err.message, saved: false } }));
@@ -331,8 +333,8 @@ export default function PeerReviewGrader({
     setFailures([]);
     setBulk({ done: 0, total: userIds.length });
     const failed = [];
-    // Sequential, not Promise.all — same concurrent-Canvas-call race this
-    // app avoids on every other multi-request flow.
+    // Sequential on purpose (ADR-0016: writes stay one-by-one) — per-row
+    // progress and failures, and no write bursts against the rate limit.
     for (let i = 0; i < userIds.length; i += 1) {
       try {
         await sendOne(userIds[i]);

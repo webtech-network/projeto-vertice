@@ -21,6 +21,7 @@ import {
 import { useTasks } from './TasksProvider';
 import TasksFilterModal from './TasksFilterModal';
 import QuickAddTask from './QuickAddTask';
+import TaskSearch from './TaskSearch';
 import KanbanBoard from './KanbanBoard';
 import EisenhowerMatrix from './EisenhowerMatrix';
 import TaskTable from './TaskTable';
@@ -61,8 +62,10 @@ export default function TasksView() {
   // that changes the task moments before the click is still respected.
   const selectedTask = selectedTaskId ? tasks.find((t) => t.id === selectedTaskId) || null : null;
 
+  // `search` has its own visible input (TaskSearch) — it shouldn't light up
+  // the Filtrar button too.
   const hasActiveFilters = Object.entries(filters).some(
-    ([key, value]) => value !== EMPTY_FILTERS[key] && value !== null && value !== '',
+    ([key, value]) => key !== 'search' && value !== EMPTY_FILTERS[key] && value !== null && value !== '',
   );
 
   if (loading) {
@@ -81,11 +84,12 @@ export default function TasksView() {
   return (
     <>
       <div className="tasks-toolbar">
-        {/* Nova tarefa + Filtrar tarefas share the first line — everything
+        {/* Nova tarefa + Buscar + Filtrar tarefas share the first line — everything
             else (including o botão de mostrar/ocultar Backlog/Block) lives
             on the second line, in tasks-toolbar-right. */}
         <div className="tasks-toolbar-primary">
           <QuickAddTask />
+          <TaskSearch />
           <button
             type="button"
             className={`btn btn-secondary btn-icon${hasActiveFilters ? ' active' : ''}`}

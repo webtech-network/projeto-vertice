@@ -58,7 +58,10 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(request)
       .then((response) => {
-        if (response.ok) {
+        // Same rule as install: a redirected response (e.g. to /login after
+        // logout or an expired session) is some other page's HTML — never
+        // store it under this URL.
+        if (response.ok && !response.redirected) {
           const copy = response.clone();
           caches.open(SHELL_CACHE).then((cache) => cache.put(request, copy));
         }

@@ -12,6 +12,7 @@ import {
 import { loadGroupsWithMembers } from '@/lib/peerReviewGroups';
 import { consolidatePeerReviews } from '@/lib/peerReviewGrading';
 import CanvasNotConnected from '@/components/CanvasNotConnected';
+import BackButton from '@/components/BackButton';
 import ContextBanner from '@/components/ContextBanner';
 import InfoHint from '@/components/InfoHint';
 import PeerReviewGrader from '@/components/PeerReviewGrader';
@@ -42,10 +43,15 @@ export default async function PeerGradingPage({ params }) {
 
   const client = canvas.client;
 
-  // Sequenced, not Promise.all — same concurrent-refresh race every other
-  // multi-call Canvas page here avoids.
-  const course = await getCourse(client, courseId);
-  const assignment = await getAssignment(client, courseId, assignmentId);
+  // Reads in two parallel rounds (ADR-0016 — the token refresh is
+  // single-flight, so concurrent 401s no longer race it): first what decides
+  // the page (course, assignment, group sets), then everything the
+  // consolidation needs at once.
+  const [course, assignment, categories] = await Promise.all([
+    getCourse(client, courseId),
+    getAssignment(client, courseId, assignmentId),
+    listGroupCategories(client, courseId),
+  ]);
 
   const peerReviewsUrl = `${canvas.baseUrl}/courses/${courseId}/assignments/${assignmentId}/peer_reviews`;
 
@@ -57,18 +63,16 @@ export default async function PeerGradingPage({ params }) {
       </p>
     );
   } else {
-    const submissions = await listSubmissions(client, courseId, assignmentId, {
-      include: ['user', 'submission_comments'],
-    });
-    const peerReviews = await listPeerReviews(client, courseId, assignmentId);
-
     const rubricId = assignment.rubric_settings?.id;
-    const rubric = rubricId ? await getRubric(client, courseId, rubricId, { include: ['peer_assessments'] }) : null;
-
-    const categories = await listGroupCategories(client, courseId);
     const assignmentCategory = categories.find((c) => c.id === assignment.group_category_id);
     const defaultCategoryId = assignmentCategory?.id ?? (categories.length === 1 ? categories[0].id : null);
-    const initialGroups = defaultCategoryId ? await loadGroupsWithMembers(client, defaultCategoryId) : null;
+
+    const [submissions, peerReviews, rubric, initialGroups] = await Promise.all([
+      listSubmissions(client, courseId, assignmentId, { include: ['user', 'submission_comments'] }),
+      listPeerReviews(client, courseId, assignmentId),
+      rubricId ? getRubric(client, courseId, rubricId, { include: ['peer_assessments'] }) : null,
+      defaultCategoryId ? loadGroupsWithMembers(client, defaultCategoryId) : null,
+    ]);
 
     const rubricPoints = rubric ? (assignment.rubric_settings?.points_possible ?? rubric.points_possible ?? null) : null;
     const consolidated = consolidatePeerReviews({
@@ -100,6 +104,7 @@ export default async function PeerGradingPage({ params }) {
 
   return (
     <main className="page">
+      <BackButton fallbackHref={`/courses/${courseId}?tab=atividades`} />
       <div className="page-title-row">
         <h1>Consolidar avaliação por pares</h1>
         <div className="page-title-actions">

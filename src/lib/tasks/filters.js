@@ -12,7 +12,24 @@ export const EMPTY_FILTERS = {
   urgent: null,
   important: null,
   dueBefore: null,
+  // Free-text search from TaskSearch.jsx (toolbar, not the filter modal).
+  search: '',
 };
+
+// Accent- and case-insensitive, so "relatorio" finds "Relatório".
+export function normalizeSearchText(text) {
+  return String(text || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+// Every whitespace-separated term must appear somewhere in title,
+// description or tags (AND, in any order).
+function matchesSearch(task, terms) {
+  const haystack = normalizeSearchText([task.title, task.description, ...(task.tags || [])].join(' '));
+  return terms.every((term) => haystack.includes(term));
+}
 
 function taskCourseId(task, projectsById) {
   if (task.canvasReferences?.courseId) return String(task.canvasReferences.courseId);
@@ -31,6 +48,7 @@ function taskCourseId(task, projectsById) {
 export function applyFilters(tasks, filters, projects = [], scope = null) {
   const projectsById = new Map(projects.map((p) => [p.id, p]));
   const dueBeforeTime = filters.dueBefore ? new Date(filters.dueBefore).getTime() : null;
+  const searchTerms = normalizeSearchText(filters.search).split(/\s+/).filter(Boolean);
 
   return tasks.filter((task) => {
     if (filters.projectId && task.projectId !== filters.projectId) return false;
@@ -51,6 +69,7 @@ export function applyFilters(tasks, filters, projects = [], scope = null) {
       if (!task.dueDate) return false;
       if (new Date(task.dueDate).getTime() > dueBeforeTime) return false;
     }
+    if (searchTerms.length && !matchesSearch(task, searchTerms)) return false;
     if (scope) {
       const courseId = taskCourseId(task, projectsById);
       const projectVisible = task.projectId && scope.visibleProjectIds?.has(task.projectId);

@@ -2,7 +2,7 @@
 title: Correção com rubrica
 status: implemented
 domain: canvas
-updated: 2026-09-17
+updated: 2026-11-08
 ---
 
 # Correção com rubrica
@@ -12,10 +12,12 @@ updated: 2026-09-17
 
 ## Comportamento
 
-- Página `courses/[id]/assignments/[assignmentId]/grade` busca **sequencialmente** (nunca
-  `Promise.all`) `getCourse` → `getAssignment` (fetch fresco de um assignment só, que é a ação
-  documentada que garante o campo `rubric`) → `listSubmissions(..., { include: ['user',
-  'rubric_assessment'] })`.
+- Página `courses/[id]/assignments/[assignmentId]/grade` busca **em paralelo**
+  ([ADR-0016](../decisions/0016-refresh-single-flight-leituras-paralelas.md)) `getCourse`,
+  `getAssignment` (fetch fresco de um assignment só, que é a ação
+  documentada que garante o campo `rubric`) e `listSubmissions(..., { include: ['user',
+  'rubric_assessment'] })`. Após cada envio, o cache do cliente de atividades, cursos e painel
+  é invalidado (contadores de pendências).
 - `RubricGrader.jsx` (`'use client'`): tabela única, 1 linha por aluno, 1 `<select>` por
   critério da rubrica, pré-preenchido do `rubric_assessment` existente. Sem rubrica →
   mensagem "sem rubrica".

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { getCustomPrompt } from '@/lib/customPrompts';
+import { invalidateAfterMessaging } from '@/lib/query/invalidation';
 
 // Unlike MessageList's "Sugerir resposta com IA" (which opens a Modal with a
 // brand-new piece of text for a different box), this improves the
@@ -64,6 +65,7 @@ export default function ComposeMessage({ courseId, integrations = [] }) {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Falha ao enviar a mensagem.');
       setResult({ recipientCount: data.recipientCount, failedBatches: data.failedBatches });
+      invalidateAfterMessaging(courseId);
       setSubject('');
       setBody('');
     } catch (err) {

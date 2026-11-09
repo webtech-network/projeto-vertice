@@ -2,7 +2,7 @@
 title: Armazenamento de dados
 status: implemented
 domain: data
-updated: 2026-09-17
+updated: 2026-11-09
 ---
 
 # Armazenamento de dados
@@ -32,10 +32,32 @@ Tabelas em `public.*`, todas com `user_id` + RLS `auth.uid() = user_id` (detalhe
 
 ## IndexedDB — o que ainda é lido de verdade
 
-DB `canvastools` (v8). **Stores ativos**: `cache` (agregados do Canvas, stale-while-revalidate,
-via `dashboardCache.js`) e `github`/`google` (tokens de conexão). **Legados** (definidos mas
-não lidos, pois migraram pro Postgres): `tasks`, `projects`, `workspaces`, `workspaceLinks`,
-`shortcuts`, `prompts`, `courseNotes`.
+DB `canvastools` (v8). **Stores ativos**: `cache` (cache de consultas do Canvas, ver abaixo)
+e `github`/`google` (tokens de conexão). **Legados** (definidos mas não lidos, pois migraram
+pro Postgres): `tasks`, `projects`, `workspaces`, `workspaceLinks`, `shortcuts`, `prompts`,
+`courseNotes`.
+
+### Cache de consultas (TanStack Query) — [ADR-0015](../decisions/0015-cache-local-tanstack-query.md)
+
+- Leituras do Canvas no cliente passam por **TanStack Query** (`src/lib/query/`). O
+  `QueryProvider` (montado no layout do dashboard com o `userId` do servidor) restaura o
+  cache do IndexedDB antes das consultas rodarem e o regrava a cada mudança (com throttle).
+- **Escopo**: um único registro `query-client:<userId>` no store `cache`. Ao montar, o
+  provider apaga qualquer outro registro do store (outros usuários e chaves legadas
+  `courses:list`, `messages:inbox`, `dashboard:*`, `tasks:*`). O logout (`UserMenu`) limpa
+  memória, IndexedDB e o Cache Storage do service worker antes do POST; achar registro de
+  outro dono no IndexedDB também apaga o Cache Storage.
+- **Retenção**: `PERSIST_MAX_AGE` = 20 dias (= `gcTime`, que tem de ficar < ~24,8 dias, limite do `setTimeout`); `CACHE_SCHEMA_VERSION` é o `buster`, que deve ser
+  incrementado quando o formato de um payload cacheado mudar.
+- **Faixas de validade** (`STALE`): `live` 30 s (painel, inbox), `volatile` 2 min (lista de
+  cursos com contadores, atividades e alunos nas abas do curso), `stable` 12 h (nomes para
+  seletores e resolução de referências das tarefas). Mesma chave, faixa escolhida pelo
+  consumidor. Botão "Recarregar" força a busca.
+- Chaves e fetchers centralizados em `src/lib/query/canvasQueries.js`. Mutações atualizam o
+  cache (`setQueryData`, ex.: favoritar curso, arquivar conversa).
+- Tarefas, projetos, ambientes e vínculos também passam pelo cache, como **espelho** do estado
+  dos providers (pinta do cache, revalida no Postgres) — [ADR-0017](../decisions/0017-cache-local-tarefas-e-ambientes.md).
+- Nunca cachear tokens/chaves (as rotas não os devolvem ao browser).
 
 ## localStorage — cache síncrono de UI (write-through)
 

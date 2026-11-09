@@ -1,4 +1,5 @@
 import {
+  Search,
   Filter,
   PanelLeftClose,
   Rows3,
@@ -43,6 +44,9 @@ export default async function TarefasPage() {
           </p>
           <h4>Ícones e botões</h4>
           <ul className="icon-legend">
+            <li>
+              <Search size={14} strokeWidth={1.8} aria-hidden="true" /> Buscar tarefas (atalho: /)
+            </li>
             <li>
               <Filter size={14} strokeWidth={1.8} aria-hidden="true" /> Filtrar tarefas
             </li>

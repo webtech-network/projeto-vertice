@@ -25,3 +25,6 @@ frontmatter (`accepted` ou `superseded`). Se uma decisão for revertida, marcar
 | [0012](0012-workspace-base-sintetico.md) | Workspace "Base" é sintético, nunca um registro |
 | [0013](0013-distribuicao-pares-por-grupos.md) | Avaliação por pares entre grupos por deslocamento circular; "refazer" como diff |
 | [0014](0014-consolidacao-avaliacao-por-pares.md) | Consolidação de pares: média na escala da atividade, penalidade proporcional, envio por aluno |
+| [0015](0015-cache-local-tanstack-query.md) | Cache local por usuário com TanStack Query persistido em IndexedDB; validade por volatilidade |
+| [0016](0016-refresh-single-flight-leituras-paralelas.md) | Refresh do token Canvas single-flight; leituras paralelas com concorrência limitada, escritas sequenciais |
+| [0017](0017-cache-local-tarefas-e-ambientes.md) | Tarefas, projetos e ambientes espelhados no cache local; pinta do cache e revalida |
