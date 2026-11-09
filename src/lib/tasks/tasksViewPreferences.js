@@ -11,15 +11,15 @@ import { upsertUiPreferences } from '@/lib/uiPreferences';
 // nunca sobrevivendo a fechar a aba nem sincronizando entre dispositivos.
 // Removido por pedido explícito do usuário: agora qualquer toggle feito
 // direto na tela de Tarefas grava aqui mesmo, na única fonte.
-const DEFAULTS_KEY = 'canvastools:tarefas-default-prefs';
+const DEFAULTS_KEY = 'vertice:tarefas-default-prefs';
 
 // Pre-dates this two-tier system — density and Backlog/Block collapse used
 // to each persist under their own always-on localStorage key, no "default
 // vs session" distinction. Folded into the new default tier below (one-time,
 // on first read) so a professor who'd already set these doesn't see them
 // silently reset to FALLBACK_PREFERENCES.
-const LEGACY_DENSITY_KEY = 'canvastools:workspace-card-density';
-const LEGACY_STAGES_COLLAPSED_KEY = 'canvastools:workspace-stages-collapsed';
+const LEGACY_DENSITY_KEY = 'vertice:workspace-card-density';
+const LEGACY_STAGES_COLLAPSED_KEY = 'vertice:workspace-stages-collapsed';
 
 export const FALLBACK_PREFERENCES = {
   cardDensity: 'expanded',

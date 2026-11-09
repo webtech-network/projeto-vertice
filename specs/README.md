@@ -1,4 +1,4 @@
-# Specs do Vértice (CanvasTools)
+# Specs do Vértice
 
 Esta pasta é a **fonte de verdade das especificações** do Vértice. Ela substitui o antigo
 `CLAUDE.md` monolítico (≈50 KB carregados em toda sessão) por **specs modulares, carregáveis

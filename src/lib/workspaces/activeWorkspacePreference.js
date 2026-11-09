@@ -8,7 +8,7 @@ import { upsertUiPreferences } from '@/lib/uiPreferences';
 // (ui_preferences.active_workspace_id) — pedido explícito do usuário.
 // localStorage continua sendo o cache local rápido/síncrono (evita
 // hydration mismatch, ver WorkspaceScopeProvider.jsx).
-const ACTIVE_WORKSPACE_KEY = 'canvastools:active-workspace-id';
+const ACTIVE_WORKSPACE_KEY = 'vertice:active-workspace-id';
 
 export function getActiveWorkspaceId() {
   if (typeof window === 'undefined') return BASE_WORKSPACE_ID;

@@ -27,7 +27,7 @@ const NAV_ITEMS = [
   { href: '/tutorial', label: 'Tutorial', Icon: BookOpen },
 ];
 
-// The CanvasTools mark used to sit here as a link to "/" — that job moved to
+// The Vértice mark used to sit here as a link to "/" — that job moved to
 // the full logo lockup in Topbar.jsx (see Topbar's own comment). This spot
 // is now the collapse/expand toggle instead: collapsed shows icons only
 // (same width as the mobile breakpoint's narrow sidebar, --sidebar-width-

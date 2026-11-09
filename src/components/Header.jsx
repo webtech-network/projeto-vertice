@@ -10,7 +10,7 @@ export default async function Header() {
   return (
     <header className="site-header">
       <Link href={loggedIn ? '/courses' : '/login'} className="brand">
-        <Image src={logo} alt="CanvasTools" className="brand-logo" priority />
+        <Image src={logo} alt="Vértice" className="brand-logo" priority />
       </Link>
       {loggedIn && (
         <form action="/api/auth/logout" method="POST" className="logout-form">

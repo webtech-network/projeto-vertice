@@ -3,7 +3,7 @@ import { upsertUiPreferences } from '@/lib/uiPreferences';
 // Mesmo formato de theme.js/activeWorkspacePreference.js — extraído de
 // dentro de Sidebar.jsx pra evitar import circular com
 // UiPreferencesSync.jsx (que precisa ler/escrever esta mesma chave).
-export const SIDEBAR_COLLAPSE_KEY = 'canvastools:sidebar-collapsed';
+export const SIDEBAR_COLLAPSE_KEY = 'vertice:sidebar-collapsed';
 
 export function getSidebarCollapsed() {
   if (typeof window === 'undefined') return false;

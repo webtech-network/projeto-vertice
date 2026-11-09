@@ -33,7 +33,7 @@ updated: 2026-11-09
 
 ## PWA / service worker
 
-- `public/sw.js` faz **app-shell cache apenas** (`canvastools-shell-v1`): pré-cache
+- `public/sw.js` faz **app-shell cache apenas** (`vertice-shell-v1`; o `activate` apaga o cache do nome antigo): pré-cache
   `/`, `/tarefas`, `/perfil` (só se `ok` e não-redirect); `fetch` GET same-origin
   network-first com fallback de cache (também só grava `ok` e não-redirect); passthrough
   para `/api/*` e callbacks OAuth.

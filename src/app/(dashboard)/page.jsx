@@ -38,7 +38,7 @@ export default async function HomePage() {
 
       <DashboardPanel />
 
-      {/* "Sobre o CanvasTools" moved to its own dedicated page (/sobre,
+      {/* "Sobre o Vértice" moved to its own dedicated page (/sobre,
           reachable from the sidebar's "Mais opções" menu) — this footer is
           the same horizontal bar layout as /login's (WebTechFooter.jsx's
           "bar" variant) minus the legal links, which only make sense on the

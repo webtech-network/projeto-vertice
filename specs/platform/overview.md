@@ -2,12 +2,12 @@
 title: Visão geral
 status: implemented
 domain: frontend
-updated: 2026-09-17
+updated: 2026-11-09
 ---
 
 # Visão geral
 
-> O Vértice (produto "CanvasTools") é um app Next.js de organização pessoal e acadêmica
+> O Vértice é um app Next.js de organização pessoal e acadêmica
 > para professores, com o Canvas LMS como integração opcional e geração de questões por IA.
 
 ## Stack
@@ -18,7 +18,9 @@ updated: 2026-09-17
 - Canvas via **client próprio** (`src/lib/canvasClient.js`), não SDK.
 - IA via **adapters próprios** (`src/lib/aiProviders/`), sem SDK de vendor.
 - libs de apoio: `@dnd-kit/core`, `lucide-react`, `ajv`, `idb` (IndexedDB), `date-fns`.
-- Nome npm `canvas-tools`; a pasta legada `tools/CanvasQuiz` não foi renomeada.
+- Nome npm `vertice`; a pasta legada `tools/CanvasQuiz` não foi renomeada. Identificadores de
+  armazenamento do nome antigo são migrados no cliente — ver
+  [ADR-0018](../decisions/0018-renomeacao-identificadores-vertice.md).
 
 ## A migração Fase 1 / Fase 2 (contexto essencial)
 

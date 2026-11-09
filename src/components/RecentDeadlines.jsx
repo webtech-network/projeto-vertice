@@ -13,7 +13,7 @@ function formatDate(iso) {
 // Renders deriveRecentWindow()'s up-to-5 items (see src/lib/dashboard.js):
 // up to 2 most-recent-past + the rest upcoming, within a ±7 day window.
 // Each row uses the shared ActivityGradeLink (see that file) so clicking the
-// row itself opens the activity's grading page inside CanvasTools; the
+// row itself opens the activity's grading page inside Vértice; the
 // trailing SpeedGrader icon here is this card's own addition on top of that
 // shared component — `baseUrl` is derived from the item's own `htmlUrl`
 // (RecentDeadlines has no session.baseUrl of its own to work with, unlike

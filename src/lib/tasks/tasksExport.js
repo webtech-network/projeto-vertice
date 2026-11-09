@@ -17,7 +17,7 @@ export const TASKS_EXPORT_VERSION = 1;
 
 function buildTasksExportPayload(tasks, projects, workspaces) {
   return {
-    app: 'canvastools',
+    app: 'vertice',
     kind: TASKS_EXPORT_KIND,
     version: TASKS_EXPORT_VERSION,
     exportedAt: new Date().toISOString(),
@@ -46,7 +46,7 @@ export async function exportTasksFile() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `canvastools-tarefas-${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = `vertice-tarefas-${new Date().toISOString().slice(0, 10)}.json`;
   document.body.appendChild(a);
   a.click();
   a.remove();

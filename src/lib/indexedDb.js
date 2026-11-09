@@ -1,6 +1,9 @@
-import { openDB } from 'idb';
+import { openDB, deleteDB } from 'idb';
 
-const DB_NAME = 'canvastools';
+// Renomeado com o produto (CanvasTools → Vértice). O banco antigo é migrado
+// uma vez por migrateLegacyDb() abaixo — ver ADR-0018.
+const DB_NAME = 'vertice';
+const LEGACY_DB_NAME = 'canvastools';
 // NOTE: bumped straight from 6 to 8, skipping 7 — during development some
 // browsers ran openDB(..., 7) in the narrow window between the version bump
 // and the STORE_WORKSPACES/STORE_WORKSPACE_LINKS createObjectStore calls
@@ -77,9 +80,51 @@ function getDb() {
           db.createObjectStore(STORE_WORKSPACE_LINKS, { keyPath: 'id' });
         }
       },
+    }).then(async (db) => {
+      await migrateLegacyDb(db);
+      return db;
     });
   }
   return dbPromise;
+}
+
+// Copia o banco do nome antigo (`canvastools`) para este, uma vez: tokens de
+// conexão GitHub/Google e os stores legados que a importação manual de
+// src/lib/migration ainda lê. O store `cache` fica de fora — é reconstruído
+// sozinho e pode ser de outro usuário. Só acrescenta registros que ainda não
+// existem aqui (nunca sobrescreve um mais novo), então repetir é inofensivo:
+// se a exclusão do banco antigo ficar bloqueada por outra aba aberta, o
+// próximo carregamento tenta de novo. Sem `indexedDB.databases()` (navegador
+// antigo), não há como saber se o banco antigo existe sem criá-lo: pula.
+async function migrateLegacyDb(db) {
+  try {
+    if (typeof indexedDB.databases !== 'function') return;
+    const existing = await indexedDB.databases();
+    if (!existing.some((info) => info.name === LEGACY_DB_NAME)) return;
+
+    const legacy = await openDB(LEGACY_DB_NAME);
+    try {
+      for (const storeName of Array.from(legacy.objectStoreNames)) {
+        if (storeName === STORE_CACHE || !db.objectStoreNames.contains(storeName)) continue;
+        const records = await legacy.getAll(storeName);
+        if (records.length === 0) continue;
+        const tx = db.transaction(storeName, 'readwrite');
+        const { keyPath } = tx.store;
+        const present = new Set(await tx.store.getAllKeys());
+        for (const record of records) {
+          if (!present.has(record[keyPath])) await tx.store.put(record);
+        }
+        await tx.done;
+      }
+    } finally {
+      legacy.close();
+    }
+    // Sem await: se outra aba (com o código antigo) mantém o banco aberto,
+    // a exclusão espera em segundo plano em vez de travar o app.
+    deleteDB(LEGACY_DB_NAME).catch(() => {});
+  } catch {
+    // Migração é best-effort: o app segue com o banco novo.
+  }
 }
 
 export async function dbGet(storeName, key) {

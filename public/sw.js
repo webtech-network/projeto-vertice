@@ -2,7 +2,9 @@
 // now (not IndexedDB+Drive), so there's no client-side sync to nudge on
 // reconnect anymore. Lets cached pages keep working when offline.
 
-const SHELL_CACHE = 'canvastools-shell-v1';
+// Renamed from 'canvastools-shell-v1' with the product (CanvasTools → Vértice):
+// `activate` below deletes every cache that isn't this one, old name included.
+const SHELL_CACHE = 'vertice-shell-v1';
 
 // Never intercepted or cached — all four set/read the session cookie or
 // return an auth-sensitive redirect. Caching any of them risks serving a

@@ -2,14 +2,14 @@
 title: Login e página de entrada
 status: implemented
 domain: frontend
-updated: 2026-09-17
+updated: 2026-11-09
 ---
 
 # Login e página de entrada
 
 > A tela de `/login` (fora do route group, alcançável sem sessão) e o gating da home.
 > A "capa" de marketing não fica antes do login — fica **dentro** do dashboard, e hoje é
-> o painel de widgets (ver [dashboard.md](dashboard.md)); o conteúdo "Sobre o CanvasTools"
+> o painel de widgets (ver [dashboard.md](dashboard.md)); o conteúdo "Sobre o Vértice"
 > migrou para `/sobre`.
 
 ## Comportamento

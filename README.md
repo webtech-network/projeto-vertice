@@ -1,4 +1,4 @@
-# CanvasTools
+# Vértice
 
 Web app e CLI para importar em lote questões de múltipla escolha para quizzes do Canvas LMS.
 

@@ -5,7 +5,7 @@ import { ExternalLink } from 'lucide-react';
 
 // Shared by PendingGradingList.jsx and RecentDeadlines.jsx — both render a
 // list of assignment items where the row itself should open the grading
-// page inside CanvasTools, while a small icon right after the title opens
+// page inside Vértice, while a small icon right after the title opens
 // the same activity in Canvas LMS. `trailing` is whatever badge each caller
 // puts on the right (PendingGradingList's pending count, RecentDeadlines'
 // SpeedGrader icon + overdue/upcoming date tag).

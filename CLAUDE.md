@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Guia de entrada do **Vértice** (CanvasTools). Este arquivo é **intencionalmente mínimo**:
+Guia de entrada do **Vértice**. Este arquivo é **intencionalmente mínimo**:
 o conhecimento vive nas specs — aqui só apontamos para elas.
 
 ## O que é

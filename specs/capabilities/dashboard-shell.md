@@ -2,7 +2,7 @@
 title: Shell do dashboard (Sidebar/Topbar/tema)
 status: implemented
 domain: frontend
-updated: 2026-09-17
+updated: 2026-11-09
 ---
 
 # Shell do dashboard
@@ -18,8 +18,9 @@ updated: 2026-09-17
   traço claro e não lê sobre fundo claro. Logo → `<Link href="/">`.
 - **Topbar** (Server Component, lê `getSupabaseUser()`): `WorkspaceSwitcher` + `UserMenu`.
   `UserMenu` é um `<Link href="/perfil">` (não dropdown) + botão de logout como
-  `<form method="POST">` (sem JS client), e botão "Instalar app" (PWA) quando disponível.
-- **Tema** claro/escuro: alternável no UserMenu; persiste em `canvastools:theme`
+  `<form method="POST">` cujo `onSubmit` limpa o cache local (consultas, IndexedDB e páginas
+  do service worker) antes de enviar, e botão "Instalar app" (PWA) quando disponível.
+- **Tema** claro/escuro: alternável no UserMenu; persiste em `vertice:theme`
   (localStorage) + `ui_preferences` (Postgres).
 - Cada `<main className="page">` é a superfície de "card" (fundo branco, borda, sombra)
   sobre o `--paper` de `.dashboard-content` — por isso `.page` carrega o estilo de card.
@@ -32,7 +33,7 @@ updated: 2026-09-17
 
 ## Dados e persistência
 
-- `canvastools:theme`, `canvastools:sidebar-collapsed`, `canvastools:active-workspace-id` no
+- `vertice:theme`, `vertice:sidebar-collapsed`, `vertice:active-workspace-id` no
   localStorage, com write-through para `ui_preferences` (ver [data-storage.md](../platform/data-storage.md)).
 
 ## Invariantes e gotchas

@@ -28,3 +28,4 @@ frontmatter (`accepted` ou `superseded`). Se uma decisão for revertida, marcar
 | [0015](0015-cache-local-tanstack-query.md) | Cache local por usuário com TanStack Query persistido em IndexedDB; validade por volatilidade |
 | [0016](0016-refresh-single-flight-leituras-paralelas.md) | Refresh do token Canvas single-flight; leituras paralelas com concorrência limitada, escritas sequenciais |
 | [0017](0017-cache-local-tarefas-e-ambientes.md) | Tarefas, projetos e ambientes espelhados no cache local; pinta do cache e revalida |
+| [0018](0018-renomeacao-identificadores-vertice.md) | Identificadores de armazenamento renomeados para `vertice`, com migração no cliente |

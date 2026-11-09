@@ -32,7 +32,7 @@ Tabelas em `public.*`, todas com `user_id` + RLS `auth.uid() = user_id` (detalhe
 
 ## IndexedDB — o que ainda é lido de verdade
 
-DB `canvastools` (v8). **Stores ativos**: `cache` (cache de consultas do Canvas, ver abaixo)
+DB `vertice` (v8; antes `canvastools`, migrado uma vez no cliente — [ADR-0018](../decisions/0018-renomeacao-identificadores-vertice.md)). **Stores ativos**: `cache` (cache de consultas do Canvas, ver abaixo)
 e `github`/`google` (tokens de conexão). **Legados** (definidos mas não lidos, pois migraram
 pro Postgres): `tasks`, `projects`, `workspaces`, `workspaceLinks`, `shortcuts`, `prompts`,
 `courseNotes`.
@@ -61,8 +61,9 @@ pro Postgres): `tasks`, `projects`, `workspaces`, `workspaceLinks`, `shortcuts`,
 
 ## localStorage — cache síncrono de UI (write-through)
 
-Chaves reais: `canvastools:theme`, `canvastools:sidebar-collapsed`,
-`canvastools:active-workspace-id`, `canvastools:tarefas-default-prefs`. Todas são **cache
+Chaves reais: `vertice:theme`, `vertice:sidebar-collapsed`,
+`vertice:active-workspace-id`, `vertice:tarefas-default-prefs` (as antigas `canvastools:*` são
+migradas pelo script de tema, antes de qualquer leitura). Todas são **cache
 local + write-through** para `ui_preferences` (Postgres), reconciliadas uma vez no mount por
 `ensureUiPreferencesSynced()` (`UiPreferencesSync.jsx`). Sem Realtime para prefs (decisão
 intencional).

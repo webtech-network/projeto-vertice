@@ -61,7 +61,7 @@ Legenda: `canvas` · `ai` · `data` · `frontend` (domínios de produto) · `bac
 
 ## Decisions (ADRs)
 
-Veja [decisions/README.md](decisions/README.md) — 17 ADRs cobrindo as decisões "intencionais,
+Veja [decisions/README.md](decisions/README.md) — 18 ADRs cobrindo as decisões "intencionais,
 não é bug" que antes viviam no `CLAUDE.md`.
 
 ## Agents (orquestração)
