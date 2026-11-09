@@ -230,6 +230,20 @@ export async function deletePeerReview(client, courseId, assignmentId, submissio
   return response.data;
 }
 
+/**
+ * Fetches one rubric. With `include: ['peer_assessments']` the response
+ * carries `assessments[]` (assessor_id, artifact_id = submission id, score,
+ * data[].comments) — for EVERY assignment that uses this rubric, so callers
+ * must filter by their own assignment's submission ids. The rubric id comes
+ * from `assignment.rubric_settings.id`.
+ */
+export async function getRubric(client, courseId, rubricId, { include = [] } = {}) {
+  const response = await client.get(`/courses/${courseId}/rubrics/${rubricId}`, {
+    params: { style: 'full', ...(include.length ? { 'include[]': include } : {}) },
+  });
+  return response.data;
+}
+
 export async function getQuiz(client, courseId, quizId) {
   const response = await client.get(`/courses/${courseId}/quizzes/${quizId}`);
   return response.data;

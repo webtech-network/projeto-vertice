@@ -60,14 +60,19 @@ const CSV_HEADERS = [
   'Nota final',
 ];
 
-function rowsToCsv(rows, engagementResults) {
-  const lines = [CSV_HEADERS.join(',')];
+// `groupColumns`: [{ header, groupsByStudent: Map<studentId, string[]> }] —
+// uma coluna por conjunto de grupos do curso, logo após "E-mail/Login".
+function rowsToCsv(rows, engagementResults, groupColumns) {
+  const headers = [...CSV_HEADERS];
+  headers.splice(2, 0, ...groupColumns.map((col) => col.header));
+  const lines = [headers.map(csvEscape).join(',')];
   for (const row of rows) {
     const risk = engagementResults.get(row.id);
     lines.push(
       [
         row.name,
         row.contact,
+        ...groupColumns.map((col) => (col.groupsByStudent.get(row.id) || []).join('; ')),
         ENROLLMENT_STATE_LABELS[row.enrollmentState] || '—',
         risk?.riskLevel ? RISK_LABEL[risk.riskLevel] : '—',
         risk?.score != null ? Math.round(risk.score) : '—',
@@ -83,8 +88,25 @@ function rowsToCsv(rows, engagementResults) {
   return lines.join('\n');
 }
 
-function downloadCsv(rows, engagementResults) {
-  const csv = rowsToCsv(rows, engagementResults);
+function buildGroupColumns(categories, groupsByCategory) {
+  if (categories.length === 0) return [{ header: 'Grupo', groupsByStudent: new Map() }];
+  return categories.map((category) => {
+    const groupsByStudent = new Map();
+    for (const group of groupsByCategory[category.id] || []) {
+      for (const memberId of group.memberIds || []) {
+        if (!groupsByStudent.has(memberId)) groupsByStudent.set(memberId, []);
+        groupsByStudent.get(memberId).push(group.name);
+      }
+    }
+    return {
+      header: categories.length === 1 ? 'Grupo' : `Grupo (${category.name})`,
+      groupsByStudent,
+    };
+  });
+}
+
+function downloadCsv(rows, engagementResults, groupColumns) {
+  const csv = rowsToCsv(rows, engagementResults, groupColumns);
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -179,6 +201,35 @@ export default function StudentReport({ rows, courseId, baseUrl, integrations = 
       setGroupsState({ loading: false, error: null });
     } catch {
       setGroupsState({ loading: false, error: 'Falha ao carregar os grupos do Canvas.' });
+    }
+  }
+
+  // Exportação: carrega os membros de todos os conjuntos ainda não cacheados
+  // (best-effort — conjunto que falhar sai com a coluna vazia) e gera o CSV
+  // com uma coluna de grupo por conjunto.
+  const [exporting, setExporting] = useState(false);
+
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const missing = categories.filter((c) => !groupsByCategory[c.id]);
+      const loaded = await Promise.all(
+        missing.map(async (c) => {
+          try {
+            const response = await fetch(`/api/canvas/courses/${courseId}/group-categories/${c.id}/groups`);
+            const data = await response.json();
+            return data.error ? null : [c.id, data.groups || []];
+          } catch {
+            return null;
+          }
+        }),
+      );
+      const fetched = Object.fromEntries(loaded.filter(Boolean));
+      const allGroups = { ...groupsByCategory, ...fetched };
+      if (Object.keys(fetched).length) setGroupsByCategory((prev) => ({ ...prev, ...fetched }));
+      downloadCsv(filtered, engagement.results, buildGroupColumns(categories, allGroups));
+    } finally {
+      setExporting(false);
     }
   }
 
@@ -453,9 +504,10 @@ export default function StudentReport({ rows, courseId, baseUrl, integrations = 
           <button
             type="button"
             className="btn btn-primary btn-icon"
-            title="Exportar Dados (CSV)"
+            title={exporting ? 'Exportando…' : 'Exportar Dados (CSV)'}
             aria-label="Exportar Dados (CSV)"
-            onClick={() => downloadCsv(filtered, engagement.results)}
+            disabled={exporting}
+            onClick={handleExport}
           >
             <Download size={18} strokeWidth={1.8} />
           </button>

@@ -4758,6 +4758,182 @@ tr.is-expanded .course-name-btn {
   margin-top: 0.5rem;
 }
 
+/* Title row with more than one trailing control (InfoHint + a link button):
+   keeps them together on the right instead of space-between spreading them. */
+.page-title-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* PeerReviewGrader.jsx — consolidação da avaliação por pares. Reuses the
+   rubric-grader table/toolbar look; only what's specific lives here. */
+.peer-grader-penalty {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.9rem 1.1rem 1rem;
+  margin: 0 0 1.25rem;
+}
+.peer-grader-penalty legend {
+  padding: 0 0.4rem;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+.peer-grader-penalty-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1rem;
+}
+.peer-grader-penalty-text {
+  flex: 1 1 280px;
+}
+.peer-grader-penalty-text input {
+  width: 100%;
+}
+.peer-grader-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+.peer-grader-filters {
+  flex-wrap: wrap;
+  margin: 0.25rem 0 0.5rem;
+}
+.peer-grader-muted {
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+}
+.peer-grader-scores {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+.peer-grader-scores strong {
+  display: inline-block;
+  min-width: 2.5rem;
+}
+.peer-grader-penalty-cell {
+  white-space: nowrap;
+}
+.peer-grader-table input[type='number'] {
+  font: inherit;
+  font-size: 0.85rem;
+  width: 5.5rem;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+}
+.peer-grader-penalty-cell input[type='number'] {
+  width: 4.5rem;
+  margin-left: 0.4rem;
+}
+.peer-grader-table input[type='number']:disabled {
+  opacity: 0.5;
+}
+.peer-grader-grade.is-invalid {
+  border-color: var(--err);
+  background: var(--err-bg);
+}
+.peer-grader-detail > * + * {
+  margin-top: 1rem;
+}
+.peer-grader-detail h3 {
+  font-size: 0.92rem;
+  margin: 0 0 0.5rem;
+}
+.peer-grader-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem 1.5rem;
+}
+.peer-grader-review-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.peer-grader-review-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.5rem;
+}
+.peer-grader-discard-btn {
+  margin-left: auto;
+}
+/* Avaliação desconsiderada: some da média — fica riscada e esmaecida. */
+.peer-grader-scores li.is-discarded,
+.peer-grader-review-list > li.is-discarded .peer-grader-comments,
+.peer-grader-review-list > li.is-discarded .peer-grader-review-head > strong {
+  text-decoration: line-through;
+  opacity: 0.55;
+}
+.peer-grader-legend-discarded {
+  text-decoration: line-through;
+  opacity: 0.55;
+  font-weight: 600;
+}
+.peer-grader-suspect-icon {
+  color: var(--warn);
+  margin-left: 0.3rem;
+  vertical-align: -1px;
+}
+.peer-grader-suspect-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  color: var(--warn);
+  background: var(--warn-bg);
+}
+.peer-grader-discarded-note {
+  color: var(--err);
+  font-size: 0.85rem;
+}
+/* Desvio padrão das notas recebidas (dispersionLevel): neutro / aviso / alerta. */
+.peer-grader-sd {
+  display: inline-block;
+  min-width: 2.6rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
+  color: var(--ink-soft);
+}
+.peer-grader-sd.is-warn {
+  color: var(--warn);
+  background: var(--warn-bg);
+}
+.peer-grader-sd.is-high {
+  color: var(--err);
+  background: var(--err-bg);
+}
+.peer-grader-comments {
+  margin: 0.3rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.88rem;
+  white-space: pre-wrap;
+}
+@media (max-width: 640px) {
+  .peer-grader-actions {
+    margin-left: 0;
+  }
+  .peer-grader-actions .btn {
+    padding: 0.5rem;
+    gap: 0;
+  }
+}
+
 /* Tooltip instantâneo (InstantTooltip.jsx) — substitui o `title` nativo, que
    demora ~1s para aparecer. Fica acima de modais e popovers. */
 .instant-tooltip {

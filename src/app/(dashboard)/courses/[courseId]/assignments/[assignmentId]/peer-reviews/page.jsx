@@ -1,3 +1,5 @@
+import Link from 'next/link';
+import { Scale } from 'lucide-react';
 import { requireCanvasIntegration } from '@/lib/canvasIntegration';
 import {
   getCourse,
@@ -93,20 +95,30 @@ export default async function PeerReviewsPage({ params }) {
     <main className="page">
       <div className="page-title-row">
         <h1>Avaliação por pares</h1>
-        <InfoHint label="Sobre a distribuição de avaliação por pares">
-          <p>
-            Distribui as avaliações por pares de modo que cada aluno avalie apenas colegas de <strong>outros
-            grupos</strong>, com a mesma quantidade de revisões para todos sempre que possível.
-          </p>
-          <p>
-            Só participam alunos que entregaram a atividade. Quem entregou sem estar em nenhum grupo do conjunto
-            escolhido é tratado como um grupo de uma pessoa.
-          </p>
-          <p>
-            Nada muda no Canvas até você clicar em "Aplicar no Canvas". A aplicação refaz a distribuição do zero:
-            revisões existentes que não estão no plano são removidas.
-          </p>
-        </InfoHint>
+        <div className="page-title-actions">
+          <InfoHint label="Sobre a distribuição de avaliação por pares">
+            <p>
+              Distribui as avaliações por pares de modo que cada aluno avalie apenas colegas de <strong>outros
+              grupos</strong>, com a mesma quantidade de revisões para todos sempre que possível.
+            </p>
+            <p>
+              Só participam alunos que entregaram a atividade. Quem entregou sem estar em nenhum grupo do conjunto
+              escolhido é tratado como um grupo de uma pessoa.
+            </p>
+            <p>
+              Nada muda no Canvas até você clicar em "Aplicar no Canvas". A aplicação refaz a distribuição do zero:
+              revisões existentes que não estão no plano são removidas.
+            </p>
+          </InfoHint>
+          <Link
+            href={`/courses/${courseId}/assignments/${assignmentId}/peer-grading`}
+            className="btn btn-secondary"
+            title="Consolidar avaliação por pares"
+          >
+            <Scale size={16} strokeWidth={1.8} />
+            Consolidação
+          </Link>
+        </div>
       </div>
       <ContextBanner
         items={[

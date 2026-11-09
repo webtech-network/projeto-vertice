@@ -11,6 +11,7 @@ import {
   CircleDashed,
   ExternalLink,
   Shuffle,
+  Scale,
 } from 'lucide-react';
 import StatusIcon from './StatusIcon';
 import SortIcon from './SortIcon';
@@ -276,6 +277,18 @@ export default function AssignmentsTable({ courseId, assignments }) {
                             aria-label="Distribuir avaliação por pares"
                           >
                             <Shuffle size={18} strokeWidth={1.8} />
+                          </Link>
+                        )}
+                        {/* Same condition — consolidates the peers' grades/comments
+                            into a final grade (specs/capabilities/peer-review-grading.md). */}
+                        {assignment.peer_reviews && (
+                          <Link
+                            href={`/courses/${courseId}/assignments/${assignment.id}/peer-grading`}
+                            className="btn btn-primary btn-icon"
+                            title="Consolidar avaliação por pares"
+                            aria-label="Consolidar avaliação por pares"
+                          >
+                            <Scale size={18} strokeWidth={1.8} />
                           </Link>
                         )}
                       </td>

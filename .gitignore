@@ -12,3 +12,6 @@ node_modules
 
 # Dados do Postgres self-hosted (Supabase) — bind mount externo, nunca versionado
 /supabase/volumes/db/data
+
+# Ferramenta legada de consolidação de pares — referência histórica (ADR-0014)
+/avaliacao_pares/

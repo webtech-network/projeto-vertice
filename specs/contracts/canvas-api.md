@@ -2,7 +2,7 @@
 title: Cliente da API do Canvas
 status: implemented
 domain: canvas
-updated: 2026-10-18
+updated: 2026-11-08
 ---
 
 # Cliente da API do Canvas
@@ -49,7 +49,10 @@ userId, payload)` (PUT; payload já no shape `{ rubric_assessment, submission, c
 `listPeerReviews(courseId, assignmentId)` (`GET .../assignments/:aid/peer_reviews`),
 `createPeerReview(courseId, assignmentId, submissionId, userId)` (POST
 `.../submissions/:submission_id/peer_reviews`, `user_id` = revisor) e
-`deletePeerReview(...)` (DELETE no mesmo caminho, `user_id` como parâmetro).
+`deletePeerReview(...)` (DELETE no mesmo caminho, `user_id` como parâmetro) e
+`getRubric(courseId, rubricId, { include })` (`GET /courses/:id/rubrics/:rid`, `style=full`;
+com `include: ['peer_assessments']` traz `assessments[]` com `assessor_id`, `artifact_id` =
+id da submissão, `score` e `data[].comments`).
 
 **Mensagens (Inbox)**: `listConversations({ filter, scope })` (exclui arquivadas por padrão),
 `getConversation(id)` (thread completa, sob demanda), `archiveConversation(id)`,
@@ -78,6 +81,10 @@ inteiro; 404/403 = conta sem Analytics), `getStudentAssignmentAnalytics(courseId
 - `peer_reviews`, `peer_review_count`, `automatic_peer_reviews` e `intra_group_peer_reviews`
   vêm no próprio objeto Assignment. O path de peer review usa o **id da submissão**, não o
   do aluno; no item retornado, `assessor_id` = revisor e `user_id` = dono da submissão.
+- `getRubric` com `peer_assessments` traz as avaliações de **todas** as atividades que usam
+  a rubrica: filtre por `artifact_id` ∈ submissões da atividade. O id da rubrica vem de
+  `assignment.rubric_settings.id`.
+- `posted_grade` vazio num PUT de submissão **remove** a nota: nunca envie nota vazia.
 - Nunca `Promise.all` em chamadas Canvas multi-step nas páginas (race em refresh concorrente);
   páginas encadeiam sequencialmente.
 
@@ -86,4 +93,5 @@ inteiro; 404/403 = conta sem Analytics), `getStudentAssignmentAnalytics(courseId
 - [canvas-integration.md](../platform/canvas-integration.md) ·
   [rubric-grading.md](../capabilities/rubric-grading.md) ·
   [messages.md](../capabilities/messages.md) · [student-engagement.md](../capabilities/student-engagement.md) ·
-  [peer-review-distribution.md](../capabilities/peer-review-distribution.md)
+  [peer-review-distribution.md](../capabilities/peer-review-distribution.md) ·
+  [peer-review-grading.md](../capabilities/peer-review-grading.md)

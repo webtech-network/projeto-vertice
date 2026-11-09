@@ -30,7 +30,12 @@ updated: 2026-09-17
   3. **Exibir colunas de análise** — toggle (`aria-pressed`, ligado por padrão): Nível de Risco,
      Última atividade, Tempo de atividade, Nota atual e Nota final.
   4. **Analisar risco de evasão** — roda o cálculo do Nível de Risco (abaixo).
-  5. **Exportar Dados (CSV)** — sempre todas as colunas.
+  5. **Exportar Dados (CSV)** — sempre todas as colunas, mais a coluna de grupo logo após
+     "E-mail/Login": uma por conjunto de grupos do curso (`Grupo` se houver um só conjunto ou
+     nenhum; `Grupo (<conjunto>)` se houver vários), independente do "Agrupar por" escolhido.
+     Membros dos conjuntos ainda não carregados são buscados no clique; falha num conjunto deixa
+     a coluna vazia, sem bloquear a exportação. Aluno em mais de um grupo do mesmo conjunto:
+     nomes separados por `; `.
   Seções: uma por grupo (+ "Sem grupo"); ordenação/filtros valem dentro de cada seção.
 - **Bandas relativas à turma**, não cortes absolutos: o rótulo pode mudar entre duas análises
   sem o score próprio mexer muito, se a turma mexeu mais — comportamento intencional.

@@ -21,7 +21,8 @@ capacidade substitui o script avulso `distribuir.php`
 
 - **Entrada**: botão "Distribuir avaliação por pares" na aba Atividades
   ([atividades.md](atividades.md)), exibido **somente** quando `assignment.peer_reviews`.
-  Ele leva a `courses/[id]/assignments/[aid]/peer-reviews`.
+  Ele leva a `courses/[id]/assignments/[aid]/peer-reviews`. A página tem um link para a
+  consolidação ([peer-review-grading.md](peer-review-grading.md)).
 - **Conjunto de grupos** (group category do curso):
   - Se a atividade tem `group_category_id`, esse conjunto vem pré-selecionado.
   - Se o curso tem um único conjunto, ele é o padrão e o seletor fica oculto.
@@ -99,5 +100,6 @@ plano existe só em memória até ser aplicado.
 
 ## Dependências
 
-- [atividades.md](atividades.md) · [course-workspace.md](course-workspace.md) ·
+- [atividades.md](atividades.md) · [peer-review-grading.md](peer-review-grading.md) ·
+  [course-workspace.md](course-workspace.md) ·
   [canvas-integration.md](../platform/canvas-integration.md)

@@ -2,13 +2,13 @@
 title: Atividades (assignments) do curso
 status: implemented
 domain: canvas
-updated: 2026-10-18
+updated: 2026-11-08
 ---
 
 # Atividades (assignments) do curso
 
 > A aba "Atividades" do workspace do curso: lista os assignments e dá acesso a importar
-> questões, corrigir com rubrica e distribuir a avaliação por pares entre grupos.
+> questões, corrigir com rubrica e distribuir e consolidar a avaliação por pares.
 
 ## Comportamento
 
@@ -24,6 +24,9 @@ updated: 2026-10-18
   `assignment.peer_reviews` é truthy (campo do objeto Assignment) →
   `courses/[id]/assignments/[assignmentId]/peer-reviews`
   ([peer-review-distribution.md](peer-review-distribution.md)).
+- Botão **"Consolidar avaliação por pares"** aparece com a mesma condição
+  (`assignment.peer_reviews`) → `courses/[id]/assignments/[assignmentId]/peer-grading`
+  ([peer-review-grading.md](peer-review-grading.md)).
 - A rota `/courses/[id]/atividades` hoje é redirect para `/courses/[id]?tab=atividades`.
 
 ## Arquivos-chave
@@ -39,4 +42,4 @@ updated: 2026-10-18
 
 - [quiz-import.md](quiz-import.md) · [rubric-grading.md](rubric-grading.md) ·
   [peer-review-distribution.md](peer-review-distribution.md) ·
-  [course-workspace.md](course-workspace.md)
+  [peer-review-grading.md](peer-review-grading.md) · [course-workspace.md](course-workspace.md)

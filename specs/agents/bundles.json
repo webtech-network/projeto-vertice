@@ -38,15 +38,17 @@
     },
     {
       "id": "canvas-peer-review",
-      "keywords": ["avaliação por pares", "avaliacao por pares", "peer review", "peer_review", "pares", "revisão por pares", "revisao por pares", "distribuir", "distribuição", "conjunto de grupos", "group category"],
+      "keywords": ["avaliação por pares", "avaliacao por pares", "peer review", "peer_review", "pares", "revisão por pares", "revisao por pares", "distribuir", "distribuição", "conjunto de grupos", "group category", "consolidar", "consolidação", "penalidade", "média dos pares", "notas dos pares"],
       "files": [
         "platform/canvas-integration.md",
         "contracts/canvas-api.md",
         "capabilities/atividades.md",
         "capabilities/peer-review-distribution.md",
-        "decisions/0013-distribuicao-pares-por-grupos.md"
+        "capabilities/peer-review-grading.md",
+        "decisions/0013-distribuicao-pares-por-grupos.md",
+        "decisions/0014-consolidacao-avaliacao-por-pares.md"
       ],
-      "note": "Distribuição de avaliação por pares entre grupos"
+      "note": "Distribuição e consolidação da avaliação por pares"
     },
     {
       "id": "canvas-messages",
