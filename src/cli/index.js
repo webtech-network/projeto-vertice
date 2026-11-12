@@ -2,7 +2,12 @@ import fs from 'fs/promises';
 import path from 'path';
 import dotenv from 'dotenv';
 import { createClient, createQuestion } from '../lib/canvasClient.js';
-import { validateStructural, createSchemaValidator, toCanvasPayload } from '../lib/quizValidation.js';
+import {
+  validateStructural,
+  createSchemaValidator,
+  toCanvasPayload,
+  QUESTION_TYPE_LABELS,
+} from '../lib/quizValidation.js';
 import quizSchema from '../lib/quiz.schema.json' with { type: 'json' };
 import { red, green, yellow, cyan, bold } from './colors.js';
 import { confirm } from './prompt.js';
@@ -102,9 +107,12 @@ async function main() {
     console.log(cyan('Modo --dry-run: nenhuma chamada será feita ao Canvas.'));
     questions.forEach((q, i) => {
       const payload = toCanvasPayload(q);
+      const detail = payload.question.answers
+        ? `${payload.question.answers.length} alternativa(s)`
+        : QUESTION_TYPE_LABELS[payload.question.question_type];
       console.log(
         `  [${i + 1}/${questions.length}] "${payload.question.question_name}" — ` +
-          `${payload.question.answers.length} alternativa(s), ${payload.question.points_possible} ponto(s)`,
+          `${detail}, ${payload.question.points_possible} ponto(s)`,
       );
     });
     return;

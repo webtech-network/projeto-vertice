@@ -29,3 +29,5 @@ frontmatter (`accepted` ou `superseded`). Se uma decisão for revertida, marcar
 | [0016](0016-refresh-single-flight-leituras-paralelas.md) | Refresh do token Canvas single-flight; leituras paralelas com concorrência limitada, escritas sequenciais |
 | [0017](0017-cache-local-tarefas-e-ambientes.md) | Tarefas, projetos e ambientes espelhados no cache local; pinta do cache e revalida |
 | [0018](0018-renomeacao-identificadores-vertice.md) | Identificadores de armazenamento renomeados para `vertice`, com migração no cliente |
+| [0019](0019-questoes-abertas.md) | Questões abertas (`question_type`) no import e na geração por IA |
+| [0020](0020-preview-html-iframe-sandbox.md) | Preview fiel do HTML das questões em `iframe` sandbox, folha sempre clara |

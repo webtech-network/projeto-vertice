@@ -16,6 +16,7 @@ const TIPO_OPTIONS = [
   { value: 'RU', label: 'RU — Resposta Única' },
   { value: 'CM', label: 'CM — Complementação Múltipla' },
   { value: 'AR', label: 'AR — Asserção-Razão' },
+  { value: 'DISC', label: 'DISC — Dissertativa' },
 ];
 
 function emptySpec() {
@@ -135,7 +136,7 @@ export default function QuestionGenerator({ integrations, courseId, quizId }) {
               </li>
               <li>
                 Inicie uma conversa e peça a geração das questões, informando tema, nível
-                (baixo/intermediário/alto) e tipo (RU, CM ou AR) desejados para cada questão.
+                (baixo/intermediário/alto) e tipo (RU, CM, AR, INT ou DISC — discursiva) desejados para cada questão.
               </li>
               <li>
                 Salve o JSON retornado pelo Claude e importe-o em &quot;Enviar arquivo&quot;, na tela Questões da
@@ -290,6 +291,12 @@ export default function QuestionGenerator({ integrations, courseId, quizId }) {
                 <article key={i} className="page question-preview">
                   <h3>{q.question_name}</h3>
                   <p>{stripHtml(q.question_text)}</p>
+                  {q.feedback_comment && (
+                    <div className="lede">
+                      <strong>Resposta esperada e critérios: </strong>
+                      {stripHtml(q.feedback_comment)}
+                    </div>
+                  )}
                   <ul>
                     {(q.answers || []).map((a, j) => (
                       <li key={j}>
