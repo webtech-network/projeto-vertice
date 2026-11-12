@@ -3,7 +3,8 @@
 Este arquivo contém exemplos validados de questões no padrão ENADE para cursos de TI.
 Eles funcionam como **régua de qualidade**, não como molde temático.
 Use-os para calibrar: nível de rigor técnico, profundidade da chave de resposta,
-estrutura dos distratores e paralelismo entre alternativas.
+estrutura dos distratores, paralelismo entre alternativas e, nas discursivas,
+delimitação dos itens e objetividade do Padrão de Resposta.
 
 ---
 
@@ -220,3 +221,95 @@ E) A largura total horizontal é 370px, e o seletor do Trecho 2 aplica estilo ao
 - **Alternativa C:** (Correta). Alternativa correta. Com `content-box`, a largura total horizontal é: 300 (width) + 40 (padding) + 10 (border) + 20 (margin) = 370px. O seletor `.card > p` usa o combinador filho direto (`>`), selecionando apenas `<p>` imediatamente filhos de `.card` — o `<p>` dentro de `.details` não é atingido. Para selecionar todos os descendentes, o correto seria `.card p` (sem `>`). Como aprofundamento: a diferença entre `content-box` e `border-box` é fundamental no design de componentes — o `border-box` incluiria padding e border dentro dos 300px, simplificando cálculos de layout.
 - **Alternativa D:** (Incorreta). O cálculo de 350px está incorreto. Adicionalmente, o Trecho 2 usa seletor descendente (`.container .card .title`), que funciona em qualquer nível de aninhamento — não exige que `.title` seja filho direto de `.card`.
 - **Alternativa E:** (Incorreta). Embora os 370px estejam corretos, a interpretação do Trecho 2 está equivocada: o seletor descendente não exige relação de filho direto entre `.container` e `.title` — qualquer nível de aninhamento é válido.
+
+---
+
+## Modelo DISC — Discursiva
+
+**Disciplina/Tema:** Desenvolvimento Web — JavaScript assíncrono e Fetch API
+**Modelo:** DISC
+**Nível:** Avançado
+**Pontuação:** 2,0 pontos
+
+**[Texto-base]**
+Uma desenvolvedora júnior escreveu a função abaixo para listar os eventos cadastrados
+em uma API local (JSON Server). Ao abrir a página, a lista fica vazia e o console exibe
+`TypeError: resposta.json is not a function`.
+
+```javascript
+async function carregarEventos() {
+  const lista = document.getElementById("lista");
+  const resposta = fetch("http://localhost:3000/eventos");
+  const eventos = await resposta.json();
+  eventos.forEach((e) => {
+    lista.innerHTML += `<li>${e.nome}</li>`;
+  });
+}
+
+carregarEventos();
+```
+
+Durante a revisão, o tech lead pediu que a função também tratasse falhas da API, exibindo
+na própria lista a mensagem "Falha ao carregar os eventos." quando a requisição falhar.
+
+**[Enunciado]**
+Com base no código e no cenário apresentados, responda aos itens a seguir, em até 10 linhas
+para os itens a) e b).
+
+a) **(0,6 ponto)** Explique a causa do erro exibido no console, indicando o tipo do valor
+armazenado em `resposta` e o motivo de esse valor ter sido produzido.
+
+b) **(0,6 ponto)** Suponha que o erro do item a) tenha sido corrigido e que o endereço
+`/eventos` passe a responder com status 404. Explique por que a promessa devolvida por
+`fetch` é resolvida nessa situação e indique a propriedade do objeto `Response` que permite
+detectar a falha.
+
+c) **(0,8 ponto)** Reescreva a função `carregarEventos` corrigindo o erro do item a), detectando
+respostas com status de erro e tratando falhas de rede, de modo que a mensagem pedida pelo
+tech lead seja exibida em `#lista` nesses casos.
+
+**[Padrão de Resposta]**
+- **Item a (0,6):** `fetch` é assíncrono e devolve uma `Promise` (de um objeto `Response`).
+  Sem `await`, `resposta` guarda a própria `Promise`, que é um objeto sem o método `json`;
+  por isso a chamada `resposta.json()` lança `TypeError`. A correção é usar
+  `await fetch(...)`.
+  - *Nota integral:* identifica que `resposta` contém uma `Promise` **e** relaciona a ausência
+    de `await` ao erro de método inexistente.
+  - *Nota parcial (0,3):* aponta a falta de `await` sem explicar o tipo do valor ou o motivo
+    da mensagem de erro.
+  - *Não pontua:* atribui o erro à URL, ao servidor ou ao formato do JSON.
+- **Item b (0,6):** a promessa de `fetch` é rejeitada em falhas de rede (servidor
+  inacessível, bloqueio de CORS, conexão interrompida) ou em cancelamento; uma resposta HTTP com status de erro ainda é uma
+  resposta recebida, então a promessa é resolvida. A falha é detectada por `response.ok`
+  (falso fora da faixa 200–299) ou por `response.status`.
+  - *Nota integral:* distingue falha de rede de status HTTP de erro **e** cita `ok` ou `status`.
+  - *Nota parcial (0,3):* cita `ok`/`status` sem explicar por que a promessa é resolvida, ou
+    explica a distinção sem indicar a propriedade.
+  - *Não pontua:* afirma que o 404 rejeita a promessa ou que o erro é capturado pelo `catch`
+    sem verificação adicional.
+- **Item c (0,8):** resposta de referência (aceitar equivalentes, como `.then/.catch`):
+
+  ```javascript
+  async function carregarEventos() {
+    const lista = document.getElementById("lista");
+    try {
+      const resposta = await fetch("http://localhost:3000/eventos");
+      if (!resposta.ok) throw new Error(`HTTP ${resposta.status}`);
+      const eventos = await resposta.json();
+      lista.innerHTML = "";
+      eventos.forEach((e) => {
+        lista.innerHTML += `<li>${e.nome}</li>`;
+      });
+    } catch (erro) {
+      lista.innerHTML = "<li>Falha ao carregar os eventos.</li>";
+    }
+  }
+  ```
+
+  - *Nota integral:* `await` em `fetch` e em `json()`, verificação de `ok`/`status` que
+    desvia para o tratamento de erro **e** `try/catch` (ou `.catch`) que exibe a mensagem em
+    `#lista`.
+  - *Nota parcial (0,4):* corrige o `await` e trata falha de rede, mas deixa de verificar o
+    status (ou o contrário).
+  - *Não pontua:* exibe a mensagem com `alert`/`console.log` em vez de `#lista`, ou mantém
+    `fetch` sem `await`.

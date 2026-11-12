@@ -5114,3 +5114,115 @@ tr.is-expanded .course-name-btn {
 .data-table td.student-name--grouped {
   padding-left: 2.35rem;
 }
+
+/* Revisão das questões antes do import (QuizReviewImport): título vira
+   gatilho de acordeão, com trecho do enunciado em texto puro abaixo; a linha
+   de detalhe hospeda o QuestionPreview (iframe sandbox, folha clara — ADR-0020). */
+.quiz-review-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin-top: 1.25rem;
+}
+.quiz-review-hint {
+  color: var(--ink-soft);
+  font-size: 0.88rem;
+}
+.quiz-review-toolbar + .data-table-wrap {
+  margin-top: 0.6rem;
+}
+.quiz-review-table th {
+  /* .data-table th zera o padding (pensado para o .th-sort-btn); aqui os
+     cabeçalhos são texto puro. */
+  padding: 0.65rem 0.85rem;
+  white-space: nowrap;
+}
+.quiz-review-question-cell {
+  min-width: 16rem;
+}
+.quiz-review-title-btn {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 0.35rem;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.quiz-review-title-btn .group-chevron {
+  margin-top: 0.1rem;
+}
+.quiz-review-title-btn:hover .quiz-review-title,
+tr.is-expanded .quiz-review-title {
+  color: var(--accent);
+}
+.quiz-review-title-btn:hover .quiz-review-title {
+  text-decoration: underline;
+}
+.quiz-review-title-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.quiz-review-excerpt {
+  margin: 0.3rem 0 0 1.35rem;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.data-table tbody tr.quiz-review-detail-row:hover {
+  background: transparent;
+}
+.quiz-review-detail-row td {
+  padding: 0.25rem 0.85rem 1rem;
+  border-bottom: 1px solid var(--line);
+}
+.question-preview-panel {
+  /* Não deixa o conteúdo da questão definir a largura da tabela (layout auto). */
+  width: 0;
+  min-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--paper);
+}
+.question-preview-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid var(--line);
+}
+.question-preview-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: auto;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+.question-preview-frame {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: #ffffff;
+}
+@media (max-width: 640px) {
+  .quiz-review-question-cell {
+    min-width: 12rem;
+  }
+  .question-preview-select {
+    margin-left: 0;
+  }
+}

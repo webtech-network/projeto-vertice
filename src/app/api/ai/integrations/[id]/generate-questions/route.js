@@ -8,7 +8,7 @@ import { SYSTEM_PROMPT } from '@/lib/aiProviders/shared';
 import { resolvePrompt } from '@/lib/promptResolution';
 
 const NIVEIS = ['baixo', 'intermediario', 'alto'];
-const TIPOS = ['RU', 'CM', 'AR'];
+const TIPOS = ['RU', 'CM', 'AR', 'DISC'];
 
 function validateSpecs(specs) {
   if (!Array.isArray(specs) || specs.length === 0) {

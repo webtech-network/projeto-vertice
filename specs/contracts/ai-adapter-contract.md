@@ -2,7 +2,7 @@
 title: Contrato do adapter de IA
 status: implemented
 domain: ai
-updated: 2026-09-17
+updated: 2026-11-12
 ---
 
 # Contrato do adapter de IA
@@ -57,8 +57,11 @@ mais muda. Nova "plataforma" que já fala um protocolo existente = só uma integ
 ## Validação pós-geração (a rede de segurança real)
 
 `buildQuizOutputSchema()` (em `shared.js`) **remove** o `allOf` `contains/minContains/maxContains`
-("exatamente uma correta") e estreita `course_id`/`quiz_id` para `integer` — os dialetos de
-structured-output dos vendors não suportam esse `allOf`. A regra vira orientação no prompt e é
+("exatamente uma correta") e o `allOf` com `if/then` por tipo de questão, torna todos os campos
+da questão obrigatórios (exigência do modo `strict` da OpenAI), restringe `question_type` a
+`multiple_choice_question`/`essay_question`, relaxa `answers` para `minItems: 0` e estreita
+`course_id`/`quiz_id` para `integer` — os dialetos de structured-output dos vendors não suportam
+`contains` nem `if/then`. Dissertativas (`tipo: DISC` na spec) saem com `answers: []`. A regra vira orientação no prompt e é
 re-checada por `validateStructural()` na rota `generate-questions` (sem auto-retry; usuário
 regenera).
 

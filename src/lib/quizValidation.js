@@ -3,6 +3,24 @@
 // draft-07, so the 2020-12-aware build is required here.
 import Ajv2020 from 'ajv/dist/2020.js';
 
+export const MULTIPLE_CHOICE = 'multiple_choice_question';
+
+/** Question types this tool can post to a classic Canvas quiz (ADR-0019). */
+export const QUESTION_TYPES = [MULTIPLE_CHOICE, 'essay_question', 'text_only_question', 'file_upload_question'];
+
+/** Short pt-BR labels for previews (table / CLI). */
+export const QUESTION_TYPE_LABELS = {
+  multiple_choice_question: 'Múltipla escolha',
+  essay_question: 'Dissertativa',
+  text_only_question: 'Texto (sem questão)',
+  file_upload_question: 'Envio de arquivo',
+};
+
+/** `question_type` with the backwards-compatible default (absent = multiple choice). */
+export function questionTypeOf(question) {
+  return question?.question_type ?? MULTIPLE_CHOICE;
+}
+
 /**
  * Cheap, blocking checks — the minimum a file needs to actually be postable to
  * Canvas. Mirrors what the CLI already enforced before this refactor.
@@ -38,8 +56,28 @@ export function validateStructural(data) {
     if (!q.question_text || typeof q.question_text !== 'string') {
       errors.push(`${label}: 'question_text' ausente ou inválido.`);
     }
+
+    const type = questionTypeOf(q);
+    if (!QUESTION_TYPES.includes(type)) {
+      errors.push(`${label}: 'question_type' inválido ("${type}"). Use um de: ${QUESTION_TYPES.join(', ')}.`);
+      return;
+    }
+    if (q.points_possible !== undefined && q.points_possible !== null) {
+      if (typeof q.points_possible !== 'number' || !Number.isFinite(q.points_possible) || q.points_possible < 0) {
+        errors.push(`${label}: 'points_possible' deve ser um número maior ou igual a zero.`);
+      }
+    }
+    // Open types (essay, text-only, file upload) carry no alternatives —
+    // Canvas ignores `answers` for them, so it may be absent or empty.
+    if (type !== MULTIPLE_CHOICE) {
+      if (q.answers !== undefined && !Array.isArray(q.answers)) {
+        errors.push(`${label}: 'answers' deve ser uma lista (vazia) em questões do tipo ${type}.`);
+      }
+      return;
+    }
+
     if (!Array.isArray(q.answers) || q.answers.length < 2) {
-      errors.push(`${label}: precisa de ao menos 2 alternativas em 'answers'.`);
+      errors.push(`${label}: questão de múltipla escolha precisa de ao menos 2 alternativas em 'answers'.`);
     } else {
       const correctCount = q.answers.filter((a) => a && a.is_correct === true).length;
       if (correctCount !== 1) {
@@ -85,6 +123,9 @@ export function summarizeSchemaWarnings(ajvErrors) {
   const other = new Set();
 
   for (const err of ajvErrors) {
+    // `if` only says "a then/else branch failed" — the branch's own error is
+    // already in the list, so this one is noise for the user.
+    if (err.keyword === 'if') continue;
     if (err.keyword === 'required') {
       const prop = err.params?.missingProperty ?? 'desconhecido';
       missingByProp.set(prop, (missingByProp.get(prop) || 0) + 1);
@@ -110,22 +151,31 @@ export function summarizeSchemaWarnings(ajvErrors) {
 
 /**
  * Maps this tool's question shape to the payload Canvas's quiz questions
- * endpoint expects.
+ * endpoint expects. Open types go without `answers`; `points_possible` uses
+ * `??` because 0 is legitimate (text-only blocks are always 0).
  */
 export function toCanvasPayload(question) {
-  const answers = (question.answers || []).map((ans) => ({
-    answer_text: ans.answer_text,
-    answer_weight: ans.is_correct ? 100 : 0,
-    answer_comment_html: ans.answer_comment || '',
-  }));
+  const type = questionTypeOf(question);
+  const isText = type === 'text_only_question';
 
-  return {
-    question: {
-      question_name: question.question_name,
-      question_text: question.question_text,
-      question_type: 'multiple_choice_question',
-      points_possible: question.points_possible || 1,
-      answers,
-    },
+  const payload = {
+    question_name: question.question_name,
+    question_text: question.question_text,
+    question_type: type,
+    points_possible: isText ? 0 : (question.points_possible ?? 1),
   };
+
+  if (type === MULTIPLE_CHOICE) {
+    payload.answers = (question.answers || []).map((ans) => ({
+      answer_text: ans.answer_text,
+      answer_weight: ans.is_correct ? 100 : 0,
+      answer_comment_html: ans.answer_comment || '',
+    }));
+  }
+
+  if (question.feedback_comment) {
+    payload.neutral_comments_html = question.feedback_comment;
+  }
+
+  return { question: payload };
 }

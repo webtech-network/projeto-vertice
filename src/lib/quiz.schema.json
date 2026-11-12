@@ -41,9 +41,7 @@
       "required": [
         "question_name",
         "question_text",
-        "points_possible",
-        "answers",
-        "question_model"
+        "points_possible"
       ],
       "properties": {
         "question_name": {
@@ -56,36 +54,28 @@
           "type": "string",
           "minLength": 1
         },
+        "question_type": {
+          "description": "Tipo da questão no quiz clássico do Canvas. Ausente = multiple_choice_question.",
+          "type": "string",
+          "enum": [
+            "multiple_choice_question",
+            "essay_question",
+            "text_only_question",
+            "file_upload_question"
+          ]
+        },
         "points_possible": {
-          "description": "Pontuação da questão.",
+          "description": "Pontuação da questão (0 apenas em text_only_question).",
           "type": "number",
-          "exclusiveMinimum": 0
+          "minimum": 0
         },
         "answers": {
-          "description": "Lista de alternativas da questão.",
+          "description": "Lista de alternativas (somente múltipla escolha; vazia ou ausente nos tipos abertos).",
           "type": "array",
-          "minItems": 2,
           "maxItems": 10,
           "items": {
             "$ref": "#/$defs/answer"
-          },
-          "allOf": [
-            {
-              "contains": {
-                "type": "object",
-                "required": [
-                  "is_correct"
-                ],
-                "properties": {
-                  "is_correct": {
-                    "const": true
-                  }
-                }
-              },
-              "minContains": 1,
-              "maxContains": 1
-            }
-          ]
+          }
         },
         "question_model": {
           "description": "Modelo pedagógico da questão.",
@@ -98,10 +88,104 @@
             "CM",
             "CM (Complementação Múltipla)",
             "INT",
-            "INT (Interpretação)"
+            "INT (Interpretação)",
+            "DISC",
+            "DISC (Dissertativa)"
           ]
+        },
+        "feedback_comment": {
+          "description": "Comentário geral da questão, preferencialmente em HTML (no Canvas: neutral_comments_html).",
+          "type": "string"
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "question_type": {
+                "const": "multiple_choice_question"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "answers",
+              "question_model"
+            ],
+            "properties": {
+              "answers": {
+                "minItems": 2,
+                "allOf": [
+                  {
+                    "contains": {
+                      "type": "object",
+                      "required": [
+                        "is_correct"
+                      ],
+                      "properties": {
+                        "is_correct": {
+                          "const": true
+                        }
+                      }
+                    },
+                    "minContains": 1,
+                    "maxContains": 1
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "question_type"
+            ],
+            "properties": {
+              "question_type": {
+                "enum": [
+                  "essay_question",
+                  "text_only_question",
+                  "file_upload_question"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "answers": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "question_type"
+            ],
+            "properties": {
+              "question_type": {
+                "const": "text_only_question"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "points_possible": {
+                "const": 0
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "points_possible": {
+                "exclusiveMinimum": 0
+              }
+            }
+          }
+        }
+      ]
     },
     "answer": {
       "type": "object",
