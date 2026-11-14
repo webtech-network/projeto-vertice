@@ -20,6 +20,8 @@ updated: 2026-09-17
   (`available`→publicado, `unpublished`, `completed`).
 - Cada linha **não é um link**: a célula de ações tem botão explícito (e a expansão inline do
   `CourseWorkspaceTabs`) — mais ações por curso virão na mesma célula.
+- Coluna "Meu papel" (após a estrela): ícone de livro aberto (`BookOpen`), igual para professor e aluno; o `title`
+  mostra apenas "Professor" ou "Aluno" no curso (`user_role` de `listUserCourses`).
 - Favoritar/desfavoritar via `addCourseFavorite`/`removeCourseFavorite`.
 
 ## Arquivos-chave

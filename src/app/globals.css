@@ -1625,6 +1625,16 @@ a {
   width: 2.25rem;
   text-align: center;
 }
+/* Papel do usuário no curso (professor/aluno) — mesmo ícone para ambos; o
+   papel aparece só no tooltip. */
+.data-table .role-cell {
+  width: 2.25rem;
+  text-align: center;
+}
+.role-icon {
+  display: inline-flex;
+  vertical-align: middle;
+}
 .course-name-cell {
   font-weight: 600;
 }
@@ -1740,7 +1750,8 @@ tr.is-expanded .course-name-btn {
    Mensagens) are unaffected — this is specifically about the courses panel. */
 @media (max-width: 640px) and (orientation: portrait) {
   .course-browser .status-cell,
-  .course-browser .fav-cell {
+  .course-browser .fav-cell,
+  .course-browser .role-cell {
     display: none;
   }
   .course-browser .segmented-btn-text {
