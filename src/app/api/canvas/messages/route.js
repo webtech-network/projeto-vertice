@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireCanvasIntegration } from '@/lib/canvasIntegration';
-import { listCourses, listConversations } from '@/lib/canvasClient';
+import { listUserCourses, listConversations } from '@/lib/canvasClient';
 
 // Backs MessageBrowser.jsx's client-side stale-while-revalidate fetch —
 // moved out of mensagens/page.jsx (a Server Component) so navigating to
@@ -15,7 +15,7 @@ export async function GET() {
 
   const client = canvas.client;
 
-  const rawCourses = await listCourses(client);
+  const rawCourses = await listUserCourses(client);
   // Favorite AND published — an unpublished favorite course has no real
   // conversations worth surfacing here and would just be dead weight in the
   // context selector (see mensagens/page.jsx's note under the page title).
