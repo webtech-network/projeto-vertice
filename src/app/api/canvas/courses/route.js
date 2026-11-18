@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireCanvasIntegration } from '@/lib/canvasIntegration';
-import { listCourses, listConversations, listAssignments } from '@/lib/canvasClient';
+import { listUserCourses, listConversations, listAssignments } from '@/lib/canvasClient';
 import { countMessagesByCourse } from '@/lib/messageGrouping';
 import { correctedCourseNeedsGradingCount } from '@/lib/groupGrading';
 
@@ -18,7 +18,7 @@ export async function GET() {
 
   const client = canvas.client;
 
-  const rawCourses = await listCourses(client);
+  const rawCourses = await listUserCourses(client);
   const favoriteIds = rawCourses.filter((c) => c.is_favorite).map((c) => c.id);
 
   // Canvas has no per-course message count on the course-list endpoint (unlike

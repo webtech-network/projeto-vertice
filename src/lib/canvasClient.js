@@ -124,6 +124,24 @@ export async function listCourses(client, { enrollmentType = 'teacher', enrollme
 }
 
 /**
+ * Lists the user's active courses as teacher AND as student, merged and
+ * deduped by id. Student enrollments are best-effort: a failure there falls
+ * back to the teacher list instead of failing the caller.
+ */
+export async function listUserCourses(client) {
+  const [teacherCourses, studentCourses] = await Promise.all([
+    listCourses(client),
+    listCourses(client, { enrollmentType: 'student' }).catch(() => []),
+  ]);
+  // `user_role` = the user's own role in that course; teacher wins when the
+  // same course shows up in both lists.
+  const byId = new Map();
+  for (const c of studentCourses) byId.set(c.id, { ...c, user_role: 'student' });
+  for (const c of teacherCourses) byId.set(c.id, { ...c, user_role: 'teacher' });
+  return [...byId.values()];
+}
+
+/**
  * Lists a course's assignments (Canvas's Assignment object includes
  * needs_grading_count, published, and quiz_id by default — no extra
  * include[] needed). `quiz_id` is only present for classic-quiz assignments

@@ -16,6 +16,7 @@ import {
   CircleDashed,
   List,
   Layers,
+  BookOpen,
 } from 'lucide-react';
 import StatusIcon from './StatusIcon';
 import SortIcon from './SortIcon';
@@ -346,6 +347,12 @@ export default function CourseBrowser() {
                   <SortIcon direction={sort.key === 'favorite' ? sort.direction : null} />
                 </button>
               </th>
+              <th className="role-cell">
+                <span className="col-icon" title="Meu papel no curso">
+                  <BookOpen size={16} strokeWidth={1.8} aria-hidden="true" />
+                </span>
+                <span className="sr-only">Meu papel no curso</span>
+              </th>
               <th aria-sort={sortAria('name')}>
                 <button type="button" className="th-sort-btn" onClick={() => toggleSort('name')}>
                   Curso
@@ -414,6 +421,18 @@ export default function CourseBrowser() {
                     <Star size={16} strokeWidth={1.8} fill={course.is_favorite ? 'currentColor' : 'none'} />
                   </button>
                 </td>
+                <td className="role-cell">
+                  {course.user_role ? (
+                    <span
+                      className="role-icon"
+                      title={course.user_role === 'teacher' ? 'Professor' : 'Aluno'}
+                      role="img"
+                      aria-label={course.user_role === 'teacher' ? 'Professor' : 'Aluno'}
+                    >
+                      <BookOpen size={16} strokeWidth={1.8} aria-hidden="true" />
+                    </span>
+                  ) : null}
+                </td>
                 <td className="course-name-cell">
                   <button
                     type="button"
@@ -475,7 +494,7 @@ export default function CourseBrowser() {
               </tr>
               {expanded && (
                 <tr className="course-note-row">
-                  <td colSpan={7}>
+                  <td colSpan={8}>
                     <CourseWorkspaceTabs
                       courseId={course.id}
                       courseCode={course.course_code}
@@ -496,6 +515,9 @@ export default function CourseBrowser() {
         <ul className="icon-legend">
           <li>
             <Star size={14} strokeWidth={1.8} fill="currentColor" aria-hidden="true" /> Favorito
+          </li>
+          <li>
+            <BookOpen size={14} strokeWidth={1.8} aria-hidden="true" /> Meu papel (professor/aluno)
           </li>
           <li>
             <ClipboardCheck size={14} strokeWidth={1.8} aria-hidden="true" /> Correções pendentes
