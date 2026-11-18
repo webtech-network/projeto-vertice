@@ -33,7 +33,7 @@ e concatena os arrays. Todas as listas usam `per_page: 100`.
 ## Métodos (agrupados por domínio)
 
 **Identidade/curso**: `getSelf`, `getCourse(courseId)`, `listCourses({ enrollmentType='teacher',
-enrollmentState='active' })` — sempre `include[]=favorites,needs_grading_count,total_students`. `listUserCourses()` junta professor + aluno (dedupe por `id`; marca `user_role: teacher|student`, professor vence; falha na busca de aluno vira `[]`) — usado por `/courses` e `/mensagens`.
+enrollmentState='active' })` — sempre `include[]=favorites,needs_grading_count,total_students`. `listUserCourses()` junta os papéis `teacher`, `ta`, `designer`, `student`, `observer` (uma busca `enrollment_type` por papel; dedupe por `id`; marca `user_roles` com todos e `user_role` com o principal, prioridade nessa ordem; falha nos papéis que não `teacher` vira `[]`) — usado por `/courses` e `/mensagens`.
 
 **Atividades/quiz**: `listAssignments(courseId)`, `getAssignment(courseId, assignmentId)`
 (única ação documentada que garante o campo `rubric`), `getQuiz(courseId, quizId)`,

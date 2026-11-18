@@ -16,7 +16,11 @@ import {
   CircleDashed,
   List,
   Layers,
-  BookOpen,
+  GraduationCap,
+  Presentation,
+  UserCog,
+  Palette,
+  Eye,
 } from 'lucide-react';
 import StatusIcon from './StatusIcon';
 import SortIcon from './SortIcon';
@@ -26,6 +30,7 @@ import { useWorkspaceScope } from './WorkspaceScopeProvider';
 import { BASE_WORKSPACE_ID } from '@/lib/workspaces/workspacesRepo';
 import { isPublished } from '@/lib/dashboard';
 import { canvasKeys, cacheStatus, useCoursesQuery } from '@/lib/query/canvasQueries';
+import { COURSE_ROLES, COURSE_ROLE_LABELS } from '@/lib/courseRoles';
 import { readCourseBrowserState, writeCourseBrowserState } from '@/lib/courseBrowserState';
 
 function formatDateTime(timestamp) {
@@ -59,6 +64,19 @@ const STATUS_FILTERS = [
   { key: 'all', label: 'Todos', Icon: List },
 ];
 
+const ROLE_ICONS = {
+  teacher: Presentation,
+  ta: UserCog,
+  designer: Palette,
+  student: GraduationCap,
+  observer: Eye,
+};
+
+function roleTitle(course) {
+  const roles = course.user_roles?.length ? course.user_roles : [course.user_role];
+  return roles.map((r) => COURSE_ROLE_LABELS[r] ?? r).join(' + ');
+}
+
 export default function CourseBrowser() {
   const { activeWorkspaceId, getVisibleResourceIds } = useWorkspaceScope();
   const [workspacesModalCourse, setWorkspacesModalCourse] = useState(null);
@@ -79,6 +97,8 @@ export default function CourseBrowser() {
   // professor is looking for on first load; "Todos" is still one click away.
   const [statusFilter, setStatusFilter] = useState('published');
   const [sort, setSort] = useState({ key: null, direction: 'asc' });
+  // Papéis marcados no filtro; vazio = todos os papéis.
+  const [roleFilter, setRoleFilter] = useState([]);
   // Tab open in the expanded course's CourseWorkspaceTabs — tracked here
   // (not only inside the tabs) so it survives a round trip to a drill-down
   // page; see courseBrowserState.js.
@@ -119,6 +139,7 @@ export default function CourseBrowser() {
       }
       if (saved.statusFilter) setStatusFilter(saved.statusFilter);
       if (saved.sort) setSort(saved.sort);
+      if (Array.isArray(saved.roles)) setRoleFilter(saved.roles);
       if (saved.expandedCourseId != null) {
         setExpandedCourseId(saved.expandedCourseId);
         setExpandedTab(saved.expandedTab || null);
@@ -130,8 +151,8 @@ export default function CourseBrowser() {
 
   useEffect(() => {
     if (!restoredRef.current) return;
-    writeCourseBrowserState({ query, onlyFavorites, statusFilter, sort, expandedCourseId, expandedTab });
-  }, [query, onlyFavorites, statusFilter, sort, expandedCourseId, expandedTab]);
+    writeCourseBrowserState({ query, onlyFavorites, statusFilter, roles: roleFilter, sort, expandedCourseId, expandedTab });
+  }, [query, onlyFavorites, statusFilter, roleFilter, sort, expandedCourseId, expandedTab]);
 
   // Bring the restored expanded row back into view once it's rendered.
   useEffect(() => {
@@ -158,12 +179,24 @@ export default function CourseBrowser() {
   const publishedCount = useMemo(() => courseList.filter(isPublished).length, [courseList]);
   const unpublishedCount = courseList.length - publishedCount;
 
+  const roleCounts = useMemo(() => {
+    const counts = {};
+    for (const c of courseList) for (const r of c.user_roles ?? [c.user_role]) if (r) counts[r] = (counts[r] ?? 0) + 1;
+    return counts;
+  }, [courseList]);
+  const availableRoles = COURSE_ROLES.filter((r) => roleCounts[r]);
+
+  function toggleRole(role) {
+    setRoleFilter((prev) => (prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]));
+  }
+
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase();
     const visibleCourseIds = activeWorkspaceId === BASE_WORKSPACE_ID ? null : getVisibleResourceIds('course');
     return courseList.filter((course) => {
       if (visibleCourseIds && !visibleCourseIds.has(String(course.id))) return false;
       if (onlyFavorites && !course.is_favorite) return false;
+      if (roleFilter.length && !(course.user_roles ?? [course.user_role]).some((r) => roleFilter.includes(r))) return false;
       if (statusFilter === 'published' && !isPublished(course)) return false;
       if (statusFilter === 'unpublished' && isPublished(course)) return false;
       if (!term) return true;
@@ -171,7 +204,7 @@ export default function CourseBrowser() {
         course.name?.toLowerCase().includes(term) || course.course_code?.toLowerCase().includes(term)
       );
     });
-  }, [courseList, query, onlyFavorites, statusFilter, activeWorkspaceId, getVisibleResourceIds]);
+  }, [courseList, query, onlyFavorites, statusFilter, roleFilter, activeWorkspaceId, getVisibleResourceIds]);
 
   function setFavoriteInCache(courseId, isFavorite) {
     queryClient.setQueryData(canvasKeys.courses, (prev) =>
@@ -306,6 +339,30 @@ export default function CourseBrowser() {
             );
           })}
         </div>
+        {availableRoles.length > 1 && (
+          <div className="segmented" role="group" aria-label="Filtrar por papel no curso">
+            {availableRoles.map((role) => {
+              const Icon = ROLE_ICONS[role];
+              const label = COURSE_ROLE_LABELS[role];
+              const active = roleFilter.includes(role);
+              return (
+                <button
+                  key={role}
+                  type="button"
+                  className={`segmented-btn${active ? ' active' : ''}`}
+                  onClick={() => toggleRole(role)}
+                  aria-pressed={active}
+                  title={`${label} (${roleCounts[role]})`}
+                >
+                  <Icon size={14} strokeWidth={2} aria-hidden="true" />
+                  <span className="segmented-btn-text">
+                    {label} ({roleCounts[role]})
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {favoriteError && (
@@ -349,7 +406,7 @@ export default function CourseBrowser() {
               </th>
               <th className="role-cell">
                 <span className="col-icon" title="Meu papel no curso">
-                  <BookOpen size={16} strokeWidth={1.8} aria-hidden="true" />
+                  <GraduationCap size={16} strokeWidth={1.8} aria-hidden="true" />
                 </span>
                 <span className="sr-only">Meu papel no curso</span>
               </th>
@@ -423,14 +480,14 @@ export default function CourseBrowser() {
                 </td>
                 <td className="role-cell">
                   {course.user_role ? (
-                    <span
-                      className="role-icon"
-                      title={course.user_role === 'teacher' ? 'Professor' : 'Aluno'}
-                      role="img"
-                      aria-label={course.user_role === 'teacher' ? 'Professor' : 'Aluno'}
-                    >
-                      <BookOpen size={16} strokeWidth={1.8} aria-hidden="true" />
-                    </span>
+                    (() => {
+                      const RoleIcon = ROLE_ICONS[course.user_role] ?? GraduationCap;
+                      return (
+                        <span className="role-icon" title={roleTitle(course)} role="img" aria-label={roleTitle(course)}>
+                          <RoleIcon size={16} strokeWidth={1.8} aria-hidden="true" />
+                        </span>
+                      );
+                    })()
                   ) : null}
                 </td>
                 <td className="course-name-cell">
@@ -517,7 +574,19 @@ export default function CourseBrowser() {
             <Star size={14} strokeWidth={1.8} fill="currentColor" aria-hidden="true" /> Favorito
           </li>
           <li>
-            <BookOpen size={14} strokeWidth={1.8} aria-hidden="true" /> Meu papel (professor/aluno)
+            <Presentation size={14} strokeWidth={1.8} aria-hidden="true" /> Professor
+          </li>
+          <li>
+            <UserCog size={14} strokeWidth={1.8} aria-hidden="true" /> Tutor
+          </li>
+          <li>
+            <Palette size={14} strokeWidth={1.8} aria-hidden="true" /> Designer
+          </li>
+          <li>
+            <GraduationCap size={14} strokeWidth={1.8} aria-hidden="true" /> Aluno
+          </li>
+          <li>
+            <Eye size={14} strokeWidth={1.8} aria-hidden="true" /> Observador
           </li>
           <li>
             <ClipboardCheck size={14} strokeWidth={1.8} aria-hidden="true" /> Correções pendentes

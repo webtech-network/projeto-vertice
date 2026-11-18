@@ -2,7 +2,7 @@
 title: Navegador de cursos
 status: implemented
 domain: canvas
-updated: 2026-09-17
+updated: 2026-11-18
 ---
 
 # Navegador de cursos
@@ -20,8 +20,14 @@ updated: 2026-09-17
   (`available`→publicado, `unpublished`, `completed`).
 - Cada linha **não é um link**: a célula de ações tem botão explícito (e a expansão inline do
   `CourseWorkspaceTabs`) — mais ações por curso virão na mesma célula.
-- Coluna "Meu papel" (após a estrela): ícone de livro aberto (`BookOpen`), igual para professor e aluno; o `title`
-  mostra apenas "Professor" ou "Aluno" no curso (`user_role` de `listUserCourses`).
+- Coluna "Meu papel" (após a estrela): ícone **por papel** no curso (`user_role` de
+  `listUserCourses`) — Professor `Presentation`, Tutor/assistente (`ta`) `UserCog`, Designer
+  `Palette`, Aluno `GraduationCap`, Observador `Eye`; `title`/`aria-label` com o nome. Se o
+  usuário tem mais de um papel no curso, o ícone é o do papel principal (prioridade
+  professor > tutor > designer > aluno > observador) e o `title` lista todos (`user_roles`).
+- Barra de controles: grupo segmentado **"Filtrar por papel"** (multisseleção, com contagem;
+  papéis sem nenhum curso não aparecem). Nenhum marcado = todos os papéis. Um curso passa se
+  **qualquer** de seus papéis estiver marcado. Persistido em `courseBrowserState` (`roles`).
 - Favoritar/desfavoritar via `addCourseFavorite`/`removeCourseFavorite`.
 
 ## Arquivos-chave

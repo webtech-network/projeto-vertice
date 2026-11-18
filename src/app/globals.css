@@ -1625,8 +1625,8 @@ a {
   width: 2.25rem;
   text-align: center;
 }
-/* Papel do usuário no curso (professor/aluno) — mesmo ícone para ambos; o
-   papel aparece só no tooltip. */
+/* Papel do usuário no curso — ícone por papel (professor, tutor, designer,
+   aluno, observador); o nome completo vai no tooltip. */
 .data-table .role-cell {
   width: 2.25rem;
   text-align: center;

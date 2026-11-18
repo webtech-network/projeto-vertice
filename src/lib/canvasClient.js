@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { COURSE_ROLES } from './courseRoles';
 
 function parseLinkHeader(linkHeader) {
   if (!linkHeader) return {};
@@ -124,21 +125,31 @@ export async function listCourses(client, { enrollmentType = 'teacher', enrollme
 }
 
 /**
- * Lists the user's active courses as teacher AND as student, merged and
- * deduped by id. Student enrollments are best-effort: a failure there falls
- * back to the teacher list instead of failing the caller.
+ * Lists the user's active courses under every Canvas role (teacher, ta,
+ * designer, student, observer), merged and deduped by id. Each course gets
+ * `user_roles` (all roles held) and `user_role` (the main one, by the
+ * COURSE_ROLES precedence). Only the teacher fetch is allowed to fail the
+ * caller; the other roles are best-effort and fall back to `[]`.
  */
 export async function listUserCourses(client) {
-  const [teacherCourses, studentCourses] = await Promise.all([
-    listCourses(client),
-    listCourses(client, { enrollmentType: 'student' }).catch(() => []),
-  ]);
-  // `user_role` = the user's own role in that course; teacher wins when the
-  // same course shows up in both lists.
+  const lists = await Promise.all(
+    COURSE_ROLES.map((role) =>
+      role === 'teacher'
+        ? listCourses(client)
+        : listCourses(client, { enrollmentType: role }).catch(() => []),
+    ),
+  );
   const byId = new Map();
-  for (const c of studentCourses) byId.set(c.id, { ...c, user_role: 'student' });
-  for (const c of teacherCourses) byId.set(c.id, { ...c, user_role: 'teacher' });
-  return [...byId.values()];
+  lists.forEach((courses, i) => {
+    const role = COURSE_ROLES[i];
+    for (const c of courses) {
+      const existing = byId.get(c.id);
+      if (existing) existing.user_roles.push(role);
+      else byId.set(c.id, { ...c, user_roles: [role] });
+    }
+  });
+  // lists follow COURSE_ROLES order, so user_roles[0] is already the main role.
+  return [...byId.values()].map((c) => ({ ...c, user_role: c.user_roles[0] }));
 }
 
 /**
