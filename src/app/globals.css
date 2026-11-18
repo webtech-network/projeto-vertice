@@ -371,6 +371,9 @@ a {
   align-items: center;
   gap: 0.4rem;
 }
+.topbar-theme-switch .segmented-btn {
+  padding: 0.35rem 0.5rem;
+}
 
 /* Avatar-triggered dropdown replacing the old separate "username link" +
    "Sair" button pair — see UserMenu.jsx. */

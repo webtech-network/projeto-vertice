@@ -21,6 +21,10 @@ export default function ThemeToggle() {
 
   useEffect(() => {
     setTheme(getStoredTheme());
+    // Acompanha mudanças feitas pelo seletor da Topbar (TopbarThemeSwitch).
+    const onChange = () => setTheme(getStoredTheme());
+    window.addEventListener('vertice:theme-change', onChange);
+    return () => window.removeEventListener('vertice:theme-change', onChange);
   }, []);
 
   // Fase 2 (sincronização entre dispositivos) — ver o mesmo padrão/racional
