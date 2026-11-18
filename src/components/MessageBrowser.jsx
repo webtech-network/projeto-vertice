@@ -88,7 +88,7 @@ export default function MessageBrowser({ currentUserId, baseUrl, integrations })
     );
   }
 
-  if (!loading && courses.length === 0) {
+  if (!loading && courses.length === 0 && conversations.length === 0) {
     return (
       <div className="message-browser">
         {loadError ? (
@@ -96,7 +96,7 @@ export default function MessageBrowser({ currentUserId, baseUrl, integrations })
             {loadError}
           </p>
         ) : (
-          <p className="lede">Você ainda não marcou nenhum curso como favorito/em destaque no Canvas.</p>
+          <p className="lede">Nenhuma mensagem por aqui ainda. Marque cursos como favoritos/em destaque no Canvas para agrupá-las por curso.</p>
         )}
       </div>
     );

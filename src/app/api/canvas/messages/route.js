@@ -15,7 +15,18 @@ export async function GET() {
 
   const client = canvas.client;
 
-  const rawCourses = await listCourses(client);
+  // Teacher enrollments (default) plus student enrollments, so students also
+  // get their favorite courses. A failure on the student lookup is non-fatal.
+  const [teacherCourses, studentCourses] = await Promise.all([
+    listCourses(client),
+    listCourses(client, { enrollmentType: 'student' }).catch(() => []),
+  ]);
+  const seenCourseIds = new Set();
+  const rawCourses = [...teacherCourses, ...studentCourses].filter((c) => {
+    if (seenCourseIds.has(c.id)) return false;
+    seenCourseIds.add(c.id);
+    return true;
+  });
   // Favorite AND published — an unpublished favorite course has no real
   // conversations worth surfacing here and would just be dead weight in the
   // context selector (see mensagens/page.jsx's note under the page title).

@@ -24,7 +24,20 @@ updated: 2026-09-17
   (`improveMessage`) no `ComposeMessage`/`StudentMessageModal` — usam as integrações
   configuradas (picker some se nenhuma).
 
+## Tela `/mensagens` (professor e aluno)
+
+- `MessageBrowser` busca `GET /api/canvas/messages`: `courses` (favoritos publicados) +
+  `conversations` (favoritos via `filter[]` + inbox completa; o que não é de favorito cai em
+  "Mensagens diretas").
+- Cursos vêm de `listCourses` como professor **e** como aluno (`enrollmentType: 'student'`),
+  unidos por `id`; falha na busca como aluno vira `[]` (não derruba a rota).
+- Aluno sem cursos favoritos vê todas as conversas em "Mensagens diretas". A tela vazia só
+  aparece quando não há cursos **e** não há conversas.
+- Regras de destinatário (`ComposeMessage`, `listCourseStudents`) não mudam.
+
 ## Arquivos-chave
+
+- `src/app/api/canvas/messages/route.js` · `src/components/MessageBrowser.jsx`.
 
 - [ComposeMessage.jsx](src/components/ComposeMessage.jsx) · [MessageList.jsx](src/components/MessageList.jsx) ·
   `StudentMessageModal.jsx` · `src/app/api/canvas/courses/[courseId]/messages/route.js` ·
