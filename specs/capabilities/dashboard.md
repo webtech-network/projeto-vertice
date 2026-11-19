@@ -2,12 +2,12 @@
 title: Dashboard (painel de widgets)
 status: implemented
 domain: frontend
-updated: 2026-09-17
+updated: 2026-11-19
 ---
 
 # Dashboard (painel de widgets)
 
-> A home `/` é um painel-resumo do dia a dia do professor, alimentado por agregados do Canvas
+> A home `/` é um painel-resumo do dia a dia (professor e aluno), alimentado por agregados do Canvas
 > com **stale-while-revalidate** e por tarefas/atalhos próprios (Postgres).
 
 ## Comportamento
@@ -18,7 +18,8 @@ updated: 2026-09-17
   Sem cache (primeira visita) → loading.
 - Widgets: `DashboardStats` (disciplinas ativas, alunos, mensagens pendentes, correções
   pendentes), `DashboardDoingTasks` + `DashboardShortcuts`, `DueDateCalendar`,
-  `RecentDeadlines`, `PendingGradingList`.
+  `RecentDeadlines`, `PendingGradingList` (a corrigir) e `PendingTodoList` (a fazer) —
+  ver [pendencias.md](pendencias.md).
 - Em "Atividades recentes"/"Correções pendentes", clicar numa linha abre a correção **dentro
   do Vértice**; o ícone externo abre a mesma atividade no SpeedGrader do Canvas.
 
@@ -40,5 +41,5 @@ updated: 2026-09-17
 
 ## Dependências
 
-- [dashboard-shell.md](dashboard-shell.md) · [tasks.md](tasks.md) · [rubric-grading.md](rubric-grading.md) ·
+- [pendencias.md](pendencias.md) · [dashboard-shell.md](dashboard-shell.md) · [tasks.md](tasks.md) · [rubric-grading.md](rubric-grading.md) ·
   [course-browser.md](course-browser.md)

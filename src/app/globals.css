@@ -404,6 +404,13 @@ a {
 .user-menu-avatar-fallback {
   color: var(--ink-soft);
 }
+.user-menu-gear {
+  color: var(--ink-soft);
+  flex-shrink: 0;
+}
+.user-menu-trigger:hover .user-menu-gear {
+  color: var(--ink);
+}
 .user-name {
   color: var(--ink-soft);
   font-size: 0.92rem;
@@ -555,6 +562,16 @@ a {
   box-shadow: var(--shadow);
   padding: 0.4rem;
   z-index: 30;
+}
+/* Filtro de papéis numa linha própria, logo abaixo da busca e alinhado à
+   esquerda com a tabela; o menu abre para baixo a partir do gatilho. */
+.browser-controls-row {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+}
+.role-filter .workspace-switcher-popover {
+  max-width: calc(100vw - 2rem);
 }
 .workspace-switcher-list {
   list-style: none;
@@ -1793,6 +1810,19 @@ tr.is-expanded .course-name-btn {
   align-items: center;
   gap: 0.35rem;
 }
+/* Legenda do Painel de Cursos: sempre numa linha só; se não couber (tela
+   estreita), rola de lado em vez de quebrar. */
+.icon-legend.icon-legend-single-line {
+  flex-wrap: nowrap;
+  gap: 0.5rem 1rem;
+  font-size: 0.78rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+.icon-legend-single-line li {
+  flex: none;
+  white-space: nowrap;
+}
 .icon-legend-separator {
   width: 1px;
   align-self: stretch;
@@ -1815,6 +1845,51 @@ tr.is-expanded .course-name-btn {
 .pending-badge.has-pending {
   background: var(--brand-bg-strong);
   color: var(--brand-fg);
+}
+/* Pendências clicáveis (CourseBrowser): levam à atividade de entrega mais próxima. */
+.pending-badge-btn {
+  border: none;
+  font-family: inherit;
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+.pending-badge-btn:hover,
+.pending-badge-btn:focus-visible {
+  transform: scale(1.12);
+  background: var(--accent);
+  color: #fff;
+}
+/* Bolinha de workspace antes do nome do curso (um ponto por workspace). */
+.course-workspace-dot {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 0.7rem;
+}
+.course-workspace-dot-spacer {
+  visibility: hidden;
+}
+/* "Curso" no cabeçalho alinha com o início do texto do nome (depois da bolinha
+   de 0.85rem + margem 0.7rem), não com a bolinha. */
+.course-name-th .th-sort-btn {
+  padding-left: 2.4rem;
+}
+/* Atividades: camada "Já encerradas" abaixo das próximas entregas. */
+tr.group-divider-row > td {
+  padding: 0.6rem 1rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  background: var(--paper);
+  border-top: 2px solid var(--line);
+}
+tr.is-closed-row > td {
+  opacity: 0.7;
+}
+/* Atividade destacada ao chegar pelas pendências do curso. */
+tr.is-focused-row > td {
+  background: var(--brand-bg-strong);
 }
 
 /* RiskLevelPill.jsx — "Nível de Risco" column on StudentReport.jsx's
@@ -5121,6 +5196,14 @@ tr.is-expanded .course-name-btn {
   border-radius: 8px;
   background: var(--paper);
   color: var(--ink);
+}
+
+/* Seletor ao lado da busca numa barra de controles (aba Arquivos): mesma altura,
+   borda e fundo do .search-input, para a linha de controles parecer uma peça só. */
+.browser-controls .group-select {
+  font-size: 0.94rem;
+  padding: 0.6rem 0.9rem;
+  background: var(--paper-raised);
 }
 
 /* Aluno dentro de um grupo: recuo para ficar endentado sob o nome do grupo

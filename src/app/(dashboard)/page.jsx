@@ -17,12 +17,12 @@ export default async function HomePage() {
         <h1>Olá, {getDisplayName(user)?.split(' ')[0] || 'professor(a)'}</h1>
         <InfoHint label="Sobre o Dashboard">
           <p>
-            Um resumo do seu dia a dia como professor: disciplinas ativas, alunos, mensagens pendentes e correções
-            pendentes no topo, seguidos das suas tarefas em andamento, atalhos, calendário de prazos, atividades
-            recentes e correções pendentes por curso.
+            Um resumo do seu dia a dia: disciplinas ativas, alunos, mensagens pendentes e pendências (a corrigir, se
+            você é professor; a fazer, se é aluno) no topo, seguidos das suas tarefas em andamento, atalhos,
+            calendário de prazos, atividades recentes e a lista de pendências.
           </p>
           <p>
-            Em "Atividades recentes" e "Correções pendentes", clique na linha de uma atividade para corrigi-la dentro
+            Em "Atividades recentes" e "Pendências a corrigir", clique na linha de uma atividade para corrigi-la dentro
             do próprio Vértice — o ícone à direita abre a mesma atividade direto no SpeedGrader do Canvas.
           </p>
           <h4>Ícones e botões</h4>

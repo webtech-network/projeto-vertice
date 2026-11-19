@@ -12,7 +12,11 @@ import {
   setWorkspaceResources as repoSetWorkspaceResources,
   toApp as workspaceToApp,
 } from '@/lib/workspaces/workspacesRepo';
-import { getActiveWorkspaceId, setActiveWorkspaceId as persistActiveWorkspaceId } from '@/lib/workspaces/activeWorkspacePreference';
+import {
+  getActiveWorkspaceIds,
+  setActiveWorkspaceIds as persistActiveWorkspaceIds,
+  normalizeWorkspaceIds,
+} from '@/lib/workspaces/activeWorkspacePreference';
 import { useRealtimeTable } from '@/lib/realtime/useRealtimeTable';
 import { ensureUiPreferencesSynced } from './UiPreferencesSync';
 import {
@@ -41,7 +45,8 @@ export function WorkspaceScopeProvider({ children }) {
   // Starts at Base on the server and on first client render (SSR-safe, same
   // reasoning as tasksViewPreferences.js) — the real localStorage value is
   // read only after mount, in the effect below.
-  const [activeWorkspaceId, setActiveWorkspaceIdState] = useState(BASE_WORKSPACE_ID);
+  // Seleção múltipla (ADR-0021): lista; `activeWorkspaceId` (abaixo) é o primeiro.
+  const [rawActiveIds, setRawActiveIds] = useState([BASE_WORKSPACE_ID]);
   const [loading, setLoading] = useState(true);
 
   const applyFresh = useCallback((ws, ls) => {
@@ -75,7 +80,7 @@ export function WorkspaceScopeProvider({ children }) {
       freshArrived = true;
       if (!cancelled) applyFresh(ws, ls);
     });
-    setActiveWorkspaceIdState(getActiveWorkspaceId());
+    setRawActiveIds(getActiveWorkspaceIds());
     return () => {
       cancelled = true;
     };
@@ -99,7 +104,7 @@ export function WorkspaceScopeProvider({ children }) {
   useEffect(() => {
     let cancelled = false;
     ensureUiPreferencesSynced().then(() => {
-      if (!cancelled) setActiveWorkspaceIdState(getActiveWorkspaceId());
+      if (!cancelled) setRawActiveIds(getActiveWorkspaceIds());
     });
     return () => {
       cancelled = true;
@@ -123,7 +128,7 @@ export function WorkspaceScopeProvider({ children }) {
       const workspace = workspaceToApp(row);
       if (workspace.deletedAt) {
         setWorkspaces((prev) => prev.filter((w) => w.id !== workspace.id));
-        if (activeWorkspaceId === workspace.id) setActiveWorkspaceId(BASE_WORKSPACE_ID);
+        if (rawActiveIds.includes(workspace.id)) setActiveWorkspaceIds(rawActiveIds.filter((id) => id !== workspace.id));
       } else {
         setWorkspaces((prev) => prev.map((w) => (w.id === workspace.id ? workspace : w)));
       }
@@ -139,14 +144,38 @@ export function WorkspaceScopeProvider({ children }) {
   // Defends against the active workspace having been deleted on another
   // device and the tombstone arriving via sync — falls back to Base rather
   // than pointing at a workspace that no longer exists.
-  const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId) || BASE_WORKSPACE;
+  // Ids que ainda existem (um apagado em outro dispositivo some da seleção);
+  // vazio cai para Base.
+  const activeWorkspaceIds = normalizeWorkspaceIds(
+    rawActiveIds.filter((id) => id === BASE_WORKSPACE_ID || workspaces.some((w) => w.id === id)),
+  );
+  const activeWorkspaceId = activeWorkspaceIds[0];
+  // Com vários marcados, `name` junta os nomes (telas que mostram "o workspace
+  // ativo" continuam funcionando sem mudar); `id` é o do primeiro.
+  const activeWorkspace = (() => {
+    const selected = activeWorkspaceIds.map((id) => workspaces.find((w) => w.id === id) || BASE_WORKSPACE);
+    return selected.length > 1
+      ? { ...selected[0], name: selected.map((w) => w.name).join(', ') }
+      : selected[0];
+  })();
 
-  const setActiveWorkspaceId = useCallback(
+  const setActiveWorkspaceIds = useCallback((ids) => {
+    const normalized = normalizeWorkspaceIds(ids);
+    persistActiveWorkspaceIds(normalized);
+    setRawActiveIds(normalized);
+  }, []);
+
+  const setActiveWorkspaceId = useCallback((id) => setActiveWorkspaceIds([id]), [setActiveWorkspaceIds]);
+
+  // Liga/desliga um workspace na seleção (clique no dropdown). Base é exclusiva:
+  // marcar Base limpa o resto; marcar outro tira Base; esvaziar volta a Base.
+  const toggleActiveWorkspace = useCallback(
     (id) => {
-      persistActiveWorkspaceId(id);
-      setActiveWorkspaceIdState(id);
+      if (id === BASE_WORKSPACE_ID) return setActiveWorkspaceIds([BASE_WORKSPACE_ID]);
+      const current = rawActiveIds.filter((x) => x !== BASE_WORKSPACE_ID);
+      setActiveWorkspaceIds(current.includes(id) ? current.filter((x) => x !== id) : [...current, id]);
     },
-    [],
+    [rawActiveIds, setActiveWorkspaceIds],
   );
 
   // Chrome-tab-style numbered switching — Alt+1..9 jumps straight to the
@@ -198,9 +227,9 @@ export function WorkspaceScopeProvider({ children }) {
     async (id) => {
       await repoDeleteWorkspace(id);
       setWorkspaces((prev) => prev.filter((w) => w.id !== id));
-      if (activeWorkspaceId === id) setActiveWorkspaceId(BASE_WORKSPACE_ID);
+      if (activeWorkspaceIds.includes(id)) setActiveWorkspaceIds(activeWorkspaceIds.filter((x) => x !== id));
     },
-    [activeWorkspaceId, setActiveWorkspaceId],
+    [activeWorkspaceIds, setActiveWorkspaceIds],
   );
 
   const getWorkspaceIdsForResource = useCallback(
@@ -240,19 +269,27 @@ export function WorkspaceScopeProvider({ children }) {
   const getVisibleResourceIds = useCallback(
     (resourceType) => {
       if (activeWorkspaceId === BASE_WORKSPACE_ID) return null;
+      // União dos workspaces marcados (ADR-0021).
       return new Set(
-        links.filter((l) => l.resourceType === resourceType && l.workspaceId === activeWorkspaceId).map((l) => l.resourceId),
+        links
+          .filter((l) => l.resourceType === resourceType && activeWorkspaceIds.includes(l.workspaceId))
+          .map((l) => l.resourceId),
       );
     },
-    [links, activeWorkspaceId],
+    // activeWorkspaceIds é recriado a cada render; a chave textual mantém o callback estável.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [links, activeWorkspaceId, activeWorkspaceIds.join('|')],
   );
 
   const value = {
     workspaces,
     links,
     activeWorkspaceId,
+    activeWorkspaceIds,
     activeWorkspace,
     setActiveWorkspaceId,
+    setActiveWorkspaceIds,
+    toggleActiveWorkspace,
     addWorkspace,
     editWorkspace,
     removeWorkspace,

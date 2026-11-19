@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ChevronRight, Paperclip, ExternalLink, Archive, Reply, Wand2, Send, Copy } from 'lucide-react';
 import SortIcon from './SortIcon';
@@ -96,7 +96,8 @@ const SORTERS = {
 // `integrations` (from src/lib/aiIntegrations, filtered to active ones with
 // a key configured) powers the "Responder" popup's "Melhorar com IA" action on each expanded
 // row.
-export default function MessageList({ conversations, currentUserId, baseUrl, integrations = [], onArchived }) {
+export default function MessageList({ conversations, currentUserId, baseUrl, integrations = [], onArchived, focusLatest = false }) {
+  const focusedRef = useRef(false);
   const [sort, setSort] = useState({ key: 'date', direction: 'desc' });
   const [expandedIds, setExpandedIds] = useState(() => new Set());
   // conversation id -> { status: 'loading'|'loaded'|'error', messages, error }
@@ -128,6 +129,32 @@ export default function MessageList({ conversations, currentUserId, baseUrl, int
       return 0;
     });
   }, [visible, currentUserId, sort]);
+
+  // Chegada pelo botão de mensagens do curso (focusLatest): abre a conversa com
+  // a mensagem mais recente (last_message_at) e rola até ela.
+  useEffect(() => {
+    if (!focusLatest || focusedRef.current || visible.length === 0) return;
+    let latest = null;
+    let latestTime = -Infinity;
+    for (const c of visible) {
+      const iso = conversationDate(c);
+      const t = iso ? new Date(iso).getTime() : 0;
+      if (t > latestTime) {
+        latestTime = t;
+        latest = c;
+      }
+    }
+    if (!latest) return;
+    focusedRef.current = true;
+    setExpandedIds((prev) => new Set(prev).add(latest.id));
+    loadThread(latest.id);
+    requestAnimationFrame(() => {
+      document
+        .querySelector(`[data-conversation-row="${latest.id}"]`)
+        ?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusLatest, visible]);
 
   function toggleSort(key) {
     setSort((prev) => {
@@ -311,7 +338,7 @@ export default function MessageList({ conversations, currentUserId, baseUrl, int
             const thread = threads[conversation.id];
             return (
               <Fragment key={conversation.id}>
-                <tr>
+                <tr data-conversation-row={conversation.id}>
                   <td className="expand-cell">
                     <button
                       type="button"

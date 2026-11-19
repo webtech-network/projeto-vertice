@@ -14,6 +14,7 @@ export const canvasKeys = {
   assignments: (courseId) => ['canvas', 'courses', String(courseId), 'assignments'],
   students: (courseId) => ['canvas', 'courses', String(courseId), 'students'],
   courseMessages: (courseId) => ['canvas', 'courses', String(courseId), 'messages'],
+  courseFiles: (courseId) => ['canvas', 'courses', String(courseId), 'files'],
   groupCategories: (courseId) => ['canvas', 'courses', String(courseId), 'group-categories'],
   categoryGroups: (courseId, categoryId) => [
     'canvas',
@@ -73,6 +74,10 @@ export const fetchCourse = (courseId) =>
 // { conversations, loadError? }
 export const fetchCourseMessages = (courseId) =>
   fetchJson(`/api/canvas/courses/${courseId}/messages`, 'Falha ao carregar as mensagens deste curso.');
+
+// { files, loadError? }
+export const fetchCourseFiles = (courseId) =>
+  fetchJson(`/api/canvas/courses/${courseId}/files`, 'Falha ao carregar os arquivos deste curso.');
 
 export const fetchGroupCategories = (courseId) =>
   fetchJson(`/api/canvas/courses/${courseId}/group-categories`, 'Falha ao carregar os conjuntos de grupos.').then(
@@ -160,6 +165,15 @@ export function useCourseMessagesQuery(courseId, { enabled = true } = {}) {
     queryKey: canvasKeys.courseMessages(courseId),
     queryFn: () => fetchCourseMessages(courseId),
     staleTime: STALE.live,
+    enabled: Boolean(courseId) && enabled,
+  });
+}
+
+export function useCourseFilesQuery(courseId, { enabled = true } = {}) {
+  return useQuery({
+    queryKey: canvasKeys.courseFiles(courseId),
+    queryFn: () => fetchCourseFiles(courseId),
+    staleTime: STALE.volatile,
     enabled: Boolean(courseId) && enabled,
   });
 }

@@ -56,6 +56,43 @@ export function derivePendingGradingItems(assignments, courses) {
     });
 }
 
+// "A fazer" do aluno (ADR-0022): junta o to-do do Canvas (próximas entregas)
+// com as entregas faltantes (vencidas), deduplicando por id de atividade.
+// Só atividades com prazo entram. Vencidas primeiro (mais antiga antes), depois
+// as futuras (mais próxima antes). `todoItems` vêm de /users/self/todo
+// (`{ assignment, course_id }`); `missing` de /users/self/missing_submissions
+// (Assignment direto, com `course` quando pedido via include[]).
+export function deriveStudentTodoItems(todoItems, missing, courses = [], now = new Date()) {
+  const courseNameById = new Map(courses.map((c) => [c.id, c.name]));
+  const byId = new Map();
+  const add = (a, courseId, courseName) => {
+    if (!a?.due_at || byId.has(a.id)) return;
+    const dueAt = new Date(a.due_at);
+    byId.set(a.id, {
+      id: a.id,
+      name: a.name,
+      dueAt,
+      overdue: dueAt < now,
+      courseId,
+      courseName: courseName ?? courseNameById.get(courseId) ?? '',
+      htmlUrl: a.html_url,
+    });
+  };
+  for (const m of missing ?? []) add(m, m.course_id, m.course?.name);
+  for (const t of todoItems ?? []) add(t.assignment, t.course_id ?? t.assignment?.course_id, t.context_name);
+  return [...byId.values()].sort((a, b) => {
+    if (a.overdue !== b.overdue) return a.overdue ? -1 : 1;
+    return a.dueAt - b.dueAt;
+  });
+}
+
+// Contagem de "a fazer" por curso (para a coluna Pendências em /courses).
+export function countTodoByCourse(items) {
+  const counts = new Map();
+  for (const i of items) counts.set(i.courseId, (counts.get(i.courseId) ?? 0) + 1);
+  return counts;
+}
+
 // Normalizes a flat assignments array (e.g. from
 // Promise.all(courses.map(c => listAssignments(client, c.id))).flat() — each
 // Assignment object already carries its own course_id) into a

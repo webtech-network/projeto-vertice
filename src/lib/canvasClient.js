@@ -129,14 +129,20 @@ export async function listCourses(client, { enrollmentType = 'teacher', enrollme
  * designer, student, observer), merged and deduped by id. Each course gets
  * `user_roles` (all roles held) and `user_role` (the main one, by the
  * COURSE_ROLES precedence). Only the teacher fetch is allowed to fail the
- * caller; the other roles are best-effort and fall back to `[]`.
+ * caller; the other roles are best-effort and fall back to `[]`, reported in
+ * `roleErrors` (the roles whose fetch failed) so the UI can warn instead of
+ * silently hiding that role's courses.
  */
-export async function listUserCourses(client) {
+export async function listUserCoursesDetailed(client) {
+  const roleErrors = [];
   const lists = await Promise.all(
     COURSE_ROLES.map((role) =>
       role === 'teacher'
         ? listCourses(client)
-        : listCourses(client, { enrollmentType: role }).catch(() => []),
+        : listCourses(client, { enrollmentType: role }).catch(() => {
+            roleErrors.push(role);
+            return [];
+          }),
     ),
   );
   const byId = new Map();
@@ -149,7 +155,26 @@ export async function listUserCourses(client) {
     }
   });
   // lists follow COURSE_ROLES order, so user_roles[0] is already the main role.
-  return [...byId.values()].map((c) => ({ ...c, user_role: c.user_roles[0] }));
+  const courses = [...byId.values()].map((c) => ({ ...c, user_role: c.user_roles[0] }));
+  return { courses, roleErrors };
+}
+
+export async function listUserCourses(client) {
+  return (await listUserCoursesDetailed(client)).courses;
+}
+
+/**
+ * Student "a fazer" sources (ADR-0022): the cross-course to-do list (upcoming
+ * assignments still to submit) and the missing (overdue, unsubmitted)
+ * submissions. Two calls regardless of how many courses the user has.
+ */
+export async function listStudentTodo(client) {
+  const items = await fetchAllPages(client, '/users/self/todo', { per_page: 100 });
+  return items.filter((i) => i.type === 'submitting' && i.assignment);
+}
+
+export async function listMissingSubmissions(client) {
+  return fetchAllPages(client, '/users/self/missing_submissions', { per_page: 100, 'include[]': ['course'] });
 }
 
 /**
@@ -162,6 +187,15 @@ export async function listUserCourses(client) {
  */
 export async function listAssignments(client, courseId) {
   return fetchAllPages(client, `/courses/${courseId}/assignments`, { per_page: 100 });
+}
+
+/**
+ * Lists the files in a course's Files area. Canvas's own Files screen has no
+ * "ordem de envio" view (reclamação recorrente), so we ask for them by upload
+ * time (`created_at`, newest first) and the UI lets the user flip it.
+ */
+export async function listCourseFiles(client, courseId) {
+  return fetchAllPages(client, `/courses/${courseId}/files`, { per_page: 100, sort: 'created_at', order: 'desc' });
 }
 
 /**
