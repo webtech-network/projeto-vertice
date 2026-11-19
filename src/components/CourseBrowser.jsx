@@ -30,7 +30,8 @@ import { useWorkspaceScope } from './WorkspaceScopeProvider';
 import { BASE_WORKSPACE_ID } from '@/lib/workspaces/workspacesRepo';
 import { isPublished } from '@/lib/dashboard';
 import { canvasKeys, cacheStatus, useCoursesQuery } from '@/lib/query/canvasQueries';
-import { COURSE_ROLES, COURSE_ROLE_LABELS } from '@/lib/courseRoles';
+import { COURSE_ROLE_LABELS } from '@/lib/courseRoles';
+import RoleFilterDropdown from './RoleFilterDropdown';
 import { readCourseBrowserState, writeCourseBrowserState } from '@/lib/courseBrowserState';
 
 function formatDateTime(timestamp) {
@@ -53,7 +54,7 @@ const STATUS_ORDER = { published: 0, unpublished: 1, completed: 2 };
 const SORTERS = {
   favorite: (course) => (course.is_favorite ? 0 : 1),
   name: (course) => course.name?.toLowerCase() ?? '',
-  pending: (course) => course.needs_grading_count ?? 0,
+  pending: (course) => (course.needs_grading_count ?? 0) + (course.todo_count ?? 0),
   status: (course) => STATUS_ORDER[toStatus(course.workflow_state)] ?? 99,
   messages: (course) => course.message_count ?? -1,
 };
@@ -78,7 +79,13 @@ function roleTitle(course) {
 }
 
 export default function CourseBrowser() {
-  const { activeWorkspaceId, getVisibleResourceIds } = useWorkspaceScope();
+  const { activeWorkspaceId, getVisibleResourceIds, workspaces, getWorkspaceIdsForResource } = useWorkspaceScope();
+  // Clique nas pendências: abre o curso na aba Atividades e rola até a atividade
+  // com a entrega mais próxima. Clique em mensagens: aba Mensagens, na última
+  // mensagem. O `token` remonta as abas para reaplicar o foco mesmo com o curso
+  // já aberto.
+  // `focus` = { courseId, kind: 'activity' | 'message', token }.
+  const [focus, setFocus] = useState(null);
   const [workspacesModalCourse, setWorkspacesModalCourse] = useState(null);
   const [query, setQuery] = useState('');
   // At most one course's workspace (anotações/atividades/mensagens/alunos
@@ -121,6 +128,12 @@ export default function CourseBrowser() {
 
   const appliedDefaultFilterRef = useRef(false);
   const userToggledFavoritesRef = useRef(false);
+  // Só uma escolha explícita no dropdown de papéis (nesta sessão) vale como
+  // "papel escolhido pelo usuário" — o padrão de "papel único" abaixo não pode
+  // sobrescrevê-la. O estado salvo sempre traz `roles` (inclusive [] do padrão),
+  // por isso a presença dele sozinha NÃO indica escolha: precisa de `rolesChosen`.
+  const rolesChosenRef = useRef(false);
+  const appliedDefaultRoleRef = useRef(false);
 
   // Restore the list as it was this session (BackButton / back gesture from
   // correção, pares, importação). Runs before the default-favorites effect
@@ -139,7 +152,10 @@ export default function CourseBrowser() {
       }
       if (saved.statusFilter) setStatusFilter(saved.statusFilter);
       if (saved.sort) setSort(saved.sort);
-      if (Array.isArray(saved.roles)) setRoleFilter(saved.roles);
+      if (saved.rolesChosen && Array.isArray(saved.roles)) {
+        rolesChosenRef.current = true;
+        setRoleFilter(saved.roles);
+      }
       if (saved.expandedCourseId != null) {
         setExpandedCourseId(saved.expandedCourseId);
         setExpandedTab(saved.expandedTab || null);
@@ -151,7 +167,16 @@ export default function CourseBrowser() {
 
   useEffect(() => {
     if (!restoredRef.current) return;
-    writeCourseBrowserState({ query, onlyFavorites, statusFilter, roles: roleFilter, sort, expandedCourseId, expandedTab });
+    writeCourseBrowserState({
+      query,
+      onlyFavorites,
+      statusFilter,
+      roles: roleFilter,
+      rolesChosen: rolesChosenRef.current,
+      sort,
+      expandedCourseId,
+      expandedTab,
+    });
   }, [query, onlyFavorites, statusFilter, roleFilter, sort, expandedCourseId, expandedTab]);
 
   // Bring the restored expanded row back into view once it's rendered.
@@ -162,6 +187,17 @@ export default function CourseBrowser() {
     scrollToExpandedRef.current = false;
     row.scrollIntoView({ block: 'start' });
   });
+
+  function handleRoleChange(next) {
+    rolesChosenRef.current = true;
+    setRoleFilter(next);
+  }
+
+  function openWithFocus(courseId, kind) {
+    setExpandedCourseId(courseId);
+    setExpandedTab(kind === 'message' ? 'mensagens' : 'atividades');
+    setFocus((prev) => ({ courseId, kind, token: (prev?.token ?? 0) + 1 }));
+  }
 
   function toggleExpanded(courseId) {
     setExpandedTab(null);
@@ -175,6 +211,16 @@ export default function CourseBrowser() {
     if (!coursesQuery.data.some((c) => c.is_favorite)) setOnlyFavorites(false);
   }, [coursesQuery.data]);
 
+  // Quem tem um papel só (só aluno, só professor, só tutor…) já abre filtrado
+  // nele, em vez de "Todos os papéis". Resolvido uma vez, quando a lista chega.
+  useEffect(() => {
+    if (!coursesQuery.data || appliedDefaultRoleRef.current || rolesChosenRef.current) return;
+    appliedDefaultRoleRef.current = true;
+    const roles = new Set();
+    for (const c of coursesQuery.data) for (const r of c.user_roles ?? [c.user_role]) if (r) roles.add(r);
+    if (roles.size === 1) setRoleFilter([...roles]);
+  }, [coursesQuery.data]);
+
   const favoritesCount = useMemo(() => courseList.filter((c) => c.is_favorite).length, [courseList]);
   const publishedCount = useMemo(() => courseList.filter(isPublished).length, [courseList]);
   const unpublishedCount = courseList.length - publishedCount;
@@ -184,11 +230,9 @@ export default function CourseBrowser() {
     for (const c of courseList) for (const r of c.user_roles ?? [c.user_role]) if (r) counts[r] = (counts[r] ?? 0) + 1;
     return counts;
   }, [courseList]);
-  const availableRoles = COURSE_ROLES.filter((r) => roleCounts[r]);
-
-  function toggleRole(role) {
-    setRoleFilter((prev) => (prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]));
-  }
+  // Papéis cujo carregamento falhou (carimbado pela rota em cada curso) — aviso
+  // em vez de esconder em silêncio os cursos desse papel.
+  const roleErrors = courseList[0]?.role_errors ?? [];
 
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -339,31 +383,16 @@ export default function CourseBrowser() {
             );
           })}
         </div>
-        {availableRoles.length > 1 && (
-          <div className="segmented" role="group" aria-label="Filtrar por papel no curso">
-            {availableRoles.map((role) => {
-              const Icon = ROLE_ICONS[role];
-              const label = COURSE_ROLE_LABELS[role];
-              const active = roleFilter.includes(role);
-              return (
-                <button
-                  key={role}
-                  type="button"
-                  className={`segmented-btn${active ? ' active' : ''}`}
-                  onClick={() => toggleRole(role)}
-                  aria-pressed={active}
-                  title={`${label} (${roleCounts[role]})`}
-                >
-                  <Icon size={14} strokeWidth={2} aria-hidden="true" />
-                  <span className="segmented-btn-text">
-                    {label} ({roleCounts[role]})
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        )}
+        <div className="browser-controls-row">
+          <RoleFilterDropdown selected={roleFilter} counts={roleCounts} onChange={handleRoleChange} />
+        </div>
       </div>
+
+      {roleErrors.length > 0 && (
+        <p className="alert alert-error" role="alert">
+          Não foi possível carregar cursos como {roleErrors.map((r) => COURSE_ROLE_LABELS[r]).join(', ')}.
+        </p>
+      )}
 
       {favoriteError && (
         <p className="alert alert-error" role="alert">
@@ -410,7 +439,7 @@ export default function CourseBrowser() {
                 </span>
                 <span className="sr-only">Meu papel no curso</span>
               </th>
-              <th aria-sort={sortAria('name')}>
+              <th className="course-name-th" aria-sort={sortAria('name')}>
                 <button type="button" className="th-sort-btn" onClick={() => toggleSort('name')}>
                   Curso
                   <SortIcon direction={sort.key === 'name' ? sort.direction : null} />
@@ -421,10 +450,10 @@ export default function CourseBrowser() {
                   type="button"
                   className="th-sort-btn"
                   onClick={() => toggleSort('pending')}
-                  title="Correções pendentes"
+                  title="Pendências (a corrigir / a fazer)"
                 >
                   <ClipboardCheck size={16} strokeWidth={1.8} className="col-icon" aria-hidden="true" />
-                  <span className="sr-only">Correções pendentes</span>
+                  <span className="sr-only">Pendências (a corrigir / a fazer)</span>
                   <SortIcon direction={sort.key === 'pending' ? sort.direction : null} />
                 </button>
               </th>
@@ -491,6 +520,25 @@ export default function CourseBrowser() {
                   ) : null}
                 </td>
                 <td className="course-name-cell">
+                  {(() => {
+                    const dots = getWorkspaceIdsForResource('course', course.id)
+                      .map((id) => workspaces.find((w) => w.id === id))
+                      .filter(Boolean);
+                    // Sem workspace: espaço reservado, para o nome alinhar com o cabeçalho.
+                    if (dots.length === 0) {
+                      return <span className="tasks-projects-color-dot course-workspace-dot course-workspace-dot-spacer" aria-hidden="true" />;
+                    }
+                    return dots.map((w) => (
+                      <span
+                        key={w.id}
+                        className="tasks-projects-color-dot course-workspace-dot"
+                        style={{ backgroundColor: w.color || 'var(--ink-soft)' }}
+                        title={w.name}
+                        role="img"
+                        aria-label={`Workspace: ${w.name}`}
+                      />
+                    ));
+                  })()}
                   <button
                     type="button"
                     className="course-name-btn"
@@ -511,7 +559,24 @@ export default function CourseBrowser() {
                 </td>
                 <td className="pending-cell">
                   {course.needs_grading_count ? (
-                    <span className="pending-badge has-pending">{course.needs_grading_count}</span>
+                    <button
+                      type="button"
+                      className="pending-badge has-pending pending-badge-btn"
+                      title="A corrigir"
+                      onClick={() => openWithFocus(course.id, 'activity')}
+                    >
+                      {course.needs_grading_count}
+                    </button>
+                  ) : null}
+                  {course.todo_count ? (
+                    <button
+                      type="button"
+                      className="pending-badge has-pending pending-badge-btn"
+                      title="A fazer"
+                      onClick={() => openWithFocus(course.id, 'activity')}
+                    >
+                      {course.todo_count}
+                    </button>
                   ) : null}
                 </td>
                 <td className="pending-cell">
@@ -524,7 +589,14 @@ export default function CourseBrowser() {
                       —
                     </span>
                   ) : course.message_count === 0 ? null : (
-                    <span className="pending-badge has-pending">{course.message_count}</span>
+                    <button
+                      type="button"
+                      className="pending-badge has-pending pending-badge-btn"
+                      title="Mensagens"
+                      onClick={() => openWithFocus(course.id, 'message')}
+                    >
+                      {course.message_count}
+                    </button>
                   )}
                 </td>
                 <td className="actions-cell">
@@ -553,6 +625,9 @@ export default function CourseBrowser() {
                 <tr className="course-note-row">
                   <td colSpan={8}>
                     <CourseWorkspaceTabs
+                      key={`${course.id}-${focus?.courseId === course.id ? focus.token : 0}`}
+                      focusNearest={focus?.courseId === course.id && focus.kind === 'activity'}
+                      focusLatestMessage={focus?.courseId === course.id && focus.kind === 'message'}
                       courseId={course.id}
                       courseCode={course.course_code}
                       expandHref={`/courses/${course.id}`}
@@ -569,7 +644,7 @@ export default function CourseBrowser() {
         </table>
         </div>
 
-        <ul className="icon-legend">
+        <ul className="icon-legend icon-legend-single-line">
           <li>
             <Star size={14} strokeWidth={1.8} fill="currentColor" aria-hidden="true" /> Favorito
           </li>
@@ -589,7 +664,7 @@ export default function CourseBrowser() {
             <Eye size={14} strokeWidth={1.8} aria-hidden="true" /> Observador
           </li>
           <li>
-            <ClipboardCheck size={14} strokeWidth={1.8} aria-hidden="true" /> Correções pendentes
+            <ClipboardCheck size={14} strokeWidth={1.8} aria-hidden="true" /> Pendências (a corrigir / a fazer)
           </li>
           <li>
             <Megaphone size={14} strokeWidth={1.8} aria-hidden="true" /> Status de publicação

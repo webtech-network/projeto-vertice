@@ -3,7 +3,8 @@
 import { useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { NotebookText, ListChecks, Mail, Users, Maximize2 } from 'lucide-react';
+import { NotebookText, ListChecks, Mail, Users, Maximize2, Files } from 'lucide-react';
+import CourseFiles from './CourseFiles';
 import CourseNoteEditor from './CourseNoteEditor';
 import AssignmentsTable from './AssignmentsTable';
 import ComposeMessage from './ComposeMessage';
@@ -16,6 +17,7 @@ import {
   useCanvasStatusQuery,
   useConfiguredAiIntegrationsQuery,
   useCourseAssignmentsQuery,
+  useCourseFilesQuery,
   useCourseMessagesQuery,
   useCourseStudentsQuery,
 } from '@/lib/query/canvasQueries';
@@ -25,6 +27,7 @@ const TABS = [
   { key: 'atividades', label: 'Atividades', Icon: ListChecks },
   { key: 'mensagens', label: 'Mensagens', Icon: Mail },
   { key: 'alunos', label: 'Alunos', Icon: Users },
+  { key: 'arquivos', label: 'Arquivos', Icon: Files },
 ];
 const TAB_KEYS = TABS.map((t) => t.key);
 
@@ -43,7 +46,15 @@ const TAB_KEYS = TABS.map((t) => t.key);
 // Query cache (ADR-0015, same keys TaskDetailModal's pickers read through
 // canvasResolution.js): they paint at once from cache and revalidate in the
 // background past the `volatile` tier, since both show live counters/grades.
-export default function CourseWorkspaceTabs({ courseId, courseCode, initialTab, expandHref, onTabChange }) {
+export default function CourseWorkspaceTabs({
+  courseId,
+  courseCode,
+  initialTab,
+  expandHref,
+  onTabChange,
+  focusNearest = false,
+  focusLatestMessage = false,
+}) {
   const [tab, setTabState] = useState(TAB_KEYS.includes(initialTab) ? initialTab : 'notas');
 
   // The open tab must survive a trip to a drill-down page and back (see
@@ -94,7 +105,14 @@ export default function CourseWorkspaceTabs({ courseId, courseCode, initialTab, 
   // those two tabs is open. Failures degrade gracefully to empty defaults:
   // the AI picker just doesn't show up (same "integrations.length === 0"
   // branch ComposeMessage/MessageList/StudentReport already handle).
-  const needsSession = tab === 'mensagens' || tab === 'alunos';
+  const filesQuery = useCourseFilesQuery(courseId, { enabled: tab === 'arquivos' });
+  const files = {
+    data: filesQuery.data?.files ?? [],
+    loading: cacheStatus(filesQuery).initialLoading,
+    error: filesQuery.data?.loadError ?? (filesQuery.data ? null : (filesQuery.error?.message ?? null)),
+  };
+
+  const needsSession = tab === 'mensagens' || tab === 'alunos' || tab === 'arquivos';
   const statusQuery = useCanvasStatusQuery({ enabled: needsSession });
   const integrationsQuery = useConfiguredAiIntegrationsQuery({ enabled: needsSession });
   const session = {
@@ -136,7 +154,18 @@ export default function CourseWorkspaceTabs({ courseId, courseCode, initialTab, 
           (assignments.loading && assignments.data.length === 0 ? (
             <p className="lede">Carregando atividades…</p>
           ) : (
-            <AssignmentsTable courseId={courseId} assignments={assignments.data} />
+            <AssignmentsTable courseId={courseId} assignments={assignments.data} focusNearest={focusNearest} />
+          ))}
+
+        {tab === 'arquivos' &&
+          (files.loading && files.data.length === 0 ? (
+            <p className="lede">Carregando arquivos…</p>
+          ) : files.error ? (
+            <p className="alert alert-error" role="alert">
+              {files.error}
+            </p>
+          ) : (
+            <CourseFiles courseId={courseId} files={files.data} baseUrl={session.baseUrl} />
           ))}
 
         {tab === 'mensagens' && (
@@ -155,6 +184,7 @@ export default function CourseWorkspaceTabs({ courseId, courseCode, initialTab, 
                 baseUrl={session.baseUrl}
                 integrations={session.integrations}
                 onArchived={handleArchived}
+                focusLatest={focusLatestMessage}
               />
             )}
           </>

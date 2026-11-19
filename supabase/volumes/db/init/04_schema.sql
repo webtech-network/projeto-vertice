@@ -590,6 +590,7 @@ create table public.ui_preferences (
   group_by_project boolean not null default false,
   collapsed_columns text[] not null default '{}',
   active_workspace_id uuid references public.workspaces(id) on delete set null,
+  active_workspace_ids uuid[] not null default '{}',
   theme text not null default 'system' check (theme in ('light', 'dark', 'system')),
   sidebar_collapsed boolean not null default false,
   created_at timestamptz not null default now(),

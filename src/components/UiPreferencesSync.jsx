@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { getUiPreferences, upsertUiPreferences } from '@/lib/uiPreferences';
 import { getDefaultPreferences, patchDefaultPreferences } from '@/lib/tasks/tasksViewPreferences';
-import { getActiveWorkspaceId, setActiveWorkspaceId } from '@/lib/workspaces/activeWorkspacePreference';
+import { getActiveWorkspaceId, getActiveWorkspaceIds, setActiveWorkspaceIds } from '@/lib/workspaces/activeWorkspacePreference';
 import { BASE_WORKSPACE_ID } from '@/lib/workspaces/workspacesRepo';
 import { getStoredTheme, applyTheme } from '@/lib/theme';
 import { getSidebarCollapsed, setSidebarCollapsed } from '@/lib/sidebarPreference';
@@ -72,7 +72,10 @@ async function performSync() {
     // existente de cada domínio (que também já escreve no localStorage),
     // sem duplicar essa lógica aqui.
     applyTheme(prefs.theme);
-    setActiveWorkspaceId(prefs.activeWorkspaceId || BASE_WORKSPACE_ID);
+    // Lista (ADR-0021) quando o banco já tem a coluna preenchida; senão cai no id primário.
+    setActiveWorkspaceIds(
+      prefs.activeWorkspaceIds?.length ? prefs.activeWorkspaceIds : [prefs.activeWorkspaceId || BASE_WORKSPACE_ID],
+    );
     patchDefaultPreferences({
       cardDensity: prefs.cardDensity,
       view: prefs.tasksView,
@@ -97,5 +100,7 @@ async function performSync() {
       collapsed_columns: taskPrefs.collapsedColumns,
       sidebar_collapsed: getSidebarCollapsed(),
     }).catch(() => {});
+    const ids = getActiveWorkspaceIds();
+    if (ids[0] !== BASE_WORKSPACE_ID) await upsertUiPreferences({ active_workspace_ids: ids }).catch(() => {});
   }
 }

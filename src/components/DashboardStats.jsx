@@ -10,7 +10,7 @@ function StatTile({ label, value, sub, loading, stale, failed }) {
   );
 }
 
-export default function DashboardStats({ courses, students, messages, grading, loading, stale }) {
+export default function DashboardStats({ courses, students, messages, grading, todo, loading, stale }) {
   return (
     <div className="stat-tile-grid">
       <StatTile label="Disciplinas ativas" value={courses?.total} loading={loading} stale={stale} />
@@ -23,10 +23,17 @@ export default function DashboardStats({ courses, students, messages, grading, l
         stale={stale}
       />
       <StatTile
-        label="Pendências de correção"
+        label="Pendências a corrigir"
         value={grading?.pendingGradingSum}
         sub={grading?.pendingAssignmentsCount ? `${grading.pendingAssignmentsCount} atividade(s)` : null}
         failed={Boolean(grading) && grading.pendingGradingSum == null}
+        loading={loading}
+        stale={stale}
+      />
+      <StatTile
+        label="Pendências a fazer"
+        value={todo?.total}
+        failed={Boolean(todo) && todo.total == null}
         loading={loading}
         stale={stale}
       />

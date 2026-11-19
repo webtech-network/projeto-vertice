@@ -163,7 +163,7 @@ const FEATURES = [
     elements: [
       { Icon: Star, label: 'Favoritar', text: 'marca ou desmarca o curso como favorito — só favoritos aparecem em Mensagens e no Painel inicial.' },
       { Icon: Megaphone, label: 'Status de publicação', text: 'indica se o curso está publicado, não publicado ou encerrado.' },
-      { Icon: ClipboardCheck, label: 'Correções pendentes', text: 'total de correções pendentes do curso, calculado pelo próprio Canvas.' },
+      { Icon: ClipboardCheck, label: 'Pendências', text: 'para professor, total de correções a fazer no curso (calculado pelo Canvas); para aluno, atividades a entregar.' },
       { Icon: Mail, label: 'Mensagens', text: 'contador de mensagens daquele curso.' },
       { Icon: ExternalLink, label: 'Abrir no Canvas', text: 'abre a página do curso no Canvas, em nova aba.' },
       { Icon: ListChecks, label: 'Ver atividades', text: 'abre a lista de atividades do curso.' },

@@ -2,7 +2,7 @@
 title: Ambientes (workspaces)
 status: implemented
 domain: data
-updated: 2026-11-09
+updated: 2026-11-19
 ---
 
 # Ambientes (workspaces)
@@ -21,8 +21,15 @@ updated: 2026-11-09
   depois da primeira visita, o filtro de ambiente vale já na primeira pintura e o Postgres só
   revalida (também ao voltar à aba após > 60 s e no evento `online`).
 - **Escopo**: `getVisibleResourceIds(resourceType)` → `null` quando Base ativa (sem filtro);
-  senão o `Set` de `resourceId`s ligados ao workspace ativo. Filtra Tarefas, Cursos/Atividades
-  e Notas de curso.
+  senão o `Set` de `resourceId`s ligados a **qualquer** workspace ativo (união). Filtra Tarefas,
+  Cursos/Atividades e Notas de curso.
+- **Seleção múltipla** ([ADR-0021](../decisions/0021-selecao-multipla-de-workspaces.md)):
+  o dropdown da Topbar marca/desmarca workspaces por clique e **não fecha** ao clicar. Base é
+  exclusiva (marcar Base limpa os outros; marcar outro desmarca Base; vazio volta a Base).
+  `activeWorkspaceIds` é a lista; `activeWorkspaceId` = primeiro; `activeWorkspace.name` junta os
+  nomes. Alt+1..9 seleciona um só.
+- **Bolinha na lista de cursos**: `CourseBrowser` mostra, antes do nome de cada curso, uma bolinha
+  com a cor de cada workspace ao qual ele está ligado (via `getWorkspaceIdsForResource`).
 - **Links são dados derivados**, não tabela: `projects.workspace_id` + `course_workspace_links`.
   Qualquer mudança relevante → refetch completo (mesmo padrão pós-write).
 - Atalhos Alt+1..9 trocam de workspace (lê `e.code` `Digit1..9`, não `e.key`). Base é sempre #1.
@@ -44,11 +51,13 @@ updated: 2026-11-09
 ## Dados e persistência
 
 - `workspaces` no Postgres (soft delete). Realtime em `workspaces`, `projects`,
-  `course_workspace_links`. Id ativo em `activeWorkspacePreference` (localStorage + write-through).
+  `course_workspace_links`. Lista ativa em `activeWorkspacePreference` (localStorage JSON + write-through:
+  `ui_preferences.active_workspace_ids` e, por compat, `active_workspace_id` = primeiro).
 
 ## Decisões
 
-- Base é sintético: [ADR-0012](../decisions/0012-workspace-base-sintetico.md).
+- Base é sintético: [ADR-0012](../decisions/0012-workspace-base-sintetico.md). Seleção múltipla:
+  [ADR-0021](../decisions/0021-selecao-multipla-de-workspaces.md).
   Soft delete: [ADR-0011](../decisions/0011-soft-delete-vs-delete.md).
 
 ## Invariantes e gotchas
