@@ -34,3 +34,4 @@ frontmatter (`accepted` ou `superseded`). Se uma decisão for revertida, marcar
 | [0021](0021-selecao-multipla-de-workspaces.md) | Seleção múltipla de workspaces ativos; Base exclusiva; união dos recursos |
 | [0022](0022-pendencias-do-aluno-todo-canvas.md) | Pendências do aluno via `todo` + `missing_submissions` do Canvas |
 | [0023](0023-ordem-cronologica-no-curso.md) | Ordem cronológica no curso: atividades por prazo, aba Arquivos por envio, última mensagem |
+| [0024](0024-rede-isolada-por-stack-no-dokploy.md) | Rede isolada por stack no Dokploy; alias único `vertice-kong` evita colisão de DNS entre stacks |

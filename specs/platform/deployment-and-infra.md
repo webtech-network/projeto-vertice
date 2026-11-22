@@ -2,7 +2,7 @@
 title: Deploy e infraestrutura
 status: implemented
 domain: devops
-updated: 2026-09-17
+updated: 2026-11-22
 ---
 
 # Deploy e infraestrutura
@@ -43,6 +43,11 @@ updated: 2026-09-17
 
 - Segredos (`SUPABASE_SERVICE_ROLE_KEY`, `*_CLIENT_SECRET`, `SESSION_SECRET`,
   `CANVAS_API_TOKEN`) **nunca** em `NEXT_PUBLIC_*` nem commitados.
+- **Várias stacks no mesmo servidor Dokploy**: a `dokploy-network` é compartilhada e o nome
+  `kong` resolve pro Kong de qualquer stack (DNS alterna → 401 intermitente). Em
+  `docker-compose.dokploy.yml` todos os serviços ficam na rede própria `internal` e o app usa o
+  alias `vertice-kong` (`SUPABASE_INTERNAL_URL=http://vertice-kong:8000`); outra stack usa alias
+  próprio. Ver [ADR-0024](../decisions/0024-rede-isolada-por-stack-no-dokploy.md).
 - URL pública ≠ interna do Supabase (Docker) — por isso `getSupabaseServerUrl()` e
   `getSupabaseStorageKey()` separam interno de público.
 - Realtime exige publicação explícita (`06/07_realtime_publication*.sql`); **não**
@@ -51,4 +56,5 @@ updated: 2026-09-17
 ## Dependências
 
 - [data-storage.md](data-storage.md) · [routing-and-shell.md](routing-and-shell.md) ·
-  [ADR-0008](../decisions/0008-postgres-realtime-migracao.md)
+  [ADR-0008](../decisions/0008-postgres-realtime-migracao.md) ·
+  [ADR-0024](../decisions/0024-rede-isolada-por-stack-no-dokploy.md)

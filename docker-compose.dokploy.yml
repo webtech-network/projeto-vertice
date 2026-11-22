@@ -33,6 +33,14 @@
 #    supabase/.env. Cole a lista completa na UI de Environment do
 #    Dokploy antes do primeiro deploy; ver comentários de cada variável
 #    abaixo pro que precisa virar URL de produção.
+#
+# 5. Rede isolada por stack. O Dokploy anexa à `dokploy-network` (compartilhada
+#    entre TODAS as aplicações do servidor) só os serviços com domínio — aqui
+#    `app` e `kong`. Lá, o nome de serviço `kong` resolve pro Kong de qualquer
+#    stack e o DNS alterna entre eles (401 "Unauthorized" intermitente). Por
+#    isso todos os serviços ficam na rede `internal` desta stack, e a chamada
+#    servidor->Supabase usa o alias `vertice-kong`, exclusivo dela. Em outra
+#    stack no mesmo servidor, use um alias próprio. ADR-0024.
 
 name: vertice
 
@@ -43,6 +51,8 @@ services:
   db:
     image: supabase/postgres:17.6.1.136
     restart: unless-stopped
+    networks:
+      - internal
     volumes:
       - ./supabase/volumes/db/init/01_roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:Z
       - ./supabase/volumes/db/init/02_jwt.sql:/docker-entrypoint-initdb.d/init-scripts/99-jwt.sql:Z
@@ -77,6 +87,8 @@ services:
   auth:
     image: supabase/gotrue:v2.189.0
     restart: unless-stopped
+    networks:
+      - internal
     depends_on:
       db:
         condition: service_healthy
@@ -132,6 +144,8 @@ services:
   rest:
     image: postgrest/postgrest:v14.12
     restart: unless-stopped
+    networks:
+      - internal
     depends_on:
       db:
         condition: service_healthy
@@ -155,6 +169,12 @@ services:
   realtime:
     image: supabase/realtime:v2.102.3
     restart: unless-stopped
+    networks:
+      internal:
+        aliases:
+          # Hostname que o kong.yml usa pro upstream do Realtime (no compose
+          # local vem de container_name; aqui precisa ser alias explícito).
+          - realtime-dev.vertice-supabase-realtime
     depends_on:
       db:
         condition: service_healthy
@@ -192,6 +212,10 @@ services:
   kong:
     image: kong/kong:3.9.3
     restart: unless-stopped
+    networks:
+      internal:
+        aliases:
+          - vertice-kong
     depends_on:
       - auth
       - rest
@@ -241,12 +265,16 @@ services:
         NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
         NEXT_PUBLIC_PASSKEYS_ENABLED: ${NEXT_PUBLIC_PASSKEYS_ENABLED:-false}
     restart: unless-stopped
+    networks:
+      - internal
     env_file:
       - .env
     environment:
-      # Chamada servidor->Supabase usa o nome do serviço na rede interna
-      # deste mesmo compose, não a URL pública do Kong.
-      SUPABASE_INTERNAL_URL: http://kong:8000
+      # Chamada servidor->Supabase usa o alias `vertice-kong`, que só existe na
+      # rede `internal` desta stack. NÃO usar `kong`: na dokploy-network
+      # compartilhada o nome resolve também pro Kong de outras stacks (ver nota
+      # 5 no topo e ADR-0024).
+      SUPABASE_INTERNAL_URL: http://vertice-kong:8000
     depends_on:
       kong:
         condition: service_healthy
@@ -260,6 +288,10 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+
+networks:
+  # Rede própria desta stack (o Compose a nomeia <projeto>_internal).
+  internal:
 
 volumes:
   db-data:
