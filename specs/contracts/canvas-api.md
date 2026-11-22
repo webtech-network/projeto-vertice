@@ -2,7 +2,7 @@
 title: Cliente da API do Canvas
 status: implemented
 domain: canvas
-updated: 2026-11-08
+updated: 2026-11-19
 ---
 
 # Cliente da API do Canvas
@@ -60,9 +60,20 @@ id da submissão, `score` e `data[].comments`).
 `createConversation({ recipients, subject, body, contextCode })` (`group_conversation:false`
 sempre — cópia individual por destinatário; chunk manual se > 100 destinatários).
 
+**Arquivos**: `listCourseFiles(courseId)` (`GET /courses/:id/files`, `sort=created_at&order=desc`,
+`per_page: 100`, todas as páginas) — só metadados; a rota mapeia para `display_name`, `created_at`,
+`modified_at`, `size`, `content_type`, `locked`, `hidden`. O Canvas responde **401/403** quando o curso
+não tem arquivos ou a área de Arquivos está oculta ao papel (indistinguíveis); a rota trata isso como
+lista vazia ([ADR-0023](../decisions/0023-ordem-cronologica-no-curso.md)).
+
 **Alunos**: `listCourseStudents(courseId, { include })` — `enrollment_type[]=student`,
 `enrollment_state[]=active,invited,inactive,completed` (filtro/label client-side; `email`
 é include não-oficial, fallback em `login_id`).
+
+**Pendências do aluno**: `listStudentTodo()` (`GET /users/self/todo`, só itens `submitting`)
+e `listMissingSubmissions()` (`GET /users/self/missing_submissions`, `include[]=course`) —
+mescladas por `deriveStudentTodoItems`; ver [ADR-0022](../decisions/0022-pendencias-do-aluno-todo-canvas.md).
+`listUserCoursesDetailed()` devolve `{ courses, roleErrors }` (papéis cuja busca falhou); `/api/canvas/courses` carimba `role_errors` em cada curso.
 
 **Favoritos**: `addCourseFavorite(courseId)`, `removeCourseFavorite(courseId)`.
 

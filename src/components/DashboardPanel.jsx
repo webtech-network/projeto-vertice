@@ -7,8 +7,17 @@ import RecentDeadlines from './RecentDeadlines';
 import DashboardDoingTasks from './DashboardDoingTasks';
 import DashboardShortcuts from './DashboardShortcuts';
 import PendingGradingList from './PendingGradingList';
+import PendingTodoList from './PendingTodoList';
 
-const EMPTY_SUMMARY = { courses: null, students: null, messages: null, grading: null, calendar: null, recent: null };
+const EMPTY_SUMMARY = {
+  courses: null,
+  students: null,
+  messages: null,
+  grading: null,
+  todo: null,
+  calendar: null,
+  recent: null,
+};
 
 // Stale-while-revalidate via TanStack Query (ADR-0015): pinta na hora com o
 // que veio do IndexedDB (marcado `stale`) e revalida em segundo plano quando
@@ -35,6 +44,7 @@ export default function DashboardPanel() {
         students={summary.students}
         messages={summary.messages}
         grading={summary.grading}
+        todo={summary.todo}
         loading={showLoading}
         stale={stale}
       />
@@ -49,7 +59,12 @@ export default function DashboardPanel() {
         <RecentDeadlines items={summary.recent?.items} loading={showLoading} />
       </div>
 
-      <PendingGradingList items={summary.grading?.items} loading={showLoading} />
+      {/* Pendências (pendencias.md): "a corrigir" só aparece para quem tem curso como
+          professor; "a fazer" (aluno) sempre, com estado vazio explícito. */}
+      {(showLoading || summary.courses?.total !== 0) && (
+        <PendingGradingList items={summary.grading?.items} loading={showLoading} />
+      )}
+      <PendingTodoList items={summary.todo?.items} loading={showLoading} />
     </div>
   );
 }

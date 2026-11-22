@@ -1,6 +1,13 @@
 import { NextResponse } from 'next/server';
 import { requireCanvasIntegration } from '@/lib/canvasIntegration';
-import { listUserCourses, listConversations, listAssignments } from '@/lib/canvasClient';
+import {
+  listUserCoursesDetailed,
+  listConversations,
+  listAssignments,
+  listStudentTodo,
+  listMissingSubmissions,
+} from '@/lib/canvasClient';
+import { deriveStudentTodoItems, countTodoByCourse } from '@/lib/dashboard';
 import { countMessagesByCourse } from '@/lib/messageGrouping';
 import { correctedCourseNeedsGradingCount } from '@/lib/groupGrading';
 
@@ -18,7 +25,7 @@ export async function GET() {
 
   const client = canvas.client;
 
-  const rawCourses = await listUserCourses(client);
+  const { courses: rawCourses, roleErrors } = await listUserCoursesDetailed(client);
   const favoriteIds = rawCourses.filter((c) => c.is_favorite).map((c) => c.id);
 
   // Canvas has no per-course message count on the course-list endpoint (unlike
@@ -62,6 +69,19 @@ export async function GET() {
       }),
   );
 
+  // "A fazer" do aluno por curso (ADR-0022) — só vale a pena se o usuário é aluno em
+  // algum curso; reaproveita as mesmas 2 chamadas cross-curso do dashboard.
+  let todoCounts = new Map();
+  if (rawCourses.some((c) => c.user_roles?.includes('student'))) {
+    const [todo, missing] = await Promise.allSettled([listStudentTodo(client), listMissingSubmissions(client)]);
+    todoCounts = countTodoByCourse(
+      deriveStudentTodoItems(
+        todo.status === 'fulfilled' ? todo.value : [],
+        missing.status === 'fulfilled' ? missing.value : [],
+      ),
+    );
+  }
+
   // Canvas's course-list endpoint doesn't return an html_url by default (unlike
   // assignments, which do) — build the link to the course's own Canvas page ourselves.
   const courses = rawCourses.map((course) => ({
@@ -69,6 +89,10 @@ export async function GET() {
     needs_grading_count: gradingCorrections.has(course.id)
       ? gradingCorrections.get(course.id)
       : course.needs_grading_count,
+    todo_count: course.user_roles?.includes('student') ? (todoCounts.get(course.id) ?? 0) : undefined,
+    // O cache/consumidores esperam um array puro de cursos; o aviso de papéis que falharam
+    // viaja carimbado em cada curso (só quando há falha).
+    ...(roleErrors.length ? { role_errors: roleErrors } : {}),
     html_url: `${canvas.baseUrl}/courses/${course.id}`,
     message_count: course.is_favorite ? (messageCounts ? messageCounts.get(String(course.id)) : null) : undefined,
   }));

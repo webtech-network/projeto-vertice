@@ -38,8 +38,9 @@ Legenda: `canvas` · `ai` · `data` · `frontend` (domínios de produto) · `bac
 | [dashboard-shell.md](capabilities/dashboard-shell.md) | frontend | implemented | Sidebar, Topbar, tema, mobile e instalação PWA |
 | [login-and-landing.md](capabilities/login-and-landing.md) | frontend | implemented | Tela de login × capa; `/sobre` como página institucional |
 | [dashboard.md](capabilities/dashboard.md) | frontend | implemented | Home = painel de widgets (stats, tarefas, atalhos, calendário, pendências) |
-| [course-browser.md](capabilities/course-browser.md) | canvas | implemented | Cursos favoritos, pendências (correção de grupo), status |
-| [course-workspace.md](capabilities/course-workspace.md) | canvas | implemented | Página do curso + `CourseWorkspaceTabs` (notas/atividades/mensagens/alunos) |
+| [course-browser.md](capabilities/course-browser.md) | canvas | implemented | Cursos favoritos, filtro por papel (dropdown), pendências, status |
+| [pendencias.md](capabilities/pendencias.md) | canvas | implemented | Pendências: a corrigir (professor) e a fazer (aluno) |
+| [course-workspace.md](capabilities/course-workspace.md) | canvas | implemented | Página do curso + `CourseWorkspaceTabs` (notas/atividades/mensagens/alunos/arquivos) |
 | [atividades.md](capabilities/atividades.md) | canvas | implemented | Lista de atividades do curso → importar questões / corrigir rubrica |
 | [quiz-import.md](capabilities/quiz-import.md) | canvas | implemented | Importação de questões num quiz via Canvas API |
 | [rubric-grading.md](capabilities/rubric-grading.md) | canvas | implemented | Correção com rubrica (envia `rubric_assessment` estruturado) |
@@ -61,7 +62,7 @@ Legenda: `canvas` · `ai` · `data` · `frontend` (domínios de produto) · `bac
 
 ## Decisions (ADRs)
 
-Veja [decisions/README.md](decisions/README.md) — 20 ADRs cobrindo as decisões "intencionais,
+Veja [decisions/README.md](decisions/README.md) — 23 ADRs cobrindo as decisões "intencionais,
 não é bug" que antes viviam no `CLAUDE.md`.
 
 ## Agents (orquestração)

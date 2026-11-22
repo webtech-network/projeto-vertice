@@ -10,6 +10,7 @@ export function toApp(row) {
     groupByProject: row.group_by_project,
     collapsedColumns: row.collapsed_columns || [],
     activeWorkspaceId: row.active_workspace_id,
+    activeWorkspaceIds: row.active_workspace_ids ?? null,
     theme: row.theme,
     sidebarCollapsed: row.sidebar_collapsed,
     updatedAt: new Date(row.updated_at).getTime(),

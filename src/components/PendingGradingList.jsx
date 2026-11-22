@@ -9,7 +9,7 @@ import ActivityGradeLink from './ActivityGradeLink';
 export default function PendingGradingList({ items, loading }) {
   return (
     <section className="dashboard-card">
-      <h3>Correções pendentes</h3>
+      <h3>Pendências a corrigir</h3>
       {loading ? (
         <p className="lede">Carregando…</p>
       ) : !items || items.length === 0 ? (

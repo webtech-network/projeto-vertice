@@ -59,6 +59,18 @@ inicializada" das duas anteriores; instalações novas já ganham essa tabela di
 docker compose exec -T db psql -U postgres -d postgres < volumes/db/manual/08_ai_provider_keys.sql
 ```
 
+`volumes/db/manual/14_ui_preferences_active_workspace_ids.sql` adiciona a coluna
+`ui_preferences.active_workspace_ids` (seleção múltipla de workspaces ativos, sincronizada entre
+dispositivos — ver [ADR-0021](../specs/decisions/0021-selecao-multipla-de-workspaces.md)). Atenção: a
+tabela pertence a `supabase_admin`, então este usa `-U supabase_admin` (com `postgres` falha por
+falta de permissão). Opcional: sem ela o app funciona, só sem sincronizar a lista entre
+dispositivos. Instalações novas já ganham a coluna de `04_schema.sql`:
+
+```sh
+docker compose exec -T db psql -U supabase_admin -d postgres < volumes/db/manual/14_ui_preferences_active_workspace_ids.sql
+docker compose exec -T db psql -U postgres -d postgres -c "notify pgrst, 'reload schema'"
+```
+
 ## Provedores OAuth (Google/GitHub)
 
 Preencha `GOOGLE_*`/`GITHUB_*` no `.env` e marque os respectivos

@@ -2,7 +2,7 @@
 title: Mensagens do Canvas
 status: implemented
 domain: canvas
-updated: 2026-09-17
+updated: 2026-11-19
 ---
 
 # Mensagens do Canvas
@@ -17,6 +17,9 @@ updated: 2026-09-17
 - `MessageList`: lista conversas (`listConversations` com `filter: ['course_<id>']`), expande a
   thread sob demanda (`getConversation`), responder (`replyToConversation`), arquivar
   (`archiveConversation`).
+- **Última mensagem** (`focusLatest`, vindo do contador de mensagens do `CourseBrowser`): abre a
+  conversa com o `last_message_at` mais recente (fallback `start_at`), carrega a thread e rola até ela.
+  A lista já vem ordenada por data decrescente; o foco só expande e posiciona. Uma vez por montagem.
 - `ComposeMessage`: nova conversa (`createConversation`, `group_conversation:false` — cópia
   individual; chunk manual se >100 destinatários), destinatários "os alunos do curso" via
   `listCourseStudents`. `StudentMessageModal` manda a um aluno específico.

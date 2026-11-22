@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
-import { CircleUserRound, Download } from 'lucide-react';
+import { CircleUserRound, Download, Settings } from 'lucide-react';
 import { subscribeInstall, getInstallSnapshot, getServerInstallSnapshot, triggerInstall } from '@/lib/pwaInstall';
 import { clearLocalCache } from '@/lib/query/idbPersister';
 
@@ -60,6 +60,7 @@ export default function UserMenu({ userName, avatarUrl }) {
           <CircleUserRound size={32} strokeWidth={1.4} className="user-menu-avatar user-menu-avatar-fallback" />
         )}
         <span className="user-name">{userName}</span>
+        <Settings size={18} strokeWidth={1.8} className="user-menu-gear" aria-hidden="true" />
       </button>
 
       {open && (

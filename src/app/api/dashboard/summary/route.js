@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import { requireCanvasIntegration } from '@/lib/canvasIntegration';
-import { listCourses, listAssignments, listConversations } from '@/lib/canvasClient';
+import {
+  listCourses,
+  listAssignments,
+  listConversations,
+  listStudentTodo,
+  listMissingSubmissions,
+} from '@/lib/canvasClient';
 import { isRealGroupAssignment, correctedGroupNeedsGradingCount } from '@/lib/groupGrading';
 import {
   filterActiveFavoriteCourses,
@@ -9,6 +15,7 @@ import {
   derivePendingGradingItems,
   deriveDueDateItems,
   deriveRecentWindow,
+  deriveStudentTodoItems,
 } from '@/lib/dashboard';
 
 function serializeItem(item) {
@@ -46,17 +53,29 @@ export async function GET() {
   const courses = filterActiveFavoriteCourses(rawCourses);
   const errors = [];
 
-  const [messagesResult, assignmentsResult] = await Promise.allSettled([
+  const [messagesResult, assignmentsResult, todoResult, missingResult] = await Promise.allSettled([
     courses.length
       ? listConversations(client, { filter: courses.map((c) => `course_${c.id}`), scope: 'unread' })
       : Promise.resolve([]),
     courses.length
       ? Promise.all(courses.map((c) => listAssignments(client, c.id))).then((lists) => lists.flat())
       : Promise.resolve([]),
+    // Pendências do aluno (ADR-0022): independentes dos cursos de professor.
+    listStudentTodo(client),
+    listMissingSubmissions(client),
   ]);
 
   const pendingCount = messagesResult.status === 'fulfilled' ? messagesResult.value.length : null;
   if (messagesResult.status === 'rejected') errors.push('messages');
+
+  // Best-effort: sem to-do (ex.: conta só de professor sem permissão) o painel segue.
+  const todoFailed = todoResult.status === 'rejected' && missingResult.status === 'rejected';
+  if (todoFailed) errors.push('todo');
+  const todoItems = deriveStudentTodoItems(
+    todoResult.status === 'fulfilled' ? todoResult.value : [],
+    missingResult.status === 'fulfilled' ? missingResult.value : [],
+    courses,
+  );
 
   const rawAssignments = assignmentsResult.status === 'fulfilled' ? assignmentsResult.value : [];
   if (assignmentsResult.status === 'rejected') errors.push('assignments');
@@ -91,6 +110,9 @@ export async function GET() {
       assignmentsResult.status === 'fulfilled'
         ? { pendingAssignmentsCount, pendingGradingSum, items: pendingGradingItems.map(serializePendingGradingItem) }
         : { pendingAssignmentsCount: null, pendingGradingSum: null, items: [] },
+    todo: todoFailed
+      ? { total: null, items: [] }
+      : { total: todoItems.length, items: todoItems.map(serializeItem) },
     calendar: { items: dueDateItems.map(serializeItem) },
     recent: { items: recentItems.map(serializeItem) },
     generatedAt: new Date().toISOString(),

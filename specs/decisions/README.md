@@ -31,3 +31,6 @@ frontmatter (`accepted` ou `superseded`). Se uma decisão for revertida, marcar
 | [0018](0018-renomeacao-identificadores-vertice.md) | Identificadores de armazenamento renomeados para `vertice`, com migração no cliente |
 | [0019](0019-questoes-abertas.md) | Questões abertas (`question_type`) no import e na geração por IA |
 | [0020](0020-preview-html-iframe-sandbox.md) | Preview fiel do HTML das questões em `iframe` sandbox, folha sempre clara |
+| [0021](0021-selecao-multipla-de-workspaces.md) | Seleção múltipla de workspaces ativos; Base exclusiva; união dos recursos |
+| [0022](0022-pendencias-do-aluno-todo-canvas.md) | Pendências do aluno via `todo` + `missing_submissions` do Canvas |
+| [0023](0023-ordem-cronologica-no-curso.md) | Ordem cronológica no curso: atividades por prazo, aba Arquivos por envio, última mensagem |

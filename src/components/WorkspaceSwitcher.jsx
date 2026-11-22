@@ -8,10 +8,12 @@ import WorkspaceManagerModal from './WorkspaceManagerModal';
 
 // Global workspace filter selector — same click-outside/Escape-to-close
 // popover pattern as UserMenu.jsx/SyncStatusIndicator.jsx, its neighbors in
-// Topbar.jsx. Selecting a workspace here is what every scope-aware screen
-// (Tarefas, Cursos/Atividades, Notas de curso) filters by.
+// Topbar.jsx. Selecting workspaces here is what every scope-aware screen
+// (Tarefas, Cursos/Atividades, Notas de curso) filters by. Seleção múltipla
+// (ADR-0021): cada clique liga/desliga um workspace e o menu continua aberto;
+// Base é exclusiva.
 export default function WorkspaceSwitcher() {
-  const { workspaces, activeWorkspace, setActiveWorkspaceId, loading } = useWorkspaceScope();
+  const { workspaces, activeWorkspace, activeWorkspaceIds, toggleActiveWorkspace, loading } = useWorkspaceScope();
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [managing, setManaging] = useState(false);
@@ -39,6 +41,7 @@ export default function WorkspaceSwitcher() {
   // handler uses — only the first 9 workspaces get a shortcut/badge, same
   // ceiling as Chrome's own numbered-tab shortcuts.
   const activeIndex = workspaces.findIndex((w) => w.id === activeWorkspace.id);
+  const multi = activeWorkspaceIds.length > 1;
 
   return (
     <div className="workspace-switcher" ref={containerRef}>
@@ -48,44 +51,52 @@ export default function WorkspaceSwitcher() {
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        title={activeIndex >= 0 && activeIndex < 9 ? `Workspace ativo (Alt+${activeIndex + 1})` : 'Workspace ativo'}
+        title={
+          multi
+            ? `Workspaces ativos: ${activeWorkspace.name}`
+            : activeIndex >= 0 && activeIndex < 9
+              ? `Workspace ativo (Alt+${activeIndex + 1})`
+              : 'Workspace ativo'
+        }
       >
         <span
           className="tasks-projects-color-dot"
           style={{ backgroundColor: activeWorkspace.color || 'var(--ink-soft)' }}
           aria-hidden="true"
         />
-        <span className="workspace-switcher-label">{activeWorkspace.name}</span>
+        <span className="workspace-switcher-label">
+          {multi ? `${activeWorkspaceIds.length} workspaces` : activeWorkspace.name}
+        </span>
         <ChevronDown size={14} strokeWidth={1.8} />
       </button>
 
       {open && (
-        <div className="workspace-switcher-popover" role="menu">
+        <div className="workspace-switcher-popover" role="menu" aria-label="Workspaces ativos">
           <ul className="workspace-switcher-list">
-            {workspaces.map((workspace, index) => (
-              <li key={workspace.id}>
-                <button
-                  type="button"
-                  className={`workspace-switcher-item${workspace.id === activeWorkspace.id ? ' active' : ''}`}
-                  role="menuitemradio"
-                  aria-checked={workspace.id === activeWorkspace.id}
-                  title={index < 9 ? `Alt+${index + 1}` : undefined}
-                  onClick={() => {
-                    setActiveWorkspaceId(workspace.id);
-                    setOpen(false);
-                  }}
-                >
-                  {index < 9 && <span className="workspace-switcher-number">{index + 1}</span>}
-                  <span
-                    className="tasks-projects-color-dot"
-                    style={{ backgroundColor: workspace.color || 'var(--ink-soft)' }}
-                    aria-hidden="true"
-                  />
-                  {workspace.name}
-                  {workspace.id === activeWorkspace.id && <Check size={14} strokeWidth={2.2} />}
-                </button>
-              </li>
-            ))}
+            {workspaces.map((workspace, index) => {
+              const selected = activeWorkspaceIds.includes(workspace.id);
+              return (
+                <li key={workspace.id}>
+                  <button
+                    type="button"
+                    className={`workspace-switcher-item${selected ? ' active' : ''}`}
+                    role="menuitemcheckbox"
+                    aria-checked={selected}
+                    title={index < 9 ? `Alt+${index + 1}` : undefined}
+                    onClick={() => toggleActiveWorkspace(workspace.id)}
+                  >
+                    {index < 9 && <span className="workspace-switcher-number">{index + 1}</span>}
+                    <span
+                      className="tasks-projects-color-dot"
+                      style={{ backgroundColor: workspace.color || 'var(--ink-soft)' }}
+                      aria-hidden="true"
+                    />
+                    {workspace.name}
+                    {selected && <Check size={14} strokeWidth={2.2} />}
+                  </button>
+                </li>
+              );
+            })}
           </ul>
 
           <div className="workspace-switcher-actions">

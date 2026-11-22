@@ -2,7 +2,7 @@
 title: Shell do dashboard (Sidebar/Topbar/tema)
 status: implemented
 domain: frontend
-updated: 2026-11-09
+updated: 2026-11-19
 ---
 
 # Shell do dashboard
@@ -16,11 +16,13 @@ updated: 2026-11-09
 - **Sidebar** (`'use client'`, usa `usePathname()` para o estado ativo): rail fixo, **sempre
   escuro** (`--sidebar-bg`/`--sidebar-fg`, independente do tema) — o `logo.png` é marca em
   traço claro e não lê sobre fundo claro. Logo → `<Link href="/">`.
-- **Topbar** (Server Component, lê `getSupabaseUser()`): `WorkspaceSwitcher` + `UserMenu`.
-  `UserMenu` é um `<Link href="/perfil">` (não dropdown) + botão de logout como
-  `<form method="POST">` cujo `onSubmit` limpa o cache local (consultas, IndexedDB e páginas
-  do service worker) antes de enviar, e botão "Instalar app" (PWA) quando disponível.
-- **Tema** claro/escuro: alternável no UserMenu; persiste em `vertice:theme`
+- **Topbar** (Server Component, lê `getSupabaseUser()`): `WorkspaceSwitcher`,
+  `TopbarThemeSwitch` (claro/escuro/sistema) e `UserMenu`. `UserMenu` é um **dropdown** aberto
+  pelo avatar + nome + **ícone de engrenagem** (sinaliza que as configurações estão nesse botão);
+  o menu tem "Configurações" (`/perfil`), "Instalar app" (PWA, quando disponível) e "Sair" — um
+  `<form method="POST">` cujo `onSubmit` limpa o cache local (consultas, IndexedDB e páginas do
+  service worker) antes de enviar.
+- **Tema** claro/escuro/sistema: alternável no `TopbarThemeSwitch` (e em Preferências); persiste em `vertice:theme`
   (localStorage) + `ui_preferences` (Postgres).
 - Cada `<main className="page">` é a superfície de "card" (fundo branco, borda, sombra)
   sobre o `--paper` de `.dashboard-content` — por isso `.page` carrega o estilo de card.

@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   ChevronRight,
@@ -67,8 +67,9 @@ const SORTERS = {
 // Defaults to "Publicadas" — same convention as CourseBrowser.jsx's own
 // status filter (unpublished items usually aren't what a professor is
 // looking for on first load; "Todas" is still one click away).
-export default function AssignmentsTable({ courseId, assignments }) {
+export default function AssignmentsTable({ courseId, assignments, focusNearest = false }) {
   const [statusFilter, setStatusFilter] = useState('published');
+  const focusedRef = useRef(false);
   const [expandedIds, setExpandedIds] = useState(() => new Set());
   const [sort, setSort] = useState({ key: null, direction: 'asc' });
 
@@ -92,6 +93,34 @@ export default function AssignmentsTable({ courseId, assignments }) {
     });
   }, [assignments, statusFilter]);
 
+  // Atividade com a data de entrega mais próxima de agora: a próxima a vencer;
+  // sem nenhuma futura, a vencida mais recente. Usada quando se chega pelas
+  // pendências do curso (focusNearest).
+  const nearestId = useMemo(() => {
+    const now = Date.now();
+    let upcoming = null;
+    let past = null;
+    for (const a of filtered) {
+      if (!a.due_at) continue;
+      const t = new Date(a.due_at).getTime();
+      if (Number.isNaN(t)) continue;
+      if (t >= now) {
+        if (!upcoming || t < upcoming.t) upcoming = { id: a.id, t };
+      } else if (!past || t > past.t) {
+        past = { id: a.id, t };
+      }
+    }
+    return (upcoming ?? past)?.id ?? null;
+  }, [filtered]);
+
+  useEffect(() => {
+    if (!focusNearest || focusedRef.current || nearestId == null) return;
+    const row = document.querySelector(`[data-assignment-row="${nearestId}"]`);
+    if (!row) return;
+    focusedRef.current = true;
+    row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  });
+
   const sorted = useMemo(() => {
     if (!sort.key) return filtered;
     const getValue = SORTERS[sort.key];
@@ -104,6 +133,31 @@ export default function AssignmentsTable({ courseId, assignments }) {
       return 0;
     });
   }, [filtered, sort]);
+
+  // Ordem padrão (sem ordenação manual): primeiro o que ainda vai vencer, da
+  // entrega mais próxima de hoje até a mais distante; depois as sem data; e,
+  // numa camada separada abaixo, as já encerradas (prazo vencido), da mais
+  // recente para a mais antiga. Ordenar por uma coluna volta à lista única.
+  // Racional: specs/decisions/0023-ordem-cronologica-no-curso.md.
+  const groups = useMemo(() => {
+    if (sort.key) return [{ key: 'all', label: null, items: sorted }];
+    const now = Date.now();
+    const time = (a) => (a.due_at ? new Date(a.due_at).getTime() : NaN);
+    const upcoming = [];
+    const undated = [];
+    const closed = [];
+    for (const a of filtered) {
+      const t = time(a);
+      if (Number.isNaN(t)) undated.push(a);
+      else if (t >= now) upcoming.push(a);
+      else closed.push(a);
+    }
+    upcoming.sort((a, b) => time(a) - time(b));
+    closed.sort((a, b) => time(b) - time(a));
+    const result = [{ key: 'open', label: null, items: [...upcoming, ...undated] }];
+    if (closed.length) result.push({ key: 'closed', label: `Já encerradas (${closed.length})`, items: closed });
+    return result;
+  }, [filtered, sorted, sort.key]);
 
   function toggleSort(key) {
     setSort((prev) => {
@@ -178,10 +232,10 @@ export default function AssignmentsTable({ courseId, assignments }) {
                     type="button"
                     className="th-sort-btn"
                     onClick={() => toggleSort('pending')}
-                    title="Correções pendentes"
+                    title="Pendências (a corrigir)"
                   >
                     <ClipboardCheck size={16} strokeWidth={1.8} className="col-icon" aria-hidden="true" />
-                    <span className="sr-only">Correções pendentes</span>
+                    <span className="sr-only">Pendências (a corrigir)</span>
                     <SortIcon direction={sort.key === 'pending' ? sort.direction : null} />
                   </button>
                 </th>
@@ -189,11 +243,28 @@ export default function AssignmentsTable({ courseId, assignments }) {
               </tr>
             </thead>
             <tbody>
-              {sorted.map((assignment) => {
+              {groups.map((group) => (
+              <Fragment key={group.key}>
+              {group.label && (
+                <tr className="group-divider-row">
+                  <td colSpan={7}>{group.label}</td>
+                </tr>
+              )}
+              {group.items.map((assignment) => {
                 const expanded = expandedIds.has(assignment.id);
                 return (
                   <Fragment key={assignment.id}>
-                    <tr>
+                    <tr
+                      data-assignment-row={assignment.id}
+                      className={
+                        [
+                          focusNearest && assignment.id === nearestId && 'is-focused-row',
+                          group.key === 'closed' && 'is-closed-row',
+                        ]
+                          .filter(Boolean)
+                          .join(' ') || undefined
+                      }
+                    >
                       <td className="expand-cell">
                         <button
                           type="button"
@@ -309,6 +380,8 @@ export default function AssignmentsTable({ courseId, assignments }) {
                   </Fragment>
                 );
               })}
+              </Fragment>
+              ))}
             </tbody>
           </table>
           </div>
@@ -321,7 +394,7 @@ export default function AssignmentsTable({ courseId, assignments }) {
               <CircleDashed size={14} strokeWidth={1.8} aria-hidden="true" /> Não publicado
             </li>
             <li>
-              <ClipboardCheck size={14} strokeWidth={1.8} aria-hidden="true" /> Correções pendentes
+              <ClipboardCheck size={14} strokeWidth={1.8} aria-hidden="true" /> Pendências (a corrigir)
             </li>
           </ul>
         </>
