@@ -8,7 +8,7 @@
 # na raiz):
 #
 # 1. Sem `include:` — os 5 serviços do stack Supabase (db/auth/rest/
-#    realtime/kong) e o `app` do Next.js estão todos aqui, no mesmo
+#    realtime/vertice-kong) e o app do Next.js estão todos aqui, no mesmo
 #    arquivo. O Dokploy escreve UM único .env ao lado do compose que ele
 #    aponta (populado pela própria UI de env vars) — um `env_file:`
 #    apontando pra `supabase/.env` nunca existiria nesse .env, já que esse
@@ -19,12 +19,12 @@
 #    um bind mount dentro do próprio checkout do repo apagaria o banco a
 #    cada redeploy. Volume nomeado é gerenciado pelo Docker, sobrevive.
 #
-# 3. `app` e `kong` usam `expose` em vez de `ports`. No Dokploy você não
+# 3. `vertice-app` e `vertice-kong` usam `expose` em vez de `ports`. No Dokploy você não
 #    expõe porta de host diretamente — aponta um domínio pra cada serviço
 #    pela aba Domains da aplicação Compose (Settings → Domains), e o
 #    Dokploy injeta os labels do Traefik sozinho. Configure dois domínios:
-#      - SEU-DOMINIO         -> serviço `app`,  porta 3000
-#      - api.SEU-DOMINIO     -> serviço `kong`, porta 8000
+#      - SEU-DOMINIO         -> serviço `vertice-app`,  porta 3000
+#      - api.SEU-DOMINIO     -> serviço `vertice-kong`, porta 8000
 #    (NEXT_PUBLIC_SUPABASE_URL do app precisa apontar pro segundo domínio
 #    — é o browser quem fala com o Kong diretamente, não só o server.)
 #
@@ -34,13 +34,14 @@
 #    Dokploy antes do primeiro deploy; ver comentários de cada variável
 #    abaixo pro que precisa virar URL de produção.
 #
-# 5. Rede isolada por stack. O Dokploy anexa à `dokploy-network` (compartilhada
-#    entre TODAS as aplicações do servidor) só os serviços com domínio — aqui
-#    `app` e `kong`. Lá, o nome de serviço `kong` resolve pro Kong de qualquer
-#    stack e o DNS alterna entre eles (401 "Unauthorized" intermitente). Por
-#    isso todos os serviços ficam na rede `internal` desta stack, e a chamada
-#    servidor->Supabase usa o alias `vertice-kong`, exclusivo dela. Em outra
-#    stack no mesmo servidor, use um alias próprio. ADR-0024.
+# 5. Isolamento entre stacks. O Dokploy anexa à `dokploy-network`
+#    (compartilhada entre TODAS as aplicações do servidor) os serviços com
+#    domínio, e o Compose publica ali o nome do serviço. Por isso eles têm
+#    nomes exclusivos (`vertice-app`, `vertice-kong`). Todos os serviços
+#    ficam na rede `internal` desta stack; a chamada servidor->Supabase usa o
+#    alias `vertice-kong-internal` e os upstreams do kong.yml usam nomes
+#    `vertice-supabase-*`, para nunca resolver um serviço de outra stack.
+#    ADR-0025.
 
 name: vertice
 
@@ -88,7 +89,10 @@ services:
     image: supabase/gotrue:v2.189.0
     restart: unless-stopped
     networks:
-      - internal
+      internal:
+        aliases:
+          # Upstream do kong.yml (no compose local vem de container_name).
+          - vertice-supabase-auth
     depends_on:
       db:
         condition: service_healthy
@@ -145,7 +149,10 @@ services:
     image: postgrest/postgrest:v14.12
     restart: unless-stopped
     networks:
-      - internal
+      internal:
+        aliases:
+          # Upstream do kong.yml (no compose local vem de container_name).
+          - vertice-supabase-rest
     depends_on:
       db:
         condition: service_healthy
@@ -209,13 +216,13 @@ services:
       DISABLE_HEALTHCHECK_LOGGING: "true"
       MAX_HEADER_LENGTH: "32768"
 
-  kong:
+  vertice-kong:
     image: kong/kong:3.9.3
     restart: unless-stopped
     networks:
       internal:
         aliases:
-          - vertice-kong
+          - vertice-kong-internal
     depends_on:
       - auth
       - rest
@@ -254,7 +261,7 @@ services:
   # ---------------------------------------------------------------------
   # App Next.js (Vértice)
   # ---------------------------------------------------------------------
-  app:
+  vertice-app:
     build:
       context: .
       dockerfile: Dockerfile
@@ -270,15 +277,13 @@ services:
     env_file:
       - .env
     environment:
-      # Chamada servidor->Supabase usa o alias `vertice-kong`, que só existe na
-      # rede `internal` desta stack. NÃO usar `kong`: na dokploy-network
-      # compartilhada o nome resolve também pro Kong de outras stacks (ver nota
-      # 5 no topo e ADR-0024).
-      SUPABASE_INTERNAL_URL: http://vertice-kong:8000
+      # Chamada servidor->Supabase usa o alias `vertice-kong-internal`, que só
+      # existe na rede `internal` desta stack (ver nota 5 no topo e ADR-0025).
+      SUPABASE_INTERNAL_URL: http://vertice-kong-internal:8000
     depends_on:
-      kong:
+      vertice-kong:
         condition: service_healthy
-    # Sem "ports:" — aponte um domínio pro serviço `app` na porta 3000
+    # Sem "ports:" — aponte um domínio pro serviço `vertice-app` na porta 3000
     # pela aba Domains do Dokploy. Ver nota 3 no topo.
     expose:
       - "3000"

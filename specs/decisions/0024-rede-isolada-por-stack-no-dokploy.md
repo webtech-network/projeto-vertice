@@ -1,9 +1,9 @@
 ---
 title: Rede isolada por stack no Dokploy (alias único pro Kong)
-status: accepted
+status: superseded
 date: 2026-11-22
 supersedes: []
-superseded_by: []
+superseded_by: [0025]
 ---
 
 # ADR-0024: Rede isolada por stack no Dokploy

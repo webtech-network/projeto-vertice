@@ -25,8 +25,8 @@ acls:
 services:
   ## Rotas abertas do Auth (não passam por key-auth)
   - name: auth-v1-open
-    _comment: 'Auth: /auth/v1/verify* -> http://auth:9999/verify*'
-    url: http://auth:9999/verify
+    _comment: 'Auth: /auth/v1/verify* -> http://vertice-supabase-auth:9999/verify*'
+    url: http://vertice-supabase-auth:9999/verify
     routes:
       - name: auth-v1-open
         strip_path: true
@@ -35,8 +35,8 @@ services:
     plugins:
       - name: cors
   - name: auth-v1-open-callback
-    _comment: 'Auth: /auth/v1/callback* -> http://auth:9999/callback*'
-    url: http://auth:9999/callback
+    _comment: 'Auth: /auth/v1/callback* -> http://vertice-supabase-auth:9999/callback*'
+    url: http://vertice-supabase-auth:9999/callback
     routes:
       - name: auth-v1-open-callback
         strip_path: true
@@ -45,8 +45,8 @@ services:
     plugins:
       - name: cors
   - name: auth-v1-open-authorize
-    _comment: 'Auth: /auth/v1/authorize* -> http://auth:9999/authorize*'
-    url: http://auth:9999/authorize
+    _comment: 'Auth: /auth/v1/authorize* -> http://vertice-supabase-auth:9999/authorize*'
+    url: http://vertice-supabase-auth:9999/authorize
     routes:
       - name: auth-v1-open-authorize
         strip_path: true
@@ -55,8 +55,8 @@ services:
     plugins:
       - name: cors
   - name: auth-v1-open-jwks
-    _comment: 'Auth: /auth/v1/.well-known/jwks.json -> http://auth:9999/.well-known/jwks.json'
-    url: http://auth:9999/.well-known/jwks.json
+    _comment: 'Auth: /auth/v1/.well-known/jwks.json -> http://vertice-supabase-auth:9999/.well-known/jwks.json'
+    url: http://vertice-supabase-auth:9999/.well-known/jwks.json
     routes:
       - name: auth-v1-open-jwks
         strip_path: true
@@ -67,8 +67,8 @@ services:
 
   ## Rotas seguras do Auth
   - name: auth-v1
-    _comment: 'Auth: /auth/v1/* -> http://auth:9999/*'
-    url: http://auth:9999/
+    _comment: 'Auth: /auth/v1/* -> http://vertice-supabase-auth:9999/*'
+    url: http://vertice-supabase-auth:9999/
     routes:
       - name: auth-v1-all
         strip_path: true
@@ -96,8 +96,8 @@ services:
 
   ## Rotas seguras do PostgREST
   - name: rest-v1
-    _comment: 'PostgREST: /rest/v1/* -> http://rest:3000/*'
-    url: http://rest:3000/
+    _comment: 'PostgREST: /rest/v1/* -> http://vertice-supabase-rest:3000/*'
+    url: http://vertice-supabase-rest:3000/
     routes:
       - name: rest-v1-all
         strip_path: true
@@ -125,7 +125,7 @@ services:
 
   ## Rotas seguras do Realtime (WebSocket)
   - name: realtime-v1-ws
-    _comment: 'Realtime: /realtime/v1/* -> ws://realtime:4000/socket/*'
+    _comment: 'Realtime: /realtime/v1/* -> ws://realtime-dev.vertice-supabase-realtime:4000/socket/*'
     url: http://realtime-dev.vertice-supabase-realtime:4000/socket
     protocol: ws
     routes:
@@ -182,7 +182,7 @@ services:
           message: "Access is forbidden."
 
   - name: realtime-v1-rest
-    _comment: 'Realtime: /realtime/v1/api/* -> http://realtime:4000/api/*'
+    _comment: 'Realtime: /realtime/v1/api/* -> http://realtime-dev.vertice-supabase-realtime:4000/api/*'
     url: http://realtime-dev.vertice-supabase-realtime:4000/api
     protocol: http
     routes:
@@ -212,7 +212,7 @@ services:
 
   ## OAuth 2.0 Authorization Server Metadata (RFC 8414)
   - name: well-known-oauth
-    url: http://auth:9999/.well-known/oauth-authorization-server
+    url: http://vertice-supabase-auth:9999/.well-known/oauth-authorization-server
     routes:
       - name: well-known-oauth
         strip_path: true
