@@ -28,6 +28,7 @@ separar as duas preocupações.
   (`getCanvasClientForUser`), não do proxy.
 - Contas não são linkadas entre provedores: Canvas-login usa e-mail real ou sintético
   (`canvas-<id>@<host>.vertice.invalid`), então logar por outro provedor cria conta separada.
+  Revisto em parte pela [ADR-0026](0026-login-canvas-pela-conta-vinculada.md).
 
 ## Alternativas consideradas
 

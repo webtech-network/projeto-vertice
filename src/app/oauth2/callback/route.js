@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { exchangeCodeForToken } from '@/lib/canvasOAuth';
 import { createClient, getSelf } from '@/lib/canvasClient';
+import { findLinkedAccount } from '@/lib/canvasAccountLink';
 import { createSupabaseAdminClient } from '@/lib/supabaseAdminClient';
 import { createSupabaseServerClient } from '@/lib/supabaseServerClient';
 import { getAppBaseUrl } from '@/lib/appUrl';
@@ -36,10 +37,9 @@ import { getAppBaseUrl } from '@/lib/appUrl';
  * (e-mail já existente) — confirmado nos dois casos; **nunca** hardcodear
  * "magiclink" aqui, tem que ser sempre o valor devolvido pela API.
  *
- * Limitação conhecida, não resolvida nesta fase: se o mesmo professor mais
- * tarde logar via Google/GitHub com um e-mail diferente do usado aqui,
- * nada os une automaticamente — cada e-mail vira uma conta Supabase
- * separada. Account linking entre provedores fica para uma fase futura.
+ * Antes de recorrer ao e-mail, o login procura uma conta Google/GitHub que já
+ * tenha conectado este usuário do Canvas em /perfil (ADR-0026). Sem esse
+ * vínculo, cada e-mail continua sendo uma conta Supabase separada.
  */
 async function upsertCanvasIntegration(admin, { userId, token, profile, canvasBaseUrl }) {
   const { error } = await admin.rpc('upsert_integration_tokens', {
@@ -122,11 +122,21 @@ export async function GET(request) {
     return clearOAuthCookies(NextResponse.redirect(new URL('/perfil?tab=plataformas&canvas=connected', baseUrl)));
   }
 
-  // E-mail real do Canvas quando disponível; sintético e determinístico
-  // (mesmo id do Canvas + mesma instituição = mesmo e-mail sempre) quando
-  // não — garante que o mesmo usuário do Canvas sempre mapeia pro mesmo
+  // Conta que já conectou este usuário do Canvas (ADR-0026). Se a busca
+  // falhar, o login segue pelo e-mail em vez de ser bloqueado.
+  let linkedAccount = null;
+  try {
+    linkedAccount = await findLinkedAccount(admin, { canvasUserId: token.user.id, canvasBaseUrl });
+  } catch (err) {
+    console.error('Falha ao buscar a conta vinculada ao Canvas:', err.message);
+  }
+
+  // Sem vínculo: e-mail real do Canvas quando disponível; sintético e
+  // determinístico (mesmo id do Canvas + mesma instituição = mesmo e-mail
+  // sempre) quando não — o mesmo usuário do Canvas sempre mapeia pro mesmo
   // usuário Supabase entre logins, mesmo sem e-mail exposto pela API.
   const email =
+    linkedAccount?.email ||
     profile?.primary_email ||
     profile?.email ||
     `canvas-${token.user.id}@${new URL(canvasBaseUrl).hostname}.vertice.invalid`;
@@ -134,7 +144,8 @@ export async function GET(request) {
   const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
     type: 'magiclink',
     email,
-    options: { data: { full_name: token.user.name } },
+    // Numa conta vinculada, o nome vindo do Google/GitHub não é sobrescrito.
+    options: linkedAccount ? undefined : { data: { full_name: token.user.name } },
   });
 
   // O SDK tipa esses campos dentro de `properties`; a API REST crua

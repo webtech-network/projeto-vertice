@@ -36,3 +36,4 @@ frontmatter (`accepted` ou `superseded`). Se uma decisão for revertida, marcar
 | [0023](0023-ordem-cronologica-no-curso.md) | Ordem cronológica no curso: atividades por prazo, aba Arquivos por envio, última mensagem |
 | [0024](0024-rede-isolada-por-stack-no-dokploy.md) | Rede isolada por stack no Dokploy; alias único `vertice-kong` evita colisão de DNS entre stacks |
 | [0025](0025-nomes-exclusivos-no-dokploy.md) | Nomes exclusivos no Dokploy (`vertice-app`, `vertice-kong`, upstreams do Kong); substitui a 0024 |
+| [0026](0026-login-canvas-pela-conta-vinculada.md) | Login pelo Canvas entra na conta Google/GitHub já vinculada ao mesmo ID do Canvas |

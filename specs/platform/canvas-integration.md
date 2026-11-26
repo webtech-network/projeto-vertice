@@ -2,7 +2,7 @@
 title: Integração Canvas (login + token de API)
 status: implemented
 domain: canvas
-updated: 2026-11-08
+updated: 2026-11-26
 ---
 
 # Integração Canvas
@@ -25,8 +25,10 @@ O GoTrue self-hosted não tem "canvas" na lista de provedores OAuth embutidos, e
 2. `GET /oauth2/callback` (redirect_uri fixo na Developer Key) → `exchangeCodeForToken`,
    busca o perfil (`getSelf`), e:
    - **modo conectar** (`?connect=1` de `/perfil`): só grava a integração no usuário atual.
-   - **modo login**: `admin.auth.admin.generateLink({ type:'magiclink', email })` (e-mail
-     real ou sintético `canvas-<id>@<host>.vertice.invalid`) → grava a integração → redireciona
+   - **modo login**: escolhe o e-mail — o da conta já vinculada ao ID do Canvas
+     (`src/lib/canvasAccountLink.js`, [ADR-0026](../decisions/0026-login-canvas-pela-conta-vinculada.md))
+     ou, sem vínculo, o real/sintético `canvas-<id>@<host>.vertice.invalid` →
+     `admin.auth.admin.generateLink({ type:'magiclink', email })` → grava a integração → redireciona
      para `{SUPABASE_URL}/auth/v1/verify?...&redirect_to=/auth/canvas-session` (fluxo implícito,
      completado client-side porque o token vem no *fragmento* da URL).
 3. Em ambos, `upsertCanvasIntegration` chama a RPC `upsert_integration_tokens`.
@@ -54,7 +56,8 @@ O GoTrue self-hosted não tem "canvas" na lista de provedores OAuth embutidos, e
 
 ## Invariantes e gotchas
 
-- Nunca ler `public.integrations` direto do browser; só via RPC `service_role`.
+- Nunca ler `public.integrations` do browser. No servidor, tokens só via RPC `service_role`; a
+  busca de vínculo lê apenas colunas não secretas.
 - `verification_type` do generateLink varia (`signup` vs `magiclink`) — **nunca** hardcodar.
 - O refresh do Canvas voltou a ser responsabilidade do chamador, não do proxy.
 

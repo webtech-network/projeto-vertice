@@ -51,7 +51,8 @@ nem `student_engagement_snapshots`.
 
 - Timestamps de app (`updatedAt`/`createdAt`/`deletedAt`) são **epoch-ms number**, não ISO.
 - `is_default` em `ai_integrations` usa índice único parcial (no máximo um default por usuário).
-- Nunca expor `service_role` ao browser; `integrations`/`ai_integrations` só via RPC.
+- Nunca expor `service_role` ao browser; segredos de `integrations`/`ai_integrations` só via RPC
+  (exceção sem segredo: busca de vínculo do Canvas, [ADR-0026](../decisions/0026-login-canvas-pela-conta-vinculada.md)).
 
 ## Dependências
 

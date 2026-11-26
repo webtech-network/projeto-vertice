@@ -2,7 +2,7 @@
 title: Autenticação e sessão
 status: implemented
 domain: frontend
-updated: 2026-09-17
+updated: 2026-11-26
 ---
 
 # Autenticação e sessão
@@ -30,10 +30,11 @@ updated: 2026-09-17
 
 ## Invariantes e gotchas
 
-- **Contas não são ligadas entre provedores**: Canvas-login mapeia o usuário para um e-mail
-  (real ou sintético `canvas-<id>@<host>.vertice.invalid`) e gera um magic-link Supabase;
-  logar depois via Google/GitHub com outro e-mail cria uma conta separada. Account linking
-  entre provedores é trabalho futuro — não é bug.
+- **Vínculo entre provedores só pelo Canvas**: o login pelo Canvas entra na conta
+  Google/GitHub que já conectou o mesmo ID do Canvas em `/perfil`
+  ([ADR-0026](../decisions/0026-login-canvas-pela-conta-vinculada.md)). Sem esse vínculo, usa o
+  e-mail (real ou sintético `canvas-<id>@<host>.vertice.invalid`) e pode criar conta separada.
+  Não há outra ligação automática, nem migração de dados entre contas.
 - `oauth_state` é um cookie httpOnly com `maxAge: 300`; o callback exige `state === cookie`.
 - O `avatarUrl` do `UserMenu` vem do perfil do Canvas (buscado uma vez no OAuth).
 
