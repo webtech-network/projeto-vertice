@@ -27,13 +27,12 @@ updated: 2026-11-19
 
 ## Paginação
 
-`fetchAllPages(client, url, params)` percorre o cabeçalho `Link` (`rel="next"`) até o fim
-e concatena os arrays. Todas as listas usam `per_page: 100`.
+`fetchAllPages(client, url, params, { maxPages })` percorre o cabeçalho `Link` (`rel="next"`) até o fim (ou até `maxPages`, quando informado — ex.: busca não filtrada da inbox) e concatena os arrays. Todas as listas usam `per_page: 100`.
 
 ## Métodos (agrupados por domínio)
 
 **Identidade/curso**: `getSelf`, `getCourse(courseId)`, `listCourses({ enrollmentType='teacher',
-enrollmentState='active' })` — sempre `include[]=favorites,needs_grading_count,total_students`. `listUserCourses()` junta os papéis `teacher`, `ta`, `designer`, `student`, `observer` (uma busca `enrollment_type` por papel; dedupe por `id`; marca `user_roles` com todos e `user_role` com o principal, prioridade nessa ordem; falha nos papéis que não `teacher` vira `[]`) — usado por `/courses` e `/mensagens`.
+enrollmentState='active' })` — sempre `include[]=favorites,needs_grading_count,total_students`. `listUserCourses()` / `listUserCoursesDetailed()` busca todos os cursos ativos em **uma única chamada** (`/courses` sem `enrollment_type`) e deriva `user_roles` e `user_role` a partir de `course.enrollments` na precedência `teacher > ta > designer > student > observer` (com fallback para buscas por papel se `enrollments` vier ausente) — usado por `/courses`, `/mensagens` e `/dashboard`.
 
 **Atividades/quiz**: `listAssignments(courseId)`, `getAssignment(courseId, assignmentId)`
 (única ação documentada que garante o campo `rubric`), `getQuiz(courseId, quizId)`,

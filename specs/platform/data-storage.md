@@ -49,10 +49,14 @@ pro Postgres): `tasks`, `projects`, `workspaces`, `workspaceLinks`, `shortcuts`,
   outro dono no IndexedDB também apaga o Cache Storage.
 - **Retenção**: `PERSIST_MAX_AGE` = 20 dias (= `gcTime`, que tem de ficar < ~24,8 dias, limite do `setTimeout`); `CACHE_SCHEMA_VERSION` é o `buster`, que deve ser
   incrementado quando o formato de um payload cacheado mudar.
-- **Faixas de validade** (`STALE`): `live` 30 s (painel, inbox), `volatile` 2 min (lista de
+- **Faixas de validade** (`STALE`): `live` 60 s (painel, inbox), `volatile` 3 min (lista de
   cursos com contadores, atividades e alunos nas abas do curso), `stable` 12 h (nomes para
   seletores e resolução de referências das tarefas). Mesma chave, faixa escolhida pelo
   consumidor. Botão "Recarregar" força a busca.
+- **Cache curto no servidor** (`src/lib/canvasServerCache.js`): cache em memória por `userId`
+  (TTL 30 s, *single-flight*, limite de entradas) para compartilhar leituras pesadas do Canvas
+  (`userCourses`, `assignments`) entre rotas consecutivas (`/api/dashboard/summary`,
+  `/api/canvas/courses`, `/api/canvas/messages`). Invalidado em mutações e logout/disconnect.
 - Chaves e fetchers centralizados em `src/lib/query/canvasQueries.js`. Mutações atualizam o
   cache (`setQueryData`, ex.: favoritar curso, arquivar conversa).
 - Tarefas, projetos, ambientes e vínculos também passam pelo cache, como **espelho** do estado
