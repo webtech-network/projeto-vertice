@@ -593,6 +593,7 @@ create table public.ui_preferences (
   active_workspace_ids uuid[] not null default '{}',
   theme text not null default 'system' check (theme in ('light', 'dark', 'system')),
   sidebar_collapsed boolean not null default false,
+  active_view_mode text check (active_view_mode in ('teacher', 'student')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
