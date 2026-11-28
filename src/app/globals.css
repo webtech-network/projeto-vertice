@@ -4153,11 +4153,13 @@ tr.is-focused-row > td {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 0.65rem 0.75rem;
-  cursor: pointer;
+  cursor: grab;
+  touch-action: none;
   box-shadow: var(--shadow);
 }
 .kanban-card.is-dragging {
   opacity: 0.6;
+  cursor: grabbing;
 }
 /* Hovering another card while dragging within the same column/quadrant
    (see TaskCard.jsx's own useDroppable and KanbanBoard.jsx/
@@ -4167,19 +4169,10 @@ tr.is-focused-row > td {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent);
 }
-/* The drag handle is just the title text (see TaskCard.jsx) — cursor and
-   touch-action live here, not on .kanban-card, so the rest of the card
-   still scrolls/taps normally instead of intercepting every touch as a
-   drag attempt. */
 .kanban-card-title {
   font-weight: 600;
   font-size: 0.92rem;
   color: var(--ink);
-  cursor: grab;
-  touch-action: none;
-}
-.kanban-card.is-dragging .kanban-card-title {
-  cursor: grabbing;
 }
 .kanban-card-project {
   font-size: 0.8rem;

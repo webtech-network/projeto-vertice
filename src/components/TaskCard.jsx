@@ -127,6 +127,7 @@ export default function TaskCard({ task, onSelect }) {
       // Stops the click from also bubbling to the card's own onClick (which
       // opens the task detail modal) — this link should navigate instead.
       onClick={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
     >
       <GraduationCap size={iconSize} strokeWidth={1.8} />
       {!condensed && ' Curso'}
@@ -140,6 +141,8 @@ export default function TaskCard({ task, onSelect }) {
       ref={setRefs}
       style={style}
       className={`kanban-card${isDragging ? ' is-dragging' : ''}${condensed ? ' kanban-card--condensed' : ''}${isOver ? ' kanban-card--drop-over' : ''}`}
+      {...listeners}
+      {...attributes}
       onClick={() => onSelect(task)}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -149,15 +152,12 @@ export default function TaskCard({ task, onSelect }) {
       {condensed ? (
         <>
           <div className="kanban-card-condensed-text">
-            {/* Drag activation is scoped to the title text (not the whole
-                card) — on touch, dragging from anywhere else on the card
-                fought with tapping to open it or scrolling the column. `title`
-                is a native tooltip — condensed is the only density that
+            {/* `title` is a native tooltip — condensed is the only density that
                 truncates with an ellipsis (see .kanban-card--condensed
                 .kanban-card-title/.kanban-card-project in globals.css), so
                 this is the only place the full text needs to be recoverable
                 on hover. */}
-            <div className="kanban-card-title" title={task.title} {...listeners} {...attributes}>
+            <div className="kanban-card-title" title={task.title}>
               {task.title}
             </div>
             <div className="kanban-card-project" title={project ? project.name : 'Sem projeto'}>
@@ -179,7 +179,7 @@ export default function TaskCard({ task, onSelect }) {
         </>
       ) : (
         <>
-          <div className="kanban-card-title" {...listeners} {...attributes}>
+          <div className="kanban-card-title">
             {task.title}
           </div>
           {project && <div className="kanban-card-project">{project.name}</div>}
