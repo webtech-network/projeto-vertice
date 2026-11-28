@@ -16,6 +16,7 @@ import BackButton from '@/components/BackButton';
 import ContextBanner from '@/components/ContextBanner';
 import RubricGrader from '@/components/RubricGrader';
 import InfoHint from '@/components/InfoHint';
+import TeacherOnlyGuard from '@/components/TeacherOnlyGuard';
 
 export default async function GradeAssignmentPage({ params }) {
   const { courseId, assignmentId } = await params;
@@ -50,7 +51,8 @@ export default async function GradeAssignmentPage({ params }) {
   const speedGraderUrl = `${canvas.baseUrl}/courses/${courseId}/gradebook/speed_grader?assignment_id=${assignmentId}`;
 
   return (
-    <main className="page">
+    <TeacherOnlyGuard courseId={courseId}>
+      <main className="page">
       <BackButton
         fallbackHref={`/courses/${courseId}?tab=atividades`}
         backTo={['/courses', `/courses/${courseId}`]}
@@ -122,6 +124,7 @@ export default async function GradeAssignmentPage({ params }) {
         submissions={submissions}
         groupAssignment={isGroupAssignment}
       />
-    </main>
+      </main>
+    </TeacherOnlyGuard>
   );
 }

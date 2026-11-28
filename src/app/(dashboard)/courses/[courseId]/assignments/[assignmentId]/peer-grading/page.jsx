@@ -16,6 +16,7 @@ import BackButton from '@/components/BackButton';
 import ContextBanner from '@/components/ContextBanner';
 import InfoHint from '@/components/InfoHint';
 import PeerReviewGrader from '@/components/PeerReviewGrader';
+import TeacherOnlyGuard from '@/components/TeacherOnlyGuard';
 
 // Only what SubmissionPreview.jsx needs — same fields RubricGrader.jsx keeps.
 function previewFields(submission) {
@@ -103,7 +104,8 @@ export default async function PeerGradingPage({ params }) {
   }
 
   return (
-    <main className="page">
+    <TeacherOnlyGuard courseId={courseId}>
+      <main className="page">
       <BackButton
         fallbackHref={`/courses/${courseId}?tab=atividades`}
         backTo={['/courses', `/courses/${courseId}`]}
@@ -148,6 +150,7 @@ export default async function PeerGradingPage({ params }) {
         ]}
       />
       {content}
-    </main>
+      </main>
+    </TeacherOnlyGuard>
   );
 }

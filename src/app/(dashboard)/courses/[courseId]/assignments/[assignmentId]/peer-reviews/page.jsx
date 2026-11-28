@@ -14,6 +14,7 @@ import BackButton from '@/components/BackButton';
 import ContextBanner from '@/components/ContextBanner';
 import InfoHint from '@/components/InfoHint';
 import PeerReviewDistributor from '@/components/PeerReviewDistributor';
+import TeacherOnlyGuard from '@/components/TeacherOnlyGuard';
 
 // Only students who actually turned something in take part (as reviewers and
 // reviewees) — `attempt`/`submitted_at`, not workflow_state alone, since a
@@ -99,7 +100,8 @@ export default async function PeerReviewsPage({ params }) {
   }
 
   return (
-    <main className="page">
+    <TeacherOnlyGuard courseId={courseId}>
+      <main className="page">
       <BackButton
         fallbackHref={`/courses/${courseId}?tab=atividades`}
         backTo={['/courses', `/courses/${courseId}`]}
@@ -142,6 +144,7 @@ export default async function PeerReviewsPage({ params }) {
         ]}
       />
       {content}
-    </main>
+      </main>
+    </TeacherOnlyGuard>
   );
 }

@@ -6,6 +6,7 @@ import CanvasNotConnected from '@/components/CanvasNotConnected';
 import BackButton from '@/components/BackButton';
 import QuizImportPanel from '@/components/QuizImportPanel';
 import ContextBanner from '@/components/ContextBanner';
+import TeacherOnlyGuard from '@/components/TeacherOnlyGuard';
 import { courseUrl, quizUrl } from '@/lib/canvasLinks';
 
 export default async function ImportPage({ params }) {
@@ -25,7 +26,8 @@ export default async function ImportPage({ params }) {
   ]);
 
   return (
-    <main className="page">
+    <TeacherOnlyGuard courseId={courseId}>
+      <main className="page">
       <BackButton
         fallbackHref={`/courses/${courseId}?tab=atividades`}
         backTo={['/courses', `/courses/${courseId}`]}
@@ -62,6 +64,7 @@ export default async function ImportPage({ params }) {
         ]}
       />
       <QuizImportPanel courseId={courseId} quizId={quizId} integrations={configuredIntegrations} />
-    </main>
+      </main>
+    </TeacherOnlyGuard>
   );
 }
