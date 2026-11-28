@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   LayoutDashboard,
   GraduationCap,
@@ -17,6 +18,13 @@ import { useMobileNav } from './MobileNavProvider';
 import { getSidebarCollapsed, setSidebarCollapsed } from '@/lib/sidebarPreference';
 import { ensureUiPreferencesSynced } from './UiPreferencesSync';
 import { useViewRole } from './ViewRoleProvider';
+import {
+  canvasKeys,
+  fetchCourses,
+  fetchDashboardSummary,
+  fetchMessagesInbox,
+} from '@/lib/query/canvasQueries';
+import { STALE } from '@/lib/query/queryClient';
 
 const NAV_ITEMS = [
   { href: '/', label: 'Dashboard', Icon: LayoutDashboard, exact: true },
@@ -39,8 +47,31 @@ const NAV_ITEMS = [
 // hydration never mismatches.
 export default function Sidebar() {
   const pathname = usePathname();
+  const queryClient = useQueryClient();
   const { viewRole } = useViewRole();
   const [collapsed, setCollapsed] = useState(false);
+
+  function prefetchRoute(href) {
+    if (href === '/') {
+      queryClient.prefetchQuery({
+        queryKey: canvasKeys.dashboardSummary(viewRole),
+        queryFn: () => fetchDashboardSummary(viewRole),
+        staleTime: STALE.live,
+      });
+    } else if (href === '/courses') {
+      queryClient.prefetchQuery({
+        queryKey: canvasKeys.courses,
+        queryFn: fetchCourses,
+        staleTime: STALE.volatile,
+      });
+    } else if (href === '/mensagens') {
+      queryClient.prefetchQuery({
+        queryKey: canvasKeys.messagesInbox,
+        queryFn: fetchMessagesInbox,
+        staleTime: STALE.live,
+      });
+    }
+  }
   // Mobile drawer open/closed — shared with Topbar.jsx's hamburger button
   // via MobileNavProvider. Unrelated to `collapsed` above, which is a
   // desktop-only icons-only/icons+labels preference; below the 640px
@@ -113,6 +144,8 @@ export default function Sidebar() {
                 href={href}
                 title={label}
                 className={`nav-icon-btn${active ? ' active' : ''}`}
+                onMouseEnter={() => prefetchRoute(href)}
+                onFocus={() => prefetchRoute(href)}
               >
                 <Icon size={20} strokeWidth={1.8} />
                 <span className="nav-icon-label">{label}</span>

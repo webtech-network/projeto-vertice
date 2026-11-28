@@ -21,8 +21,8 @@ export const PERSIST_MAX_AGE = 20 * 24 * HOUR;
 // diferentes: quem só precisa de nomes usa `stable`; quem exibe contadores
 // (needs_grading_count, mensagens, notas) usa `volatile`/`live`.
 export const STALE = {
-  live: 30 * 1000,
-  volatile: 2 * MINUTE,
+  live: 60 * 1000,
+  volatile: 3 * MINUTE,
   stable: 12 * HOUR,
 };
 
