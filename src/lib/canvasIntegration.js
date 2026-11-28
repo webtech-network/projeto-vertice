@@ -28,6 +28,7 @@ export async function getCanvasIntegration(userId) {
     refreshToken: row.refresh_token,
     expiresAt: row.access_token_expires_at ? new Date(row.access_token_expires_at).getTime() : null,
     baseUrl: row.metadata.base_url,
+    metadata: row.metadata,
     providerUserId: row.provider_user_id,
     displayName: row.display_name,
     avatarUrl: row.avatar_url,
@@ -72,7 +73,7 @@ async function refreshAndPersist(userId, integration) {
     p_display_name: integration.displayName,
     p_avatar_url: integration.avatarUrl,
     p_access_token_expires_at: new Date(Date.now() + refreshed.expires_in * 1000).toISOString(),
-    p_metadata: { base_url: integration.baseUrl },
+    p_metadata: { ...(integration.metadata ?? {}), base_url: integration.baseUrl },
   });
   // Falha ao persistir não invalida o token novo — ele vale para esta
   // requisição; a próxima leitura do Vault só renovará de novo.
@@ -124,6 +125,7 @@ export async function getCanvasClientForUser(userId) {
   return {
     client,
     baseUrl: integration.baseUrl,
+    metadata: integration.metadata,
     providerUserId: integration.providerUserId,
     displayName: integration.displayName,
     avatarUrl: integration.avatarUrl,

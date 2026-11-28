@@ -19,5 +19,7 @@ export async function GET() {
     displayName: canvas.displayName,
     avatarUrl: canvas.avatarUrl,
     providerUserId: canvas.providerUserId ?? null,
+    roles: Array.isArray(canvas.metadata?.roles) ? canvas.metadata.roles : [],
+    primaryRole: canvas.metadata?.primary_role ?? null,
   });
 }

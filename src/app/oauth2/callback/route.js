@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { exchangeCodeForToken } from '@/lib/canvasOAuth';
-import { createClient, getSelf } from '@/lib/canvasClient';
+import { createClient, getSelf, listSelfEnrollments } from '@/lib/canvasClient';
+import { deriveAppRolesFromEnrollments } from '@/lib/courseRoles';
 import { findLinkedAccount } from '@/lib/canvasAccountLink';
 import { createSupabaseAdminClient } from '@/lib/supabaseAdminClient';
 import { createSupabaseServerClient } from '@/lib/supabaseServerClient';
@@ -41,7 +42,7 @@ import { getAppBaseUrl } from '@/lib/appUrl';
  * tenha conectado este usuário do Canvas em /perfil (ADR-0026). Sem esse
  * vínculo, cada e-mail continua sendo uma conta Supabase separada.
  */
-async function upsertCanvasIntegration(admin, { userId, token, profile, canvasBaseUrl }) {
+async function upsertCanvasIntegration(admin, { userId, token, profile, rolesInfo, canvasBaseUrl }) {
   const { error } = await admin.rpc('upsert_integration_tokens', {
     p_user_id: userId,
     p_provider: 'canvas',
@@ -51,7 +52,11 @@ async function upsertCanvasIntegration(admin, { userId, token, profile, canvasBa
     p_display_name: token.user.name,
     p_avatar_url: profile?.avatar_url ?? null,
     p_access_token_expires_at: new Date(Date.now() + token.expires_in * 1000).toISOString(),
-    p_metadata: { base_url: canvasBaseUrl },
+    p_metadata: {
+      base_url: canvasBaseUrl,
+      roles: rolesInfo?.roles ?? [],
+      primary_role: rolesInfo?.primaryRole ?? null,
+    },
   });
   if (error) console.error('Falha ao gravar a integração Canvas:', error.message);
 }
@@ -95,13 +100,28 @@ export async function GET(request) {
   const canvasBaseUrl = process.env.CANVAS_DOMAIN.replace(/\/$/, '');
 
   // Best-effort, igual ao fluxo antigo: usado pro e-mail (identidade
-  // Supabase, só no modo login) e pro avatar; nada trava se isto falhar.
+  // Supabase, só no modo login), avatar e papéis (matrículas ativas no
+  // Canvas — ADR-0027); nada trava se isto falhar.
   let profile = null;
+  let rolesInfo = { roles: [], primaryRole: null };
   try {
     const client = createClient({ baseUrl: canvasBaseUrl, token: token.access_token });
-    profile = await getSelf(client);
+    const [profileResult, enrollmentsResult] = await Promise.allSettled([
+      getSelf(client),
+      listSelfEnrollments(client),
+    ]);
+    if (profileResult.status === 'fulfilled') {
+      profile = profileResult.value;
+    } else {
+      console.error('Falha ao buscar o perfil do Canvas:', profileResult.reason?.message);
+    }
+    if (enrollmentsResult.status === 'fulfilled') {
+      rolesInfo = deriveAppRolesFromEnrollments(enrollmentsResult.value);
+    } else {
+      console.error('Falha ao buscar matrículas do Canvas:', enrollmentsResult.reason?.message);
+    }
   } catch (err) {
-    console.error('Falha ao buscar o perfil do Canvas:', err.message);
+    console.error('Falha ao consultar dados iniciais do Canvas:', err.message);
   }
 
   const admin = createSupabaseAdminClient();
@@ -118,7 +138,7 @@ export async function GET(request) {
     if (!user) {
       return clearOAuthCookies(NextResponse.redirect(new URL('/login', baseUrl)));
     }
-    await upsertCanvasIntegration(admin, { userId: user.id, token, profile, canvasBaseUrl });
+    await upsertCanvasIntegration(admin, { userId: user.id, token, profile, rolesInfo, canvasBaseUrl });
     return clearOAuthCookies(NextResponse.redirect(new URL('/perfil?tab=plataformas&canvas=connected', baseUrl)));
   }
 
@@ -162,7 +182,7 @@ export async function GET(request) {
 
   // Grava a integração já aqui — o `id` do usuário Supabase já é conhecido,
   // não precisa esperar o passo client-side de /auth/canvas-session.
-  await upsertCanvasIntegration(admin, { userId: supabaseUserId, token, profile, canvasBaseUrl });
+  await upsertCanvasIntegration(admin, { userId: supabaseUserId, token, profile, rolesInfo, canvasBaseUrl });
 
   const verifyUrl = new URL(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/verify`);
   verifyUrl.searchParams.set('token', hashedToken);

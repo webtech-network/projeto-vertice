@@ -99,6 +99,13 @@ export async function getSelf(client) {
   return response.data;
 }
 
+export async function listSelfEnrollments(client) {
+  return fetchAllPages(client, '/users/self/enrollments', {
+    per_page: 100,
+    'state[]': ['active'],
+  });
+}
+
 export async function getCourse(client, courseId) {
   const response = await client.get(`/courses/${courseId}`);
   return response.data;
