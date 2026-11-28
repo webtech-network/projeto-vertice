@@ -7,7 +7,7 @@ import { getQueryClient, STALE, waitForCacheRestore } from './queryClient';
 // curso).
 
 export const canvasKeys = {
-  dashboardSummary: ['dashboard', 'summary'],
+  dashboardSummary: (role = 'teacher') => ['dashboard', 'summary', role],
   courses: ['canvas', 'courses'],
   messagesInbox: ['canvas', 'messages', 'inbox'],
   course: (courseId) => ['canvas', 'courses', String(courseId)],
@@ -50,7 +50,8 @@ async function fetchJson(url, fallbackMessage) {
 }
 
 // Payload inteiro (inclui `loadError` parcial, que vem com 200).
-export const fetchDashboardSummary = () => fetchJson('/api/dashboard/summary', 'Falha ao carregar o painel.');
+export const fetchDashboardSummary = (role = 'teacher') =>
+  fetchJson(`/api/dashboard/summary?role=${encodeURIComponent(role)}`, 'Falha ao carregar o painel.');
 
 export const fetchCourses = () =>
   fetchJson('/api/canvas/courses', 'Falha ao carregar os cursos.').then((data) => data.courses);
@@ -209,8 +210,12 @@ export function useConfiguredAiIntegrationsQuery({ enabled = true } = {}) {
   });
 }
 
-export function useDashboardSummaryQuery() {
-  return useQuery({ queryKey: canvasKeys.dashboardSummary, queryFn: fetchDashboardSummary, staleTime: STALE.live });
+export function useDashboardSummaryQuery(role = 'teacher') {
+  return useQuery({
+    queryKey: canvasKeys.dashboardSummary(role),
+    queryFn: () => fetchDashboardSummary(role),
+    staleTime: STALE.live,
+  });
 }
 
 // Lista de cursos traz contadores voláteis (needs_grading_count,

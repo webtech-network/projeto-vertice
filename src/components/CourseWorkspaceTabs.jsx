@@ -10,6 +10,7 @@ import AssignmentsTable from './AssignmentsTable';
 import ComposeMessage from './ComposeMessage';
 import MessageList from './MessageList';
 import StudentReport from './StudentReport';
+import { useViewRole } from './ViewRoleProvider';
 import { buildStudentRows } from '@/lib/studentReport';
 import {
   canvasKeys,
@@ -55,7 +56,13 @@ export default function CourseWorkspaceTabs({
   focusNearest = false,
   focusLatestMessage = false,
 }) {
-  const [tab, setTabState] = useState(TAB_KEYS.includes(initialTab) ? initialTab : 'notas');
+  const { isStudentView } = useViewRole();
+  const visibleTabs = useMemo(
+    () => (isStudentView ? TABS.filter((t) => t.key !== 'alunos') : TABS),
+    [isStudentView],
+  );
+  const [rawTab, setTabState] = useState(TAB_KEYS.includes(initialTab) ? initialTab : 'notas');
+  const tab = isStudentView && rawTab === 'alunos' ? 'notas' : rawTab;
 
   // The open tab must survive a trip to a drill-down page and back (see
   // BackButton.jsx): inline (CourseBrowser) the parent keeps it via
@@ -125,7 +132,7 @@ export default function CourseWorkspaceTabs({
     <div className="course-workspace-tabs">
       <div className="course-workspace-tabs-header">
         <div className="tab-folder" role="tablist" aria-label="Seções do curso">
-          {TABS.map(({ key, label, Icon }) => (
+          {visibleTabs.map(({ key, label, Icon }) => (
             <button
               key={key}
               type="button"
@@ -190,7 +197,8 @@ export default function CourseWorkspaceTabs({
           </>
         )}
 
-        {tab === 'alunos' &&
+        {!isStudentView &&
+          tab === 'alunos' &&
           (students.loading && studentRows.length === 0 ? (
             <p className="lede">Carregando alunos…</p>
           ) : (

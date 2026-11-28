@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireCanvasIntegration } from '@/lib/canvasIntegration';
 import {
   listCourses,
+  listUserCourses,
   listAssignments,
   listConversations,
   listStudentTodo,
@@ -34,18 +35,30 @@ function serializePendingGradingItem(item) {
 // the same call-minimization convention as courses/page.jsx and
 // mensagens/page.jsx. Each Canvas sub-fetch is independently allowed to
 // fail (Promise.allSettled) so one flaky call doesn't blank the whole panel.
-export async function GET() {
+export async function GET(request) {
   const { user, canvas } = await requireCanvasIntegration();
   if (!user) return NextResponse.json({ error: 'Sessão inválida. Faça login novamente.' }, { status: 401 });
   if (!canvas) {
     return NextResponse.json({ error: 'Canvas não conectado. Conecte sua conta em /perfil.' }, { status: 409 });
   }
 
+  const roleParam = new URL(request.url).searchParams.get('role');
+  const viewRole = roleParam === 'student' ? 'student' : roleParam === 'teacher' ? 'teacher' : null;
+  const isStudentMode = viewRole === 'student';
+  const isTeacherMode = viewRole === 'teacher';
+
   const client = canvas.client;
 
   let rawCourses;
   try {
-    rawCourses = await listCourses(client);
+    if (isStudentMode) {
+      const allCourses = await listUserCourses(client);
+      rawCourses = allCourses.filter((c) =>
+        (c.user_roles ?? [c.user_role]).some((r) => r === 'student' || r === 'observer'),
+      );
+    } else {
+      rawCourses = await listCourses(client);
+    }
   } catch {
     return NextResponse.json({ error: 'Falha ao carregar cursos do Canvas.' }, { status: 502 });
   }
@@ -60,42 +73,44 @@ export async function GET() {
     courses.length
       ? Promise.all(courses.map((c) => listAssignments(client, c.id))).then((lists) => lists.flat())
       : Promise.resolve([]),
-    // Pendências do aluno (ADR-0022): independentes dos cursos de professor.
-    listStudentTodo(client),
-    listMissingSubmissions(client),
+    // Pendências do aluno (ADR-0022): buscadas na visão aluno ou modo híbrido.
+    isTeacherMode ? Promise.resolve([]) : listStudentTodo(client),
+    isTeacherMode ? Promise.resolve([]) : listMissingSubmissions(client),
   ]);
 
   const pendingCount = messagesResult.status === 'fulfilled' ? messagesResult.value.length : null;
   if (messagesResult.status === 'rejected') errors.push('messages');
 
   // Best-effort: sem to-do (ex.: conta só de professor sem permissão) o painel segue.
-  const todoFailed = todoResult.status === 'rejected' && missingResult.status === 'rejected';
+  const todoFailed = !isTeacherMode && todoResult.status === 'rejected' && missingResult.status === 'rejected';
   if (todoFailed) errors.push('todo');
-  const todoItems = deriveStudentTodoItems(
-    todoResult.status === 'fulfilled' ? todoResult.value : [],
-    missingResult.status === 'fulfilled' ? missingResult.value : [],
-    courses,
-  );
+  const todoItems = isTeacherMode
+    ? []
+    : deriveStudentTodoItems(
+        todoResult.status === 'fulfilled' ? todoResult.value : [],
+        missingResult.status === 'fulfilled' ? missingResult.value : [],
+        courses,
+      );
 
   const rawAssignments = assignmentsResult.status === 'fulfilled' ? assignmentsResult.value : [];
   if (assignmentsResult.status === 'rejected') errors.push('assignments');
 
   // Canvas's own needs_grading_count over-counts real group assignments (one
-  // per student instead of one per group) — see groupGrading.js. Corrected
-  // concurrently, same Promise.all style already used above for this route,
-  // and only for the (typically small) subset of assignments where it
-  // actually matters, so this stays cheap even at up to ~17 favorite courses.
-  const assignments = await Promise.all(
-    rawAssignments.map(async (assignment) => {
-      if (!isRealGroupAssignment(assignment) || !assignment.needs_grading_count) return assignment;
-      try {
-        const needs_grading_count = await correctedGroupNeedsGradingCount(client, assignment.course_id, assignment);
-        return { ...assignment, needs_grading_count };
-      } catch {
-        return assignment;
-      }
-    }),
-  );
+  // per student instead of one per group — see groupGrading.js). Só necessário
+  // na visão professor (ou modo legado sem ?role=).
+  const assignments = isStudentMode
+    ? rawAssignments
+    : await Promise.all(
+        rawAssignments.map(async (assignment) => {
+          if (!isRealGroupAssignment(assignment) || !assignment.needs_grading_count) return assignment;
+          try {
+            const needs_grading_count = await correctedGroupNeedsGradingCount(client, assignment.course_id, assignment);
+            return { ...assignment, needs_grading_count };
+          } catch {
+            return assignment;
+          }
+        }),
+      );
 
   const { pendingAssignmentsCount, pendingGradingSum } = derivePendingGrading(assignments);
   const pendingGradingItems = derivePendingGradingItems(assignments, courses);

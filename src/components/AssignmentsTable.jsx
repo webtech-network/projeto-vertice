@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import StatusIcon from './StatusIcon';
 import SortIcon from './SortIcon';
+import { useViewRole } from './ViewRoleProvider';
 
 function formatDueDate(iso) {
   if (!iso) return '—';
@@ -68,10 +69,14 @@ const SORTERS = {
 // status filter (unpublished items usually aren't what a professor is
 // looking for on first load; "Todas" is still one click away).
 export default function AssignmentsTable({ courseId, assignments, focusNearest = false }) {
+  const { isStudentView } = useViewRole();
   const [statusFilter, setStatusFilter] = useState('published');
   const focusedRef = useRef(false);
   const [expandedIds, setExpandedIds] = useState(() => new Set());
   const [sort, setSort] = useState({ key: null, direction: 'asc' });
+
+  const effectiveStatusFilter = isStudentView ? 'published' : statusFilter;
+  const colSpanCount = isStudentView ? 5 : 7;
 
   function toggleExpanded(assignmentId) {
     setExpandedIds((prev) => {
@@ -87,11 +92,11 @@ export default function AssignmentsTable({ courseId, assignments, focusNearest =
 
   const filtered = useMemo(() => {
     return assignments.filter((assignment) => {
-      if (statusFilter === 'published' && !assignment.published) return false;
-      if (statusFilter === 'unpublished' && assignment.published) return false;
+      if (effectiveStatusFilter === 'published' && !assignment.published) return false;
+      if (effectiveStatusFilter === 'unpublished' && assignment.published) return false;
       return true;
     });
-  }, [assignments, statusFilter]);
+  }, [assignments, effectiveStatusFilter]);
 
   // Atividade com a data de entrega mais próxima de agora: a próxima a vencer;
   // sem nenhuma futura, a vencida mais recente. Usada quando se chega pelas
@@ -177,20 +182,22 @@ export default function AssignmentsTable({ courseId, assignments, focusNearest =
 
   return (
     <>
-      <div className="browser-controls">
-        <div className="segmented" role="group" aria-label="Filtrar por status de publicação">
-          {STATUS_FILTERS.map(({ key, label }) => (
-            <button
-              key={key}
-              type="button"
-              className={`segmented-btn${statusFilter === key ? ' active' : ''}`}
-              onClick={() => setStatusFilter(key)}
-            >
-              {label} ({key === 'all' ? assignments.length : key === 'published' ? publishedCount : unpublishedCount})
-            </button>
-          ))}
+      {!isStudentView && (
+        <div className="browser-controls">
+          <div className="segmented" role="group" aria-label="Filtrar por status de publicação">
+            {STATUS_FILTERS.map(({ key, label }) => (
+              <button
+                key={key}
+                type="button"
+                className={`segmented-btn${statusFilter === key ? ' active' : ''}`}
+                onClick={() => setStatusFilter(key)}
+              >
+                {label} ({key === 'all' ? assignments.length : key === 'published' ? publishedCount : unpublishedCount})
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {filtered.length === 0 ? (
         <p className="lede">Nenhuma atividade encontrada com esse filtro.</p>
@@ -227,19 +234,23 @@ export default function AssignmentsTable({ courseId, assignments, focusNearest =
                     <SortIcon direction={sort.key === 'dueDate' ? sort.direction : null} />
                   </button>
                 </th>
-                <th aria-sort={sortAria('pending')}>
-                  <button
-                    type="button"
-                    className="th-sort-btn"
-                    onClick={() => toggleSort('pending')}
-                    title="Pendências (a corrigir)"
-                  >
-                    <ClipboardCheck size={16} strokeWidth={1.8} className="col-icon" aria-hidden="true" />
-                    <span className="sr-only">Pendências (a corrigir)</span>
-                    <SortIcon direction={sort.key === 'pending' ? sort.direction : null} />
-                  </button>
-                </th>
-                <th>Ações</th>
+                {!isStudentView && (
+                  <>
+                    <th aria-sort={sortAria('pending')}>
+                      <button
+                        type="button"
+                        className="th-sort-btn"
+                        onClick={() => toggleSort('pending')}
+                        title="Pendências (a corrigir)"
+                      >
+                        <ClipboardCheck size={16} strokeWidth={1.8} className="col-icon" aria-hidden="true" />
+                        <span className="sr-only">Pendências (a corrigir)</span>
+                        <SortIcon direction={sort.key === 'pending' ? sort.direction : null} />
+                      </button>
+                    </th>
+                    <th>Ações</th>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -247,7 +258,7 @@ export default function AssignmentsTable({ courseId, assignments, focusNearest =
               <Fragment key={group.key}>
               {group.label && (
                 <tr className="group-divider-row">
-                  <td colSpan={7}>{group.label}</td>
+                  <td colSpan={colSpanCount}>{group.label}</td>
                 </tr>
               )}
               {group.items.map((assignment) => {
@@ -307,66 +318,70 @@ export default function AssignmentsTable({ courseId, assignments, focusNearest =
                       <td className={`pending-cell${isPastDue(assignment.due_at) ? ' is-past-due' : ''}`}>
                         {formatDueDate(assignment.due_at)}
                       </td>
-                      <td className="pending-cell">
-                        {assignment.needs_grading_count ? (
-                          <span className="pending-badge has-pending">{assignment.needs_grading_count}</span>
-                        ) : null}
-                      </td>
-                      <td className="actions-cell">
-                        {/* Always shown — unlike quiz_id, whether an assignment has
-                            a rubric isn't known from this list response, so the
-                            grading page itself handles the "sem rubrica" case. */}
-                        <Link
-                          href={`/courses/${courseId}/assignments/${assignment.id}/grade`}
-                          className="btn btn-primary btn-icon"
-                          title="Correção de Atividade"
-                          aria-label="Correção de Atividade"
-                        >
-                          <ClipboardList size={18} strokeWidth={1.8} />
-                        </Link>
-                        {/* Only classic quizzes (assignment.quiz_id) can receive imported
-                            questions — New Quizzes (is_quiz_assignment) and regular
-                            assignments intentionally get no action here. */}
-                        {assignment.quiz_id && (
-                          <Link
-                            href={`/courses/${courseId}/quizzes/${assignment.quiz_id}/import`}
-                            className="btn btn-primary btn-icon"
-                            title="Importar questões"
-                            aria-label="Importar questões"
-                          >
-                            <ListPlus size={18} strokeWidth={1.8} />
-                          </Link>
-                        )}
-                        {/* Only assignments with peer review enabled — distributes
-                            reviewers across the course's groups (see
-                            specs/capabilities/peer-review-distribution.md). */}
-                        {assignment.peer_reviews && (
-                          <Link
-                            href={`/courses/${courseId}/assignments/${assignment.id}/peer-reviews`}
-                            className="btn btn-primary btn-icon"
-                            title="Distribuir avaliação por pares"
-                            aria-label="Distribuir avaliação por pares"
-                          >
-                            <Shuffle size={18} strokeWidth={1.8} />
-                          </Link>
-                        )}
-                        {/* Same condition — consolidates the peers' grades/comments
-                            into a final grade (specs/capabilities/peer-review-grading.md). */}
-                        {assignment.peer_reviews && (
-                          <Link
-                            href={`/courses/${courseId}/assignments/${assignment.id}/peer-grading`}
-                            className="btn btn-primary btn-icon"
-                            title="Consolidar avaliação por pares"
-                            aria-label="Consolidar avaliação por pares"
-                          >
-                            <Scale size={18} strokeWidth={1.8} />
-                          </Link>
-                        )}
-                      </td>
+                      {!isStudentView && (
+                        <>
+                          <td className="pending-cell">
+                            {assignment.needs_grading_count ? (
+                              <span className="pending-badge has-pending">{assignment.needs_grading_count}</span>
+                            ) : null}
+                          </td>
+                          <td className="actions-cell">
+                            {/* Always shown — unlike quiz_id, whether an assignment has
+                                a rubric isn't known from this list response, so the
+                                grading page itself handles the "sem rubrica" case. */}
+                            <Link
+                              href={`/courses/${courseId}/assignments/${assignment.id}/grade`}
+                              className="btn btn-primary btn-icon"
+                              title="Correção de Atividade"
+                              aria-label="Correção de Atividade"
+                            >
+                              <ClipboardList size={18} strokeWidth={1.8} />
+                            </Link>
+                            {/* Only classic quizzes (assignment.quiz_id) can receive imported
+                                questions — New Quizzes (is_quiz_assignment) and regular
+                                assignments intentionally get no action here. */}
+                            {assignment.quiz_id && (
+                              <Link
+                                href={`/courses/${courseId}/quizzes/${assignment.quiz_id}/import`}
+                                className="btn btn-primary btn-icon"
+                                title="Importar questões"
+                                aria-label="Importar questões"
+                              >
+                                <ListPlus size={18} strokeWidth={1.8} />
+                              </Link>
+                            )}
+                            {/* Only assignments with peer review enabled — distributes
+                                reviewers across the course's groups (see
+                                specs/capabilities/peer-review-distribution.md). */}
+                            {assignment.peer_reviews && (
+                              <Link
+                                href={`/courses/${courseId}/assignments/${assignment.id}/peer-reviews`}
+                                className="btn btn-primary btn-icon"
+                                title="Distribuir avaliação por pares"
+                                aria-label="Distribuir avaliação por pares"
+                              >
+                                <Shuffle size={18} strokeWidth={1.8} />
+                              </Link>
+                            )}
+                            {/* Same condition — consolidates the peers' grades/comments
+                                into a final grade (specs/capabilities/peer-review-grading.md). */}
+                            {assignment.peer_reviews && (
+                              <Link
+                                href={`/courses/${courseId}/assignments/${assignment.id}/peer-grading`}
+                                className="btn btn-primary btn-icon"
+                                title="Consolidar avaliação por pares"
+                                aria-label="Consolidar avaliação por pares"
+                              >
+                                <Scale size={18} strokeWidth={1.8} />
+                              </Link>
+                            )}
+                          </td>
+                        </>
+                      )}
                     </tr>
                     {expanded && (
                       <tr className="message-detail-row">
-                        <td colSpan={7}>
+                        <td colSpan={colSpanCount}>
                           <div className="message-detail">
                             {assignment.description ? (
                               <p className="message-detail-text">{descriptionToPlainText(assignment.description)}</p>
@@ -390,12 +405,16 @@ export default function AssignmentsTable({ courseId, assignments, focusNearest =
             <li>
               <CircleCheckBig size={14} strokeWidth={1.8} aria-hidden="true" style={{ color: 'var(--ok)' }} /> Publicado
             </li>
-            <li>
-              <CircleDashed size={14} strokeWidth={1.8} aria-hidden="true" /> Não publicado
-            </li>
-            <li>
-              <ClipboardCheck size={14} strokeWidth={1.8} aria-hidden="true" /> Pendências (a corrigir)
-            </li>
+            {!isStudentView && (
+              <>
+                <li>
+                  <CircleDashed size={14} strokeWidth={1.8} aria-hidden="true" /> Não publicado
+                </li>
+                <li>
+                  <ClipboardCheck size={14} strokeWidth={1.8} aria-hidden="true" /> Pendências (a corrigir)
+                </li>
+              </>
+            )}
           </ul>
         </>
       )}

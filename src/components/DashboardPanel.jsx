@@ -1,6 +1,7 @@
 'use client';
 
 import { useDashboardSummaryQuery, cacheStatus } from '@/lib/query/canvasQueries';
+import { useViewRole } from './ViewRoleProvider';
 import DashboardStats from './DashboardStats';
 import DueDateCalendar from './DueDateCalendar';
 import RecentDeadlines from './RecentDeadlines';
@@ -24,7 +25,8 @@ const EMPTY_SUMMARY = {
 // passou da faixa `live`. Primeira visita (sem cache algum) mostra o estado de
 // carregamento em vez de números vazios; erro só aparece se não há cache.
 export default function DashboardPanel() {
-  const query = useDashboardSummaryQuery();
+  const { viewRole, isTeacherView, isStudentView } = useViewRole();
+  const query = useDashboardSummaryQuery(viewRole);
   const { hasData, stale, initialLoading } = cacheStatus(query);
   const summary = query.data ?? EMPTY_SUMMARY;
   const error = query.error?.message;
@@ -47,6 +49,7 @@ export default function DashboardPanel() {
         todo={summary.todo}
         loading={showLoading}
         stale={stale}
+        viewRole={viewRole}
       />
 
       <div className="dashboard-grid">
@@ -59,12 +62,12 @@ export default function DashboardPanel() {
         <RecentDeadlines items={summary.recent?.items} loading={showLoading} />
       </div>
 
-      {/* Pendências (pendencias.md): "a corrigir" só aparece para quem tem curso como
-          professor; "a fazer" (aluno) sempre, com estado vazio explícito. */}
-      {(showLoading || summary.courses?.total !== 0) && (
+      {/* Pendências (pendencias.md + ADR-0027): "a corrigir" na visão Professor;
+          "a fazer" na visão Aluno. */}
+      {isTeacherView && (showLoading || summary.courses?.total !== 0) && (
         <PendingGradingList items={summary.grading?.items} loading={showLoading} />
       )}
-      <PendingTodoList items={summary.todo?.items} loading={showLoading} />
+      {isStudentView && <PendingTodoList items={summary.todo?.items} loading={showLoading} />}
     </div>
   );
 }

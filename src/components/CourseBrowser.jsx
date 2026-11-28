@@ -27,6 +27,7 @@ import SortIcon from './SortIcon';
 import CourseWorkspaceTabs from './CourseWorkspaceTabs';
 import ResourceWorkspacesModal from './ResourceWorkspacesModal';
 import { useWorkspaceScope } from './WorkspaceScopeProvider';
+import { useViewRole } from './ViewRoleProvider';
 import { BASE_WORKSPACE_ID } from '@/lib/workspaces/workspacesRepo';
 import { isPublished } from '@/lib/dashboard';
 import { canvasKeys, cacheStatus, useCoursesQuery } from '@/lib/query/canvasQueries';
@@ -204,6 +205,8 @@ export default function CourseBrowser() {
     setExpandedCourseId((current) => (current === courseId ? null : courseId));
   }
 
+  const { viewRole, isTeacherView, isStudentView } = useViewRole();
+
   // Resolvido uma única vez, quando o primeiro dado chega (cache ou rede).
   useEffect(() => {
     if (!coursesQuery.data || appliedDefaultFilterRef.current || userToggledFavoritesRef.current) return;
@@ -211,15 +214,26 @@ export default function CourseBrowser() {
     if (!coursesQuery.data.some((c) => c.is_favorite)) setOnlyFavorites(false);
   }, [coursesQuery.data]);
 
-  // Quem tem um papel só (só aluno, só professor, só tutor…) já abre filtrado
-  // nele, em vez de "Todos os papéis". Resolvido uma vez, quando a lista chega.
+  // Quando o usuário não travou manualmente o filtro de papel, adapta à visão ativa
+  // (Professor vs Aluno), ou ao único papel disponível se só houver um.
   useEffect(() => {
-    if (!coursesQuery.data || appliedDefaultRoleRef.current || rolesChosenRef.current) return;
-    appliedDefaultRoleRef.current = true;
+    if (!coursesQuery.data || rolesChosenRef.current) return;
     const roles = new Set();
     for (const c of coursesQuery.data) for (const r of c.user_roles ?? [c.user_role]) if (r) roles.add(r);
-    if (roles.size === 1) setRoleFilter([...roles]);
-  }, [coursesQuery.data]);
+    if (roles.size === 1) {
+      setRoleFilter([...roles]);
+      return;
+    }
+    const targetRoles =
+      viewRole === 'student'
+        ? ['student', 'observer'].filter((r) => roles.has(r))
+        : ['teacher', 'ta', 'designer'].filter((r) => roles.has(r));
+    if (targetRoles.length > 0 && targetRoles.length < roles.size) {
+      setRoleFilter(targetRoles);
+    } else {
+      setRoleFilter([]);
+    }
+  }, [coursesQuery.data, viewRole]);
 
   const favoritesCount = useMemo(() => courseList.filter((c) => c.is_favorite).length, [courseList]);
   const publishedCount = useMemo(() => courseList.filter(isPublished).length, [courseList]);
@@ -558,7 +572,7 @@ export default function CourseBrowser() {
                   </Link>
                 </td>
                 <td className="pending-cell">
-                  {course.needs_grading_count ? (
+                  {isTeacherView && course.needs_grading_count ? (
                     <button
                       type="button"
                       className="pending-badge has-pending pending-badge-btn"
@@ -568,7 +582,7 @@ export default function CourseBrowser() {
                       {course.needs_grading_count}
                     </button>
                   ) : null}
-                  {course.todo_count ? (
+                  {isStudentView && course.todo_count ? (
                     <button
                       type="button"
                       className="pending-badge has-pending pending-badge-btn"
