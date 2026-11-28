@@ -1,4 +1,4 @@
-import { requireCanvasIntegration } from '@/lib/canvasIntegration';
+import { requireCanvasIntegrationMeta } from '@/lib/canvasIntegration';
 import CanvasNotConnected from '@/components/CanvasNotConnected';
 import BackButton from '@/components/BackButton';
 import CoursePageContent from '@/components/CoursePageContent';
@@ -16,7 +16,7 @@ import CoursePageContent from '@/components/CoursePageContent';
 export default async function CoursePage({ params, searchParams }) {
   const { courseId } = await params;
   const { tab } = (await searchParams) || {};
-  const { user, canvas } = await requireCanvasIntegration();
+  const { user, canvas } = await requireCanvasIntegrationMeta();
   if (!user) return null;
   if (!canvas) return <CanvasNotConnected />;
 

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireCanvasIntegration } from '@/lib/canvasIntegration';
 import { addCourseFavorite, removeCourseFavorite } from '@/lib/canvasClient';
+import { invalidateUserCanvasCache } from '@/lib/canvasServerCache';
 
 const NOT_CONNECTED = NextResponse.json(
   { error: 'Canvas não conectado. Conecte sua conta em /perfil.' },
@@ -15,6 +16,7 @@ export async function POST(request, { params }) {
   const { courseId } = await params;
   try {
     await addCourseFavorite(canvas.client, courseId);
+    invalidateUserCanvasCache(user.id, 'userCourses');
     return NextResponse.json({ is_favorite: true });
   } catch {
     return NextResponse.json({ error: 'Falha ao favoritar o curso.' }, { status: 502 });
@@ -29,6 +31,7 @@ export async function DELETE(request, { params }) {
   const { courseId } = await params;
   try {
     await removeCourseFavorite(canvas.client, courseId);
+    invalidateUserCanvasCache(user.id, 'userCourses');
     return NextResponse.json({ is_favorite: false });
   } catch {
     return NextResponse.json({ error: 'Falha ao desfavoritar o curso.' }, { status: 502 });

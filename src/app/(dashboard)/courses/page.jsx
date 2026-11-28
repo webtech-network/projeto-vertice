@@ -7,7 +7,7 @@ import {
   Maximize2,
   Users,
 } from 'lucide-react';
-import { requireCanvasIntegration } from '@/lib/canvasIntegration';
+import { requireCanvasIntegrationMeta } from '@/lib/canvasIntegration';
 import CanvasNotConnected from '@/components/CanvasNotConnected';
 import CourseBrowser from '@/components/CourseBrowser';
 import InfoHint from '@/components/InfoHint';
@@ -17,7 +17,7 @@ import InfoHint from '@/components/InfoHint';
 // revalidate cache, so navigating to /courses paints instantly instead of
 // blocking on a Canvas round-trip inside this Server Component render.
 export default async function CoursesPage() {
-  const { user, canvas } = await requireCanvasIntegration();
+  const { user, canvas } = await requireCanvasIntegrationMeta();
   if (!user) {
     return null; // proxy já redireciona requests não autenticados pra /login
   }

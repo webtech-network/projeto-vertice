@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server';
-import { requireCanvasIntegration } from '@/lib/canvasIntegration';
+import { requireCanvasIntegrationMeta } from '@/lib/canvasIntegration';
 
-// Usado por CanvasConnection.jsx (aba "Plataformas associadas" de /perfil)
-// pra saber se o usuário atual já tem o Canvas conectado — nunca lê
-// `public.integrations` direto no client, essa tabela não tem policy de
-// RLS pra authenticated de propósito (ver 05_rls.sql).
+// Usado por CanvasConnection.jsx (aba "Plataformas associadas" de /perfil) e
+// por ViewRoleProvider pra saber se o usuário atual já tem o Canvas conectado
+// e quais papéis possui — leitura leve sem decriptação do Vault.
 export async function GET() {
-  const { user, canvas } = await requireCanvasIntegration();
+  const { user, canvas } = await requireCanvasIntegrationMeta();
   if (!user) {
     return NextResponse.json({ error: 'Sessão inválida. Faça login novamente.' }, { status: 401 });
   }

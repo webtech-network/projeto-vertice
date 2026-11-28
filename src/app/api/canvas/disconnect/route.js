@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabaseServerClient';
 import { createSupabaseAdminClient } from '@/lib/supabaseAdminClient';
+import { invalidateUserCanvasCache } from '@/lib/canvasServerCache';
 
 export async function POST() {
   const supabase = await createSupabaseServerClient();
@@ -17,5 +18,6 @@ export async function POST() {
     return NextResponse.json({ error: 'Falha ao desconectar o Canvas.' }, { status: 500 });
   }
 
+  invalidateUserCanvasCache(user.id);
   return NextResponse.json({ ok: true });
 }

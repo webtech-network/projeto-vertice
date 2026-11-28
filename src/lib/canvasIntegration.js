@@ -147,3 +147,34 @@ export async function requireCanvasIntegration() {
   const canvas = await getCanvasClientForUser(user.id);
   return { user, canvas };
 }
+
+/**
+ * Leitura leve de metadados da integração Canvas (sem RPC do Vault nem
+ * decriptação de token) para Server Components que só precisam saber se o
+ * Canvas está conectado ou ler `baseUrl`/`providerUserId`/`metadata`.
+ */
+export async function getCanvasIntegrationMeta(userId) {
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin
+    .from('integrations')
+    .select('provider_user_id, display_name, avatar_url, metadata')
+    .eq('user_id', userId)
+    .eq('provider', 'canvas')
+    .maybeSingle();
+  if (error) throw error;
+  if (!data?.metadata?.base_url) return null;
+  return {
+    baseUrl: data.metadata.base_url,
+    metadata: data.metadata,
+    providerUserId: data.provider_user_id,
+    displayName: data.display_name,
+    avatarUrl: data.avatar_url,
+  };
+}
+
+export async function requireCanvasIntegrationMeta() {
+  const { user } = await getSupabaseUser();
+  if (!user) return { user: null, canvas: null };
+  const canvas = await getCanvasIntegrationMeta(user.id);
+  return { user, canvas };
+}

@@ -1,5 +1,6 @@
 import { ChevronsDown, ChevronsUp, RefreshCw, ExternalLink, Archive, Sparkles } from 'lucide-react';
-import { requireCanvasIntegration } from '@/lib/canvasIntegration';
+import { getSupabaseUser } from '@/lib/supabaseServerClient';
+import { getCanvasIntegrationMeta } from '@/lib/canvasIntegration';
 import { getConfiguredIntegrations } from '@/lib/aiIntegrations';
 import CanvasNotConnected from '@/components/CanvasNotConnected';
 import MessageBrowser from '@/components/MessageBrowser';
@@ -10,11 +11,14 @@ import InfoHint from '@/components/InfoHint';
 // revalidate cache, so navigating to /mensagens paints instantly instead of
 // blocking on a Canvas round-trip inside this Server Component render.
 export default async function MensagensPage() {
-  const { user, canvas } = await requireCanvasIntegration();
+  const { user } = await getSupabaseUser();
   if (!user) return null;
-  if (!canvas) return <CanvasNotConnected />;
 
-  const configuredIntegrations = await getConfiguredIntegrations(user.id);
+  const [canvas, configuredIntegrations] = await Promise.all([
+    getCanvasIntegrationMeta(user.id),
+    getConfiguredIntegrations(user.id),
+  ]);
+  if (!canvas) return <CanvasNotConnected />;
 
   return (
     <main className="page">
