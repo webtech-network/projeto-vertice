@@ -1,14 +1,15 @@
 import { NextResponse } from 'next/server';
 import { requireCanvasIntegration } from '@/lib/canvasIntegration';
 import {
-  listCourses,
-  listUserCourses,
+  listUserCoursesDetailed,
   listAssignments,
   listConversations,
   listStudentTodo,
   listMissingSubmissions,
 } from '@/lib/canvasClient';
 import { isRealGroupAssignment, correctedGroupNeedsGradingCount } from '@/lib/groupGrading';
+import { mapWithConcurrency } from '@/lib/concurrency';
+import { cachedCanvasRead } from '@/lib/canvasServerCache';
 import {
   filterActiveFavoriteCourses,
   sumTotalStudents,
@@ -49,15 +50,25 @@ export async function GET(request) {
 
   const client = canvas.client;
 
+  // No modo aluno (ou híbrido), todo/missing não dependem da lista de cursos
+  // e já começam em paralelo com `userCourses` (que agora compartilha o cache
+  // curto no servidor com /api/canvas/courses e /api/canvas/messages).
+  const todoPromise = isTeacherMode ? Promise.resolve([]) : listStudentTodo(client);
+  const missingPromise = isTeacherMode ? Promise.resolve([]) : listMissingSubmissions(client);
+
   let rawCourses;
   try {
+    const { courses: allCourses } = await cachedCanvasRead(user.id, 'userCourses', () =>
+      listUserCoursesDetailed(client),
+    );
     if (isStudentMode) {
-      const allCourses = await listUserCourses(client);
       rawCourses = allCourses.filter((c) =>
         (c.user_roles ?? [c.user_role]).some((r) => r === 'student' || r === 'observer'),
       );
     } else {
-      rawCourses = await listCourses(client);
+      rawCourses = allCourses.filter((c) =>
+        (c.user_roles ?? [c.user_role]).some((r) => r === 'teacher' || r === 'ta' || r === 'designer'),
+      );
     }
   } catch {
     return NextResponse.json({ error: 'Falha ao carregar cursos do Canvas.' }, { status: 502 });
@@ -71,11 +82,12 @@ export async function GET(request) {
       ? listConversations(client, { filter: courses.map((c) => `course_${c.id}`), scope: 'unread' })
       : Promise.resolve([]),
     courses.length
-      ? Promise.all(courses.map((c) => listAssignments(client, c.id))).then((lists) => lists.flat())
+      ? mapWithConcurrency(courses, 6, (c) =>
+          cachedCanvasRead(user.id, `assignments:${c.id}`, () => listAssignments(client, c.id)),
+        ).then((lists) => lists.flat())
       : Promise.resolve([]),
-    // Pendências do aluno (ADR-0022): buscadas na visão aluno ou modo híbrido.
-    isTeacherMode ? Promise.resolve([]) : listStudentTodo(client),
-    isTeacherMode ? Promise.resolve([]) : listMissingSubmissions(client),
+    todoPromise,
+    missingPromise,
   ]);
 
   const pendingCount = messagesResult.status === 'fulfilled' ? messagesResult.value.length : null;
@@ -97,20 +109,18 @@ export async function GET(request) {
 
   // Canvas's own needs_grading_count over-counts real group assignments (one
   // per student instead of one per group — see groupGrading.js). Só necessário
-  // na visão professor (ou modo legado sem ?role=).
+  // na visão professor (ou modo legado sem ?role=), com concorrência limitada.
   const assignments = isStudentMode
     ? rawAssignments
-    : await Promise.all(
-        rawAssignments.map(async (assignment) => {
-          if (!isRealGroupAssignment(assignment) || !assignment.needs_grading_count) return assignment;
-          try {
-            const needs_grading_count = await correctedGroupNeedsGradingCount(client, assignment.course_id, assignment);
-            return { ...assignment, needs_grading_count };
-          } catch {
-            return assignment;
-          }
-        }),
-      );
+    : await mapWithConcurrency(rawAssignments, 6, async (assignment) => {
+        if (!isRealGroupAssignment(assignment) || !assignment.needs_grading_count) return assignment;
+        try {
+          const needs_grading_count = await correctedGroupNeedsGradingCount(client, assignment.course_id, assignment);
+          return { ...assignment, needs_grading_count };
+        } catch {
+          return assignment;
+        }
+      });
 
   const { pendingAssignmentsCount, pendingGradingSum } = derivePendingGrading(assignments);
   const pendingGradingItems = derivePendingGradingItems(assignments, courses);

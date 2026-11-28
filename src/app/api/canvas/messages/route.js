@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireCanvasIntegration } from '@/lib/canvasIntegration';
-import { listUserCourses, listConversations } from '@/lib/canvasClient';
+import { listUserCoursesDetailed, listConversations } from '@/lib/canvasClient';
+import { cachedCanvasRead } from '@/lib/canvasServerCache';
 
 // Backs MessageBrowser.jsx's client-side stale-while-revalidate fetch —
 // moved out of mensagens/page.jsx (a Server Component) so navigating to
@@ -15,36 +16,34 @@ export async function GET() {
 
   const client = canvas.client;
 
-  const rawCourses = await listUserCourses(client);
+  // A busca geral da inbox não depende dos cursos favoritos — inicia em
+  // paralelo com `userCourses` (que compartilha o cache curto do servidor) e
+  // limita a 3 páginas (até 300 conversas mais recentes) para não paginar
+  // anos de histórico a cada abertura de /mensagens.
+  const allResultPromise = listConversations(client, { maxPages: 3 }).then(
+    (value) => ({ status: 'fulfilled', value }),
+    (reason) => ({ status: 'rejected', reason }),
+  );
+
+  const { courses: rawCourses } = await cachedCanvasRead(user.id, 'userCourses', () =>
+    listUserCoursesDetailed(client),
+  );
   // Favorite AND published — an unpublished favorite course has no real
   // conversations worth surfacing here and would just be dead weight in the
   // context selector (see mensagens/page.jsx's note under the page title).
   const favoriteCourses = rawCourses.filter((c) => c.is_favorite && c.workflow_state === 'available');
 
-  // A 401 here (as opposed to elsewhere in the app) almost always means the
-  // Canvas Developer Key has "Enforce Scopes" on without the Conversations
-  // API in its allowed list — a Canvas-admin config issue, not a bug — so
-  // this is caught locally instead of failing the whole request.
-  //
-  // Scoped to favorite courses only, and in a single call: Canvas's
-  // `filter[]` accepts several course contexts at once and OR's them
-  // together, so one Inbox call covers every favorite course.
   const CONVERSATIONS_ERROR =
     'Não foi possível carregar as mensagens. Se o problema persistir, verifique se a Developer Key do Canvas usada por este app tem o escopo de Conversas (Conversations API) habilitado.';
 
-  // The two listConversations calls below are independent Canvas reads (one
-  // scoped to favorite courses, one unscoped for the whole inbox — see the
-  // comment further down) using the same already-authenticated `client`, so
-  // there's no OAuth-token race to serialize for (unlike the sequential
-  // multi-call pages elsewhere in this app, which serialize specifically to
-  // avoid concurrent refreshes of the *session's* token). Running them in
-  // parallel roughly halves this route's latency, dominated by the unscoped
-  // call paginating the professor's entire inbox.
-  const [favoritesResult, allResult] = await Promise.allSettled([
+  const [favoritesResult, allResult] = await Promise.all([
     favoriteCourses.length > 0
-      ? listConversations(client, { filter: favoriteCourses.map((c) => `course_${c.id}`) })
-      : Promise.resolve([]),
-    listConversations(client),
+      ? listConversations(client, { filter: favoriteCourses.map((c) => `course_${c.id}`) }).then(
+          (value) => ({ status: 'fulfilled', value }),
+          (reason) => ({ status: 'rejected', reason }),
+        )
+      : Promise.resolve({ status: 'fulfilled', value: [] }),
+    allResultPromise,
   ]);
 
   let conversations = favoritesResult.status === 'fulfilled' ? favoritesResult.value : [];

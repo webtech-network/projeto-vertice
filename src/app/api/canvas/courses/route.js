@@ -10,6 +10,8 @@ import {
 import { deriveStudentTodoItems, countTodoByCourse } from '@/lib/dashboard';
 import { countMessagesByCourse } from '@/lib/messageGrouping';
 import { correctedCourseNeedsGradingCount } from '@/lib/groupGrading';
+import { mapWithConcurrency } from '@/lib/concurrency';
+import { cachedCanvasRead } from '@/lib/canvasServerCache';
 
 // Backs CourseBrowser.jsx's client-side stale-while-revalidate fetch — moved
 // out of courses/page.jsx (a Server Component) so navigating to /courses no
@@ -25,62 +27,49 @@ export async function GET() {
 
   const client = canvas.client;
 
-  const { courses: rawCourses, roleErrors } = await listUserCoursesDetailed(client);
-  const favoriteIds = rawCourses.filter((c) => c.is_favorite).map((c) => c.id);
-
-  // Canvas has no per-course message count on the course-list endpoint (unlike
-  // needs_grading_count), and message counts are only tracked for favorite
-  // courses to keep this to a single extra call: Canvas's `filter[]` accepts
-  // several course contexts at once and OR's them together, so one Inbox call
-  // covers every favorite course instead of one call per course.
-  let messageCounts = new Map();
-  if (favoriteIds.length > 0) {
-    try {
-      const conversations = await listConversations(client, {
-        filter: favoriteIds.map((id) => `course_${id}`),
-      });
-      messageCounts = countMessagesByCourse(conversations, favoriteIds);
-    } catch {
-      messageCounts = null; // signals "failed to load", distinct from "not a favorite" below
-    }
-  }
-
-  // Canvas's own per-course needs_grading_count over-counts real group
-  // assignments (one per student instead of one per group — see
-  // groupGrading.js). Correcting it needs a whole extra
-  // list-assignments-then-list-submissions round-trip per course, so — same
-  // reasoning and same favorites-only scoping as message_count just above —
-  // this is only worth paying for on favorite courses with something
-  // pending, not across the full course list (up to 100+ courses on a real
-  // account). Non-favorite courses keep Canvas's raw (possibly overcounted)
-  // number, same as message_count staying `undefined` for them.
-  const gradingCorrections = new Map();
-  await Promise.all(
-    rawCourses
-      .filter((c) => c.is_favorite && (c.needs_grading_count ?? 0) > 0)
-      .map(async (course) => {
-        try {
-          const assignments = await listAssignments(client, course.id);
-          const corrected = await correctedCourseNeedsGradingCount(client, course.id, assignments);
-          gradingCorrections.set(course.id, corrected);
-        } catch {
-          // best-effort — that course's badge just falls back to Canvas's own number below
-        }
-      }),
+  const { courses: rawCourses, roleErrors } = await cachedCanvasRead(user.id, 'userCourses', () =>
+    listUserCoursesDetailed(client),
   );
+  const favoriteIds = rawCourses.filter((c) => c.is_favorite).map((c) => c.id);
+  const favoritesNeedingGrading = rawCourses.filter((c) => c.is_favorite && (c.needs_grading_count ?? 0) > 0);
+  const hasStudentCourse = rawCourses.some((c) => c.user_roles?.includes('student'));
 
-  // "A fazer" do aluno por curso (ADR-0022) — só vale a pena se o usuário é aluno em
-  // algum curso; reaproveita as mesmas 2 chamadas cross-curso do dashboard.
-  let todoCounts = new Map();
-  if (rawCourses.some((c) => c.user_roles?.includes('student'))) {
-    const [todo, missing] = await Promise.allSettled([listStudentTodo(client), listMissingSubmissions(client)]);
-    todoCounts = countTodoByCourse(
-      deriveStudentTodoItems(
-        todo.status === 'fulfilled' ? todo.value : [],
-        missing.status === 'fulfilled' ? missing.value : [],
-      ),
-    );
-  }
+  // Os três enriquecimentos abaixo são totalmente independentes entre si e
+  // agora rodam em paralelo em vez de em cascata sequencial.
+  const [messageCounts, gradingCorrections, todoCounts] = await Promise.all([
+    favoriteIds.length > 0
+      ? listConversations(client, { filter: favoriteIds.map((id) => `course_${id}`) })
+          .then((conversations) => countMessagesByCourse(conversations, favoriteIds))
+          .catch(() => null)
+      : Promise.resolve(new Map()),
+
+    (async () => {
+      const corrections = new Map();
+      await mapWithConcurrency(favoritesNeedingGrading, 4, async (course) => {
+        try {
+          const assignments = await cachedCanvasRead(user.id, `assignments:${course.id}`, () =>
+            listAssignments(client, course.id),
+          );
+          const corrected = await correctedCourseNeedsGradingCount(client, course.id, assignments);
+          corrections.set(course.id, corrected);
+        } catch {
+          // best-effort — cai no número bruto do Canvas
+        }
+      });
+      return corrections;
+    })(),
+
+    hasStudentCourse
+      ? Promise.allSettled([listStudentTodo(client), listMissingSubmissions(client)]).then(([todo, missing]) =>
+          countTodoByCourse(
+            deriveStudentTodoItems(
+              todo.status === 'fulfilled' ? todo.value : [],
+              missing.status === 'fulfilled' ? missing.value : [],
+            ),
+          ),
+        )
+      : Promise.resolve(new Map()),
+  ]);
 
   // Canvas's course-list endpoint doesn't return an html_url by default (unlike
   // assignments, which do) — build the link to the course's own Canvas page ourselves.
