@@ -771,6 +771,15 @@ a {
   flex-direction: column;
   flex: 1;
   min-height: 0;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.page-tarefas input,
+.page-tarefas textarea,
+.page-tarefas [contenteditable='true'],
+.page-tarefas [role='dialog'] {
+  user-select: text;
+  -webkit-user-select: text;
 }
 .page-tarefas .kanban-board,
 .page-tarefas .eisenhower-matrix {
