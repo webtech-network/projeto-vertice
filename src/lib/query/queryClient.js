@@ -4,7 +4,7 @@ import { QueryClient } from '@tanstack/react-query';
 
 // `buster` do cache persistido: incremente quando o formato de algum payload
 // cacheado mudar, para descartar o cache antigo de todo mundo no próximo load.
-export const CACHE_SCHEMA_VERSION = '1';
+export const CACHE_SCHEMA_VERSION = '2';
 
 const MINUTE = 60 * 1000;
 const HOUR = 60 * MINUTE;

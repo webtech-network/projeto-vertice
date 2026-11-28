@@ -225,6 +225,20 @@ export default function CourseBrowser() {
     if (roles.size === 1) setRoleFilter([...roles]);
   }, [coursesQuery.data]);
 
+  // Proteção contra roleFilter órfão (ex.: salvo no sessionStorage ou cache
+  // antigo com user_roles vazio): se nenhum curso da lista possui qualquer um
+  // dos papéis selecionados, limpa o filtro para não travar a tela vazia.
+  useEffect(() => {
+    if (!coursesQuery.data?.length || roleFilter.length === 0) return;
+    const hasMatch = coursesQuery.data.some((c) =>
+      (c.user_roles ?? [c.user_role]).some((r) => roleFilter.includes(r)),
+    );
+    if (!hasMatch) {
+      rolesChosenRef.current = false;
+      setRoleFilter([]);
+    }
+  }, [coursesQuery.data, roleFilter]);
+
   const favoritesCount = useMemo(() => courseList.filter((c) => c.is_favorite).length, [courseList]);
   const publishedCount = useMemo(() => courseList.filter(isPublished).length, [courseList]);
   const unpublishedCount = courseList.length - publishedCount;
@@ -337,6 +351,26 @@ export default function CourseBrowser() {
     );
   }
 
+  function clearAllFilters() {
+    userToggledFavoritesRef.current = true;
+    rolesChosenRef.current = false;
+    setQuery('');
+    setOnlyFavorites(false);
+    setStatusFilter('all');
+    setRoleFilter([]);
+  }
+
+  const activeWorkspaceEmpty =
+    activeWorkspaceId !== BASE_WORKSPACE_ID && getVisibleResourceIds('course')?.size === 0;
+
+  const activeFilterLabels = [];
+  if (activeWorkspaceId !== BASE_WORKSPACE_ID) activeFilterLabels.push('Workspace ativo');
+  if (onlyFavorites) activeFilterLabels.push('Favoritos');
+  if (statusFilter === 'published') activeFilterLabels.push('Publicados');
+  else if (statusFilter === 'unpublished') activeFilterLabels.push('Não publicados');
+  if (roleFilter.length > 0) activeFilterLabels.push(`Papel: ${roleFilter.map((r) => COURSE_ROLE_LABELS[r] ?? r).join(', ')}`);
+  if (query.trim()) activeFilterLabels.push(`Pesquisa: "${query.trim()}"`);
+
   return (
     <div className="course-browser">
       <div className="browser-controls">
@@ -405,11 +439,25 @@ export default function CourseBrowser() {
       )}
 
       {filtered.length === 0 ? (
-        <p className="lede">
-          {onlyFavorites && favoritesCount === 0
-            ? 'Você ainda não marcou nenhum curso como favorito/em destaque no Canvas.'
-            : 'Nenhum curso encontrado com esse filtro ou pesquisa.'}
-        </p>
+        <div className="empty-state" style={{ textAlign: 'left', padding: '1.25rem 0' }}>
+          <p className="lede" style={{ marginBottom: '0.6rem' }}>
+            {onlyFavorites && favoritesCount === 0
+              ? 'Você ainda não marcou nenhum curso como favorito/em destaque no Canvas.'
+              : activeWorkspaceEmpty
+                ? 'O workspace selecionado no topo ainda não possui cursos vinculados.'
+                : 'Nenhum curso encontrado com esse filtro ou pesquisa.'}
+          </p>
+          {activeFilterLabels.length > 0 && !(onlyFavorites && favoritesCount === 0) && (
+            <p className="lede" style={{ fontSize: '0.85rem', marginBottom: '0.75rem' }}>
+              Filtros ativos: {activeFilterLabels.join(' · ')}
+            </p>
+          )}
+          {(onlyFavorites || statusFilter !== 'all' || roleFilter.length > 0 || query.trim()) && (
+            <button type="button" className="btn btn-secondary btn-sm" onClick={clearAllFilters}>
+              Limpar filtros
+            </button>
+          )}
+        </div>
       ) : (
         <>
         <div className="data-table-wrap">
