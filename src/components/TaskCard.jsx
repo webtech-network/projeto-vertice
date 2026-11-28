@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
-import { CSS } from '@dnd-kit/utilities';
 import { Flag, Zap, CalendarDays, GraduationCap } from 'lucide-react';
 import { useTasks } from './TasksProvider';
 import TaskContextMenu from './TaskContextMenu';
@@ -33,7 +32,7 @@ function withSeparators(nodes) {
 // what each icon means. Status/classification/due date share one
 // `metaSegments` builder below (separators, per-density icon size and
 // label visibility) so both densities stay in sync automatically.
-export default function TaskCard({ task, onSelect }) {
+export default function TaskCard({ task, onSelect, isOverlay = false }) {
   const { projects, cardDensity } = useTasks();
   // Desktop right-click affordance (see TaskContextMenu.jsx) — local state
   // per card instance is enough since only the card that was actually
@@ -52,9 +51,10 @@ export default function TaskCard({ task, onSelect }) {
     ? `/courses/${canvasCourseId}${task.canvasReferences?.assignmentId ? '?tab=atividades' : ''}`
     : null;
 
-  const { attributes, listeners, setNodeRef: setDragRef, transform, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef: setDragRef, isDragging } = useDraggable({
     id: task.id,
     data: { task },
+    disabled: isOverlay,
   });
   // A card is also its own drop target — same id as the draggable above,
   // dnd-kit keeps draggable/droppable ids in separate namespaces (this is
@@ -63,16 +63,16 @@ export default function TaskCard({ task, onSelect }) {
   // handleDragEnd tell "dropped onto this specific card" (reorder within the
   // same column/quadrant — see comparePriority's tie-break) apart from
   // "dropped onto the column/quadrant background" (status/priority change).
-  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: task.id, data: { task } });
+  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: task.id, data: { task }, disabled: isOverlay });
   const setRefs = (node) => {
+    if (isOverlay) return;
     setDragRef(node);
     setDropRef(node);
   };
 
-  const style = {
-    ...projectCardStyle(project),
-    ...(transform ? { transform: CSS.Translate.toString(transform), zIndex: 10 } : undefined),
-  };
+  // Quando o DragOverlay está ativo, o card original fica parado como placeholder
+  // enquanto o clone no DragOverlay flutua acima de todas as colunas/divisórias.
+  const style = projectCardStyle(project);
 
   const condensed = cardDensity === 'condensed';
   const iconSize = condensed ? 14 : 13;
@@ -140,10 +140,12 @@ export default function TaskCard({ task, onSelect }) {
     <div
       ref={setRefs}
       style={style}
-      className={`kanban-card${isDragging ? ' is-dragging' : ''}${condensed ? ' kanban-card--condensed' : ''}${isOver ? ' kanban-card--drop-over' : ''}`}
-      {...listeners}
-      {...attributes}
-      onClick={() => onSelect(task)}
+      className={`kanban-card${isDragging ? ' is-dragging' : ''}${isOverlay ? ' is-overlay' : ''}${condensed ? ' kanban-card--condensed' : ''}${isOver ? ' kanban-card--drop-over' : ''}`}
+      {...(isOverlay ? undefined : listeners)}
+      {...(isOverlay ? undefined : attributes)}
+      onClick={() => {
+        if (!isOverlay) onSelect(task);
+      }}
       onContextMenu={(e) => {
         e.preventDefault();
         setContextMenu({ x: e.clientX, y: e.clientY });

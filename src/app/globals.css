@@ -4158,8 +4158,12 @@ tr.is-focused-row > td {
   box-shadow: var(--shadow);
 }
 .kanban-card.is-dragging {
-  opacity: 0.6;
+  opacity: 0.35;
   cursor: grabbing;
+}
+.kanban-card.is-overlay {
+  cursor: grabbing;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
 }
 /* Hovering another card while dragging within the same column/quadrant
    (see TaskCard.jsx's own useDroppable and KanbanBoard.jsx/

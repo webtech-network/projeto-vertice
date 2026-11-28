@@ -1,7 +1,9 @@
 'use client';
 
-import { DndContext, PointerSensor, pointerWithin, useSensor, useSensors } from '@dnd-kit/core';
+import { useState } from 'react';
+import { DndContext, DragOverlay, PointerSensor, pointerWithin, useSensor, useSensors } from '@dnd-kit/core';
 import EisenhowerQuadrant from './EisenhowerQuadrant';
+import TaskCard from './TaskCard';
 import { useTasks } from './TasksProvider';
 import { useWorkspaceScope } from './WorkspaceScopeProvider';
 import { BASE_WORKSPACE_ID } from '@/lib/workspaces/workspacesRepo';
@@ -46,6 +48,7 @@ export default function EisenhowerMatrix({ onSelect }) {
   const { tasks, projects, filters, moveTaskPriority, moveTaskPriorityRank, collapsedColumns, groupByProject } =
     useTasks();
   const { activeWorkspaceId, getVisibleResourceIds } = useWorkspaceScope();
+  const [activeTask, setActiveTask] = useState(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const scope =
@@ -65,6 +68,7 @@ export default function EisenhowerMatrix({ onSelect }) {
   // priority instead — bumps priorityRank one level toward the drop
   // position, quadrant/urgent/important untouched.
   function handleDragEnd({ active, over }) {
+    setActiveTask(null);
     if (!over) return;
     const task = active.data.current?.task;
     if (!task) return;
@@ -91,7 +95,13 @@ export default function EisenhowerMatrix({ onSelect }) {
   }
 
   return (
-    <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragEnd={handleDragEnd}>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={pointerWithin}
+      onDragStart={({ active }) => setActiveTask(active.data.current?.task ?? null)}
+      onDragCancel={() => setActiveTask(null)}
+      onDragEnd={handleDragEnd}
+    >
       <div className="eisenhower-matrix">
         {QUADRANT_ORDER.map((quadrant) => (
           <EisenhowerQuadrant
@@ -106,6 +116,9 @@ export default function EisenhowerMatrix({ onSelect }) {
           />
         ))}
       </div>
+      <DragOverlay zIndex={100} dropAnimation={null}>
+        {activeTask ? <TaskCard task={activeTask} onSelect={() => {}} isOverlay /> : null}
+      </DragOverlay>
     </DndContext>
   );
 }

@@ -1,7 +1,9 @@
 'use client';
 
-import { DndContext, PointerSensor, pointerWithin, useSensor, useSensors } from '@dnd-kit/core';
+import { useState } from 'react';
+import { DndContext, DragOverlay, PointerSensor, pointerWithin, useSensor, useSensors } from '@dnd-kit/core';
 import KanbanColumn from './KanbanColumn';
+import TaskCard from './TaskCard';
 import { useTasks } from './TasksProvider';
 import { useWorkspaceScope } from './WorkspaceScopeProvider';
 import { BASE_WORKSPACE_ID } from '@/lib/workspaces/workspacesRepo';
@@ -22,6 +24,7 @@ export default function KanbanBoard({ onSelect, onCreate }) {
     groupByProject,
   } = useTasks();
   const { activeWorkspaceId, getVisibleResourceIds } = useWorkspaceScope();
+  const [activeTask, setActiveTask] = useState(null);
   // A distance activation constraint lets a plain click (no pointer
   // movement) reach TaskCard's onClick normally — without it, dnd-kit's
   // PointerSensor would swallow every click as a zero-distance drag attempt.
@@ -43,6 +46,7 @@ export default function KanbanBoard({ onSelect, onCreate }) {
   // position (see taskSort.js's comparePriority for why one column list is
   // "the" priority order to measure that position against).
   function handleDragEnd({ active, over }) {
+    setActiveTask(null);
     if (!over) return;
     const task = active.data.current?.task;
     if (!task) return;
@@ -66,7 +70,13 @@ export default function KanbanBoard({ onSelect, onCreate }) {
   }
 
   return (
-    <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragEnd={handleDragEnd}>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={pointerWithin}
+      onDragStart={({ active }) => setActiveTask(active.data.current?.task ?? null)}
+      onDragCancel={() => setActiveTask(null)}
+      onDragEnd={handleDragEnd}
+    >
       <div className="kanban-board">
         {STATUSES.map((status) => (
           <KanbanColumn
@@ -85,6 +95,9 @@ export default function KanbanBoard({ onSelect, onCreate }) {
           />
         ))}
       </div>
+      <DragOverlay zIndex={100} dropAnimation={null}>
+        {activeTask ? <TaskCard task={activeTask} onSelect={() => {}} isOverlay /> : null}
+      </DragOverlay>
     </DndContext>
   );
 }
