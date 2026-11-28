@@ -16,6 +16,7 @@ import SidebarMenu from './SidebarMenu';
 import { useMobileNav } from './MobileNavProvider';
 import { getSidebarCollapsed, setSidebarCollapsed } from '@/lib/sidebarPreference';
 import { ensureUiPreferencesSynced } from './UiPreferencesSync';
+import { useViewRole } from './ViewRoleProvider';
 
 const NAV_ITEMS = [
   { href: '/', label: 'Dashboard', Icon: LayoutDashboard, exact: true },
@@ -38,6 +39,7 @@ const NAV_ITEMS = [
 // hydration never mismatches.
 export default function Sidebar() {
   const pathname = usePathname();
+  const { viewRole } = useViewRole();
   const [collapsed, setCollapsed] = useState(false);
   // Mobile drawer open/closed — shared with Topbar.jsx's hamburger button
   // via MobileNavProvider. Unrelated to `collapsed` above, which is a
@@ -103,7 +105,7 @@ export default function Sidebar() {
           {collapsed ? <PanelLeftOpen size={22} strokeWidth={1.8} /> : <PanelLeftClose size={22} strokeWidth={1.8} />}
         </button>
         <nav className="sidebar-nav">
-          {NAV_ITEMS.map(({ href, label, Icon, exact }) => {
+          {NAV_ITEMS.filter((item) => !item.roles || item.roles.includes(viewRole)).map(({ href, label, Icon, exact }) => {
             const active = exact ? pathname === href : pathname.startsWith(href);
             return (
               <Link

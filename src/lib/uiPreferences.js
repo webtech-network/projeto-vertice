@@ -13,6 +13,7 @@ export function toApp(row) {
     activeWorkspaceIds: row.active_workspace_ids ?? null,
     theme: row.theme,
     sidebarCollapsed: row.sidebar_collapsed,
+    activeViewMode: row.active_view_mode ?? null,
     updatedAt: new Date(row.updated_at).getTime(),
   };
 }

@@ -374,6 +374,30 @@ a {
 .topbar-theme-switch .segmented-btn {
   padding: 0.35rem 0.5rem;
 }
+.topbar-role-switch .segmented-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.55rem;
+  font-size: 0.78rem;
+}
+.topbar-role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink-muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+@media (max-width: 640px) {
+  .topbar-role-label {
+    display: none;
+  }
+}
 
 /* Avatar-triggered dropdown replacing the old separate "username link" +
    "Sair" button pair — see UserMenu.jsx. */

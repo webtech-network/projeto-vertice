@@ -7,6 +7,7 @@ import { getActiveWorkspaceId, getActiveWorkspaceIds, setActiveWorkspaceIds } fr
 import { BASE_WORKSPACE_ID } from '@/lib/workspaces/workspacesRepo';
 import { getStoredTheme, applyTheme } from '@/lib/theme';
 import { getSidebarCollapsed, setSidebarCollapsed } from '@/lib/sidebarPreference';
+import { getStoredViewRole, setStoredViewRole } from '@/lib/viewRolePreference';
 
 // Memoizado a nível de módulo (não React state) — a primeira chamada, de
 // QUALQUER consumidor, em QUALQUER ordem de mount, dispara a leitura real
@@ -83,6 +84,9 @@ async function performSync() {
       collapsedColumns: prefs.collapsedColumns,
     });
     setSidebarCollapsed(Boolean(prefs.sidebarCollapsed));
+    if (prefs.activeViewMode) {
+      setStoredViewRole(prefs.activeViewMode, { syncRemote: false });
+    }
   } else {
     // Primeiro acesso deste usuário — semeia o Postgres com o que já está
     // neste dispositivo (migração automática e silenciosa, sem precisar de
@@ -99,6 +103,7 @@ async function performSync() {
       group_by_project: taskPrefs.groupByProject,
       collapsed_columns: taskPrefs.collapsedColumns,
       sidebar_collapsed: getSidebarCollapsed(),
+      active_view_mode: getStoredViewRole(),
     }).catch(() => {});
     const ids = getActiveWorkspaceIds();
     if (ids[0] !== BASE_WORKSPACE_ID) await upsertUiPreferences({ active_workspace_ids: ids }).catch(() => {});

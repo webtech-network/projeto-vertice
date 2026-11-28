@@ -5,6 +5,7 @@ import { getDisplayName, getAvatarUrl } from '@/lib/supabaseUserDisplay';
 import UserMenu from './UserMenu';
 import MobileNavToggle from './MobileNavToggle';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
+import ViewRoleSwitcher from './ViewRoleSwitcher';
 import TopbarThemeSwitch from './TopbarThemeSwitch';
 import logoFull from '@/assets/images/vertice_logo_p.png';
 import logoFullDark from '@/assets/images/vertice_logo_dark.png';
@@ -36,6 +37,7 @@ export default async function Topbar() {
         </Link>
       </div>
       <div className="topbar-user">
+        {loggedIn && <ViewRoleSwitcher />}
         {loggedIn && <WorkspaceSwitcher />}
         <TopbarThemeSwitch />
         {loggedIn && <UserMenu userName={getDisplayName(user)} avatarUrl={getAvatarUrl(user)} />}
