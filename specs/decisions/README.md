@@ -37,3 +37,4 @@ frontmatter (`accepted` ou `superseded`). Se uma decisão for revertida, marcar
 | [0024](0024-rede-isolada-por-stack-no-dokploy.md) | Rede isolada por stack no Dokploy; alias único `vertice-kong` evita colisão de DNS entre stacks |
 | [0025](0025-nomes-exclusivos-no-dokploy.md) | Nomes exclusivos no Dokploy (`vertice-app`, `vertice-kong`, upstreams do Kong); substitui a 0024 |
 | [0026](0026-login-canvas-pela-conta-vinculada.md) | Login pelo Canvas entra na conta Google/GitHub já vinculada ao mesmo ID do Canvas |
+| [0027](0027-sistema-de-roles-e-visao-ativa.md) | Sistema de roles e visão ativa (Professor vs. Aluno) a partir de `/users/self/enrollments` |

@@ -22,7 +22,7 @@ updated: 2026-09-17
 | `custom_prompts` | PK `(user_id, capability)` | `mode` append\|replace |
 | `course_notes` | PK `(user_id, course_code)` | DELETE físico |
 | `course_workspace_links` | PK `(user_id, course_id)` | DELETE físico |
-| `ui_preferences` | PK `user_id` | sem Realtime; `active_workspace_id` (primário, compat) + `active_workspace_ids uuid[]` (multi-seleção, [ADR-0021](../decisions/0021-selecao-multipla-de-workspaces.md)) |
+| `ui_preferences` | PK `user_id` | sem Realtime; `active_workspace_id` (primário, compat) + `active_workspace_ids uuid[]` (multi-seleção, [ADR-0021](../decisions/0021-selecao-multipla-de-workspaces.md)) + `active_view_mode` (`teacher`\|`student`, [ADR-0027](../decisions/0027-sistema-de-roles-e-visao-ativa.md)) |
 | `student_engagement_snapshots` | `unique(user_id, course_id, student_id, snapshot_date)` | sem DELETE |
 | `integrations` | id | `provider` canvas\|github\|google; tokens = `*_vault_id` |
 | `ai_integrations` | id | `provider` openai/gemini/claude/zai/deepseek; `is_default` com unique parcial; `system_prompt_mode` append\|replace; chave = `api_key_vault_id` |

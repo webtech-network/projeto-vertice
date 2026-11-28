@@ -17,6 +17,8 @@ updated: 2026-11-19
   escuro** (`--sidebar-bg`/`--sidebar-fg`, independente do tema) — o `logo.png` é marca em
   traço claro e não lê sobre fundo claro. Logo → `<Link href="/">`.
 - **Topbar** (Server Component, lê `getSupabaseUser()`): `WorkspaceSwitcher`,
+  `ViewRoleSwitcher` (alterna entre Visão Professor e Visão Aluno quando disponível,
+  [ADR-0027](../decisions/0027-sistema-de-roles-e-visao-ativa.md)),
   `TopbarThemeSwitch` (claro/escuro/sistema) e `UserMenu`. `UserMenu` é um **dropdown** aberto
   pelo avatar + nome + **ícone de engrenagem** (sinaliza que as configurações estão nesse botão);
   o menu tem "Configurações" (`/perfil`), "Instalar app" (PWA, quando disponível) e "Sair" — um

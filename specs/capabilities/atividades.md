@@ -37,6 +37,10 @@ updated: 2026-11-19
   (`assignment.peer_reviews`) → `courses/[id]/assignments/[assignmentId]/peer-grading`
   ([peer-review-grading.md](peer-review-grading.md)).
 - A rota `/courses/[id]/atividades` hoje é redirect para `/courses/[id]?tab=atividades`.
+- **Visão Aluno** ([ADR-0027](../decisions/0027-sistema-de-roles-e-visao-ativa.md)): oculta
+  o filtro `Não publicadas`, a coluna `Pendências` (a corrigir) e os botões docentes
+  (Importar questões, Corrigir com rubrica, Avaliação por pares). As rotas exclusivas de
+  professor usam `TeacherOnlyGuard`.
 
 ## Arquivos-chave
 

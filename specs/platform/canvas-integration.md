@@ -23,7 +23,8 @@ O GoTrue self-hosted não tem "canvas" na lista de provedores OAuth embutidos, e
 
 1. `GET /api/auth/login` → `getAuthorizeUrl(state)` + cookie `oauth_state`.
 2. `GET /oauth2/callback` (redirect_uri fixo na Developer Key) → `exchangeCodeForToken`,
-   busca o perfil (`getSelf`), e:
+   busca o perfil (`getSelf`) e matrículas ativas (`listSelfEnrollments` para derivar
+   `roles`/`primary_role` em `metadata`, [ADR-0027](../decisions/0027-sistema-de-roles-e-visao-ativa.md)), e:
    - **modo conectar** (`?connect=1` de `/perfil`): só grava a integração no usuário atual.
    - **modo login**: escolhe o e-mail — o da conta já vinculada ao ID do Canvas
      (`src/lib/canvasAccountLink.js`, [ADR-0026](../decisions/0026-login-canvas-pela-conta-vinculada.md))

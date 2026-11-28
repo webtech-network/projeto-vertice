@@ -20,6 +20,10 @@ updated: 2026-11-19
   pendentes), `DashboardDoingTasks` + `DashboardShortcuts`, `DueDateCalendar`,
   `RecentDeadlines`, `PendingGradingList` (a corrigir) e `PendingTodoList` (a fazer) —
   ver [pendencias.md](pendencias.md).
+- **Separação por visão ativa** ([ADR-0027](../decisions/0027-sistema-de-roles-e-visao-ativa.md)):
+  na Visão Professor exibe "Alunos ao todo", "Pendências a corrigir" e `PendingGradingList`;
+  na Visão Aluno exibe "Pendências a fazer" e `PendingTodoList`. O cache IndexedDB e a rota
+  `/api/dashboard/summary?role=` são escopados pelo `viewRole` ativo.
 - Em "Atividades recentes"/"Correções pendentes", clicar numa linha abre a correção **dentro
   do Vértice**; o ícone externo abre a mesma atividade no SpeedGrader do Canvas.
 

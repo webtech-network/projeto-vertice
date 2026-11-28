@@ -12,7 +12,9 @@ updated: 2026-11-19
 
 ## Comportamento
 
-- `CourseWorkspaceTabs.jsx` (`'use client'`) tem 5 abas. Cada aba busca seus dados **lazily,
+- `CourseWorkspaceTabs.jsx` (`'use client'`) tem 5 abas (4 na Visão Aluno: **Alunos** é
+  oculta quando `viewRole === 'student'`, com fallback para **Anotações**). Cada aba busca
+  seus dados **lazily,
   só na primeira vez que abre** (nunca todas de uma vez). Default: **Anotações**; `?tab=`
   preseleciona (ex.: link de tarefa atrelada a uma atividade do Canvas).
 - Todas as leituras das abas passam pelo cache de consultas ([ADR-0015](../decisions/0015-cache-local-tanstack-query.md),
