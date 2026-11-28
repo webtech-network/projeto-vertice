@@ -168,8 +168,8 @@ function extractCourseRoles(enrollments) {
 export async function listUserCoursesDetailed(client) {
   const allCourses = await listCourses(client, { enrollmentType: null, enrollmentState: 'active' });
 
-  const hasAnyEnrollments = allCourses.some((c) => Array.isArray(c.enrollments) && c.enrollments.length > 0);
-  if (allCourses.length === 0 || hasAnyEnrollments) {
+  const allHaveEnrollments = allCourses.every((c) => Array.isArray(c.enrollments) && c.enrollments.length > 0);
+  if (allCourses.length === 0 || allHaveEnrollments) {
     const courses = allCourses.map((c) => {
       const user_roles = extractCourseRoles(c.enrollments);
       return {

@@ -205,7 +205,7 @@ export default function CourseBrowser() {
     setExpandedCourseId((current) => (current === courseId ? null : courseId));
   }
 
-  const { viewRole, isTeacherView, isStudentView } = useViewRole();
+  const { isTeacherView, isStudentView } = useViewRole();
 
   // Resolvido uma única vez, quando o primeiro dado chega (cache ou rede).
   useEffect(() => {
@@ -214,26 +214,16 @@ export default function CourseBrowser() {
     if (!coursesQuery.data.some((c) => c.is_favorite)) setOnlyFavorites(false);
   }, [coursesQuery.data]);
 
-  // Quando o usuário não travou manualmente o filtro de papel, adapta à visão ativa
-  // (Professor vs Aluno), ou ao único papel disponível se só houver um.
+  // Quem tem um papel só (só aluno, só professor, só tutor…) já abre filtrado
+  // nele, em vez de "Todos os papéis". Com mais de um papel, mantém "Todos"
+  // para não ocultar cursos ao clicar em "Todos".
   useEffect(() => {
-    if (!coursesQuery.data || rolesChosenRef.current) return;
+    if (!coursesQuery.data || appliedDefaultRoleRef.current || rolesChosenRef.current) return;
+    appliedDefaultRoleRef.current = true;
     const roles = new Set();
     for (const c of coursesQuery.data) for (const r of c.user_roles ?? [c.user_role]) if (r) roles.add(r);
-    if (roles.size === 1) {
-      setRoleFilter([...roles]);
-      return;
-    }
-    const targetRoles =
-      viewRole === 'student'
-        ? ['student', 'observer'].filter((r) => roles.has(r))
-        : ['teacher', 'ta', 'designer'].filter((r) => roles.has(r));
-    if (targetRoles.length > 0 && targetRoles.length < roles.size) {
-      setRoleFilter(targetRoles);
-    } else {
-      setRoleFilter([]);
-    }
-  }, [coursesQuery.data, viewRole]);
+    if (roles.size === 1) setRoleFilter([...roles]);
+  }, [coursesQuery.data]);
 
   const favoritesCount = useMemo(() => courseList.filter((c) => c.is_favorite).length, [courseList]);
   const publishedCount = useMemo(() => courseList.filter(isPublished).length, [courseList]);
