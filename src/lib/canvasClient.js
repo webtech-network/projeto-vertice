@@ -79,14 +79,16 @@ export function createClient({ baseUrl, token, onUnauthorized }) {
   return instance;
 }
 
-async function fetchAllPages(client, url, params) {
+async function fetchAllPages(client, url, params, { maxPages = Infinity } = {}) {
   let results = [];
   let nextUrl = url;
   let nextParams = params;
+  let pages = 0;
 
-  while (nextUrl) {
+  while (nextUrl && pages < maxPages) {
     const response = await client.get(nextUrl, nextParams ? { params: nextParams } : undefined);
     results = results.concat(response.data);
+    pages += 1;
     nextParams = undefined; // subsequent Link-header URLs already encode the original query params
     nextUrl = parseLinkHeader(response.headers.link).next || null;
   }
@@ -131,16 +133,55 @@ export async function listCourses(client, { enrollmentType = 'teacher', enrollme
   });
 }
 
+const ENROLLMENT_TYPE_TO_ROLE = {
+  teacher: 'teacher',
+  teacherenrollment: 'teacher',
+  ta: 'ta',
+  taenrollment: 'ta',
+  designer: 'designer',
+  designerenrollment: 'designer',
+  student: 'student',
+  studentenrollment: 'student',
+  observer: 'observer',
+  observerenrollment: 'observer',
+};
+
+function extractCourseRoles(enrollments) {
+  if (!Array.isArray(enrollments) || enrollments.length === 0) return [];
+  const found = new Set();
+  for (const enrollment of enrollments) {
+    const raw = String(enrollment?.type || enrollment?.role || '').toLowerCase();
+    const mapped = ENROLLMENT_TYPE_TO_ROLE[raw];
+    if (mapped) found.add(mapped);
+  }
+  return COURSE_ROLES.filter((role) => found.has(role));
+}
+
 /**
  * Lists the user's active courses under every Canvas role (teacher, ta,
- * designer, student, observer), merged and deduped by id. Each course gets
- * `user_roles` (all roles held) and `user_role` (the main one, by the
- * COURSE_ROLES precedence). Only the teacher fetch is allowed to fail the
- * caller; the other roles are best-effort and fall back to `[]`, reported in
- * `roleErrors` (the roles whose fetch failed) so the UI can warn instead of
- * silently hiding that role's courses.
+ * designer, student, observer). Uses a single `/courses` call (without
+ * `enrollment_type`) and derives `user_roles`/`user_role` from each course's
+ * `enrollments` array (ordered by COURSE_ROLES precedence), avoiding 5x
+ * redundant paginated Canvas requests. Falls back to per-role fetches only if
+ * Canvas omits `enrollments` on the returned courses.
  */
 export async function listUserCoursesDetailed(client) {
+  const allCourses = await listCourses(client, { enrollmentType: null, enrollmentState: 'active' });
+
+  const hasAnyEnrollments = allCourses.some((c) => Array.isArray(c.enrollments) && c.enrollments.length > 0);
+  if (allCourses.length === 0 || hasAnyEnrollments) {
+    const courses = allCourses.map((c) => {
+      const user_roles = extractCourseRoles(c.enrollments);
+      return {
+        ...c,
+        user_roles,
+        user_role: user_roles[0] ?? null,
+      };
+    });
+    return { courses, roleErrors: [] };
+  }
+
+  // Fallback defensivo caso alguma instância/escopo do Canvas omita `enrollments`.
   const roleErrors = [];
   const lists = await Promise.all(
     COURSE_ROLES.map((role) =>
@@ -161,7 +202,6 @@ export async function listUserCoursesDetailed(client) {
       else byId.set(c.id, { ...c, user_roles: [role] });
     }
   });
-  // lists follow COURSE_ROLES order, so user_roles[0] is already the main role.
   const courses = [...byId.values()].map((c) => ({ ...c, user_role: c.user_roles[0] }));
   return { courses, roleErrors };
 }
@@ -333,12 +373,17 @@ export async function createQuestion(client, courseId, quizId, payload) {
  * "messages for this course". Excludes archived conversations by default,
  * same as the default (no `scope`) Inbox view in Canvas's own UI.
  */
-export async function listConversations(client, { filter, scope } = {}) {
-  return fetchAllPages(client, '/conversations', {
-    per_page: 100,
-    ...(scope ? { scope } : {}),
-    ...(filter && filter.length ? { 'filter[]': filter } : {}),
-  });
+export async function listConversations(client, { filter, scope, maxPages } = {}) {
+  return fetchAllPages(
+    client,
+    '/conversations',
+    {
+      per_page: 100,
+      ...(scope ? { scope } : {}),
+      ...(filter && filter.length ? { 'filter[]': filter } : {}),
+    },
+    { maxPages },
+  );
 }
 
 /**

@@ -1,4 +1,5 @@
 import { listSubmissions } from './canvasClient';
+import { mapWithConcurrency } from './concurrency';
 
 // Canvas's own `needs_grading_count` (on both the Assignment and the Course
 // list endpoints) counts one per *student* submission needing grading — for
@@ -42,18 +43,25 @@ export async function correctedGroupNeedsGradingCount(client, courseId, assignme
  */
 export async function correctedCourseNeedsGradingCount(client, courseId, assignments) {
   let total = 0;
+  const groupAssignments = [];
   for (const assignment of assignments) {
     const raw = assignment.needs_grading_count ?? 0;
     if (!raw) continue;
     if (!isRealGroupAssignment(assignment)) {
       total += raw;
-      continue;
-    }
-    try {
-      total += await correctedGroupNeedsGradingCount(client, courseId, assignment);
-    } catch {
-      total += raw;
+    } else {
+      groupAssignments.push(assignment);
     }
   }
+  if (groupAssignments.length === 0) return total;
+
+  const groupCounts = await mapWithConcurrency(groupAssignments, 4, async (assignment) => {
+    try {
+      return await correctedGroupNeedsGradingCount(client, courseId, assignment);
+    } catch {
+      return assignment.needs_grading_count ?? 0;
+    }
+  });
+  for (const count of groupCounts) total += count;
   return total;
 }
